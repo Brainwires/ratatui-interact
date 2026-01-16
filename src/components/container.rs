@@ -6,8 +6,8 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use tui_extension::components::{DialogConfig, DialogState, PopupDialog};
-//! use tui_extension::traits::ContainerAction;
+//! use ratatui_interact::components::{DialogConfig, DialogState, PopupDialog};
+//! use ratatui_interact::traits::ContainerAction;
 //!
 //! // Create dialog configuration
 //! let config = DialogConfig::new("Settings")
@@ -443,14 +443,14 @@ where
                 EventResult::Consumed
             }
             KeyCode::Enter => {
-                if let Some(DialogFocusTarget::Button(idx)) = self.state.focus.current() {
-                    if let Some((_, action)) = self.config.buttons.get(*idx) {
-                        let action = action.clone();
-                        if action.is_close() {
-                            self.state.hide();
-                        }
-                        return EventResult::Action(action);
+                if let Some(DialogFocusTarget::Button(idx)) = self.state.focus.current()
+                    && let Some((_, action)) = self.config.buttons.get(*idx)
+                {
+                    let action = action.clone();
+                    if action.is_close() {
+                        self.state.hide();
                     }
+                    return EventResult::Action(action);
                 }
                 EventResult::NotHandled
             }
@@ -472,15 +472,14 @@ where
             let row = mouse.row;
 
             // Check if click is outside dialog
-            if self.config.close_on_outside_click {
-                if col < area.x
+            if self.config.close_on_outside_click
+                && (col < area.x
                     || col >= area.x + area.width
                     || row < area.y
-                    || row >= area.y + area.height
-                {
-                    self.state.hide();
-                    return EventResult::Action(ContainerAction::Close);
-                }
+                    || row >= area.y + area.height)
+            {
+                self.state.hide();
+                return EventResult::Action(ContainerAction::Close);
             }
 
             // Check click regions
@@ -523,15 +522,14 @@ where
             let row = mouse.row;
 
             // Check if click is outside dialog
-            if self.config.close_on_outside_click {
-                if col < area.x
+            if self.config.close_on_outside_click
+                && (col < area.x
                     || col >= area.x + area.width
                     || row < area.y
-                    || row >= area.y + area.height
-                {
-                    self.state.hide();
-                    return EventResult::Action(ContainerAction::Close);
-                }
+                    || row >= area.y + area.height)
+            {
+                self.state.hide();
+                return EventResult::Action(ContainerAction::Close);
             }
 
             // Check click regions (same as handle_mouse)

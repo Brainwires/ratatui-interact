@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```rust
-//! use tui_extension::traits::{ClickRegion, ClickRegionRegistry};
+//! use ratatui_interact::traits::{ClickRegion, ClickRegionRegistry};
 //! use ratatui::layout::Rect;
 //!
 //! // Create a registry for tracking click regions
@@ -100,7 +100,7 @@ pub trait Clickable {
 /// # Example
 ///
 /// ```rust
-/// use tui_extension::traits::ClickRegionRegistry;
+/// use ratatui_interact::traits::ClickRegionRegistry;
 /// use ratatui::layout::Rect;
 ///
 /// #[derive(Clone, PartialEq, Debug)]

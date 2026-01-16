@@ -13,7 +13,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use tui_extension::traits::{Container, PopupContainer, EventResult, ContainerAction};
+//! use ratatui_interact::traits::{Container, PopupContainer, EventResult, ContainerAction};
 //! use ratatui::{layout::Rect, Frame};
 //! use crossterm::event::{KeyEvent, MouseEvent};
 //!

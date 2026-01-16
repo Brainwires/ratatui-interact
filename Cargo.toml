@@ -1,12 +1,16 @@
 [package]
-name = "ratatui-extension"
+name = "ratatui-interact"
 version = "0.1.0"
 edition = "2024"
-description = "Reusable TUI components extending ratatui with focus and mouse support"
+description = "Interactive TUI components for ratatui with focus management and mouse support"
 license = "MIT"
 authors = ["Brainwires Team"]
-keywords = ["tui", "ratatui", "widgets", "ui-components"]
-repository = "https://github.com/Brainwires/ratatui-extension"
+keywords = ["tui", "ratatui", "widgets", "focus", "mouse"]
+categories = ["command-line-interface", "gui"]
+repository = "https://github.com/Brainwires/ratatui-interact"
+homepage = "https://github.com/Brainwires/ratatui-interact"
+documentation = "https://docs.rs/ratatui-interact"
+readme = "README.md"
 
 [dependencies]
 # TUI framework

@@ -12,7 +12,7 @@
 //! ## Quick Start
 //!
 //! ```rust,ignore
-//! use tui_extension::prelude::*;
+//! use ratatui_interact::prelude::*;
 //!
 //! // Create component state
 //! let mut checkbox_state = CheckBoxState::new(false);
@@ -39,7 +39,7 @@
 //! A toggleable checkbox with customizable symbols:
 //!
 //! ```rust
-//! use tui_extension::components::{CheckBox, CheckBoxState, CheckBoxStyle};
+//! use ratatui_interact::components::{CheckBox, CheckBoxState, CheckBoxStyle};
 //!
 //! let mut state = CheckBoxState::new(false);
 //! let checkbox = CheckBox::new("Dark mode", &state)
@@ -54,7 +54,7 @@
 //! A text input field with cursor and editing support:
 //!
 //! ```rust
-//! use tui_extension::components::{Input, InputState};
+//! use ratatui_interact::components::{Input, InputState};
 //!
 //! let mut state = InputState::new("Initial text");
 //!
@@ -69,7 +69,7 @@
 //! Buttons with multiple display variants:
 //!
 //! ```rust
-//! use tui_extension::components::{Button, ButtonState, ButtonVariant, ButtonStyle};
+//! use ratatui_interact::components::{Button, ButtonState, ButtonVariant, ButtonStyle};
 //!
 //! let state = ButtonState::enabled();
 //!
@@ -86,8 +86,8 @@
 //! A container for popup dialogs with focus management:
 //!
 //! ```rust,ignore
-//! use tui_extension::components::{DialogConfig, DialogState, PopupDialog};
-//! use tui_extension::traits::ContainerAction;
+//! use ratatui_interact::components::{DialogConfig, DialogState, PopupDialog};
+//! use ratatui_interact::traits::ContainerAction;
 //!
 //! let config = DialogConfig::new("Settings")
 //!     .width_percent(50)
@@ -114,7 +114,7 @@
 //! The `FocusManager` handles Tab navigation:
 //!
 //! ```rust
-//! use tui_extension::state::FocusManager;
+//! use ratatui_interact::state::FocusManager;
 //!
 //! #[derive(Clone, PartialEq, Eq, Hash)]
 //! enum Element { Name, Email, Submit }
@@ -135,7 +135,7 @@
 //! Track clickable areas with `ClickRegionRegistry`:
 //!
 //! ```rust
-//! use tui_extension::traits::ClickRegionRegistry;
+//! use ratatui_interact::traits::ClickRegionRegistry;
 //! use ratatui::layout::Rect;
 //!
 //! let mut registry: ClickRegionRegistry<&str> = ClickRegionRegistry::new();
@@ -161,7 +161,7 @@ pub mod traits;
 /// Import everything commonly needed:
 ///
 /// ```rust
-/// use tui_extension::prelude::*;
+/// use ratatui_interact::prelude::*;
 /// ```
 pub mod prelude {
     // Components

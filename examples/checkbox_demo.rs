@@ -24,7 +24,7 @@ use ratatui::{
     Frame, Terminal,
 };
 
-use tui_extension::{
+use ratatui_interact::{
     components::{CheckBox, CheckBoxState, CheckBoxStyle},
     events::{is_activate_key, is_backtab, is_close_key, is_left_click, is_tab},
     state::FocusManager,

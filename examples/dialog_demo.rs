@@ -24,7 +24,7 @@ use ratatui::{
     Frame, Terminal,
 };
 
-use tui_extension::{
+use ratatui_interact::{
     components::{
         CheckBox, CheckBoxState, CheckBoxStyle, DialogConfig, DialogFocusTarget, DialogState,
         Input, InputState, PopupDialog,

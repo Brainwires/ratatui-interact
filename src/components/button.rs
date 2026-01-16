@@ -5,7 +5,7 @@
 //! # Example
 //!
 //! ```rust
-//! use tui_extension::components::{Button, ButtonState, ButtonVariant};
+//! use ratatui_interact::components::{Button, ButtonState, ButtonVariant};
 //!
 //! let state = ButtonState::enabled();
 //!

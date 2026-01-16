@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```rust
-//! use tui_extension::state::FocusManager;
+//! use ratatui_interact::state::FocusManager;
 //!
 //! #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 //! enum DialogElement {

@@ -5,7 +5,7 @@
 //! # Example
 //!
 //! ```rust
-//! use tui_extension::components::{CheckBox, CheckBoxState, CheckBoxStyle};
+//! use ratatui_interact::components::{CheckBox, CheckBoxState, CheckBoxStyle};
 //! use ratatui::{buffer::Buffer, layout::Rect};
 //!
 //! let mut state = CheckBoxState::new(false);

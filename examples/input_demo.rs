@@ -24,7 +24,7 @@ use ratatui::{
     Frame, Terminal,
 };
 
-use tui_extension::{
+use ratatui_interact::{
     components::{Input, InputState},
     events::{
         get_char, is_backspace, is_backtab, is_close_key, is_ctrl_a, is_ctrl_e, is_ctrl_k,

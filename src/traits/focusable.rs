@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```rust
-//! use tui_extension::traits::{FocusId, Focusable};
+//! use ratatui_interact::traits::{FocusId, Focusable};
 //! use ratatui::style::{Color, Modifier, Style};
 //!
 //! struct MyWidget {
