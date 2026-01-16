@@ -329,6 +329,6 @@ fn render_button(f: &mut Frame, app: &mut App, idx: usize, area: Rect) {
         button = button.icon(icon);
     }
 
-    let region = button.render_stateful(area, f.buffer_mut());
-    app.click_regions.register(region.area, idx);
+    // Use convenience method - renders and registers click region in one call
+    button.render_with_registry(area, f.buffer_mut(), &mut app.click_regions, idx);
 }

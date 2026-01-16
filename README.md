@@ -83,6 +83,48 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **Button** | Multiple variants: SingleLine, Block, Toggle, Icon+Text |
 | **PopupDialog** | Container for modal dialogs with focus management |
 
+## Mouse Click Handling for Buttons
+
+Buttons support mouse clicks through click regions. Use `render_with_registry()` for the simplest pattern:
+
+```rust
+use ratatui_interact::components::{Button, ButtonState};
+use ratatui_interact::traits::ClickRegionRegistry;
+
+struct App {
+    click_regions: ClickRegionRegistry<usize>,
+    // ... other fields
+}
+
+// In your render function:
+fn render(app: &mut App, frame: &mut Frame) {
+    // Clear at start of each frame
+    app.click_regions.clear();
+
+    let state = ButtonState::enabled();
+    let button = Button::new("OK", &state);
+
+    // Render and register in one call
+    button.render_with_registry(area, frame.buffer_mut(), &mut app.click_regions, 0);
+}
+
+// In your event handler:
+fn handle_mouse(app: &App, mouse: MouseEvent) {
+    if is_left_click(&mouse) {
+        if let Some(&idx) = app.click_regions.handle_click(mouse.column, mouse.row) {
+            // Button at index `idx` was clicked
+        }
+    }
+}
+```
+
+For more control, use the two-step pattern with `render_stateful()`:
+
+```rust
+let region = button.render_stateful(area, buf);
+registry.register(region.area, my_custom_action);
+```
+
 ## Examples
 
 Run the examples to see components in action:

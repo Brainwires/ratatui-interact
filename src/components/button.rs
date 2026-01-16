@@ -32,7 +32,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
-use crate::traits::{ClickRegion, FocusId};
+use crate::traits::{ClickRegion, ClickRegionRegistry, FocusId};
 
 /// Actions a button can emit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -367,6 +367,30 @@ impl<'a> Button<'a> {
     }
 
     /// Render the button and return the click region.
+    ///
+    /// This method renders the button and returns a `ClickRegion` that you must
+    /// register with a `ClickRegionRegistry` to enable mouse click support.
+    ///
+    /// For a more convenient API, consider using `render_with_registry()` which
+    /// handles both rendering and registration in one call.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ratatui_interact::components::{Button, ButtonState};
+    /// use ratatui_interact::traits::ClickRegionRegistry;
+    /// use ratatui::layout::Rect;
+    /// use ratatui::buffer::Buffer;
+    ///
+    /// let state = ButtonState::enabled();
+    /// let button = Button::new("OK", &state);
+    /// let area = Rect::new(0, 0, 10, 1);
+    /// let mut buf = Buffer::empty(Rect::new(0, 0, 20, 5));
+    /// let mut registry: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
+    ///
+    /// let region = button.render_stateful(area, &mut buf);
+    /// registry.register(region.area, 0);
+    /// ```
     pub fn render_stateful(self, area: Rect, buf: &mut Buffer) -> ClickRegion<ButtonAction> {
         let click_area = match self.style.variant {
             ButtonVariant::Block => area,
@@ -376,6 +400,56 @@ impl<'a> Button<'a> {
         self.render(area, buf);
 
         ClickRegion::new(click_area, ButtonAction::Click)
+    }
+
+    /// Render the button and automatically register its click region.
+    ///
+    /// This is a convenience method that combines `render_stateful()` with
+    /// registry registration. Use this when you have a `ClickRegionRegistry`
+    /// and want to avoid the two-step render + register pattern.
+    ///
+    /// # Arguments
+    ///
+    /// * `area` - The area to render the button in
+    /// * `buf` - The buffer to render to
+    /// * `registry` - The click region registry to register with
+    /// * `data` - The data to associate with this button's click region
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ratatui_interact::components::{Button, ButtonState};
+    /// use ratatui_interact::traits::ClickRegionRegistry;
+    /// use ratatui::layout::Rect;
+    /// use ratatui::buffer::Buffer;
+    ///
+    /// let state = ButtonState::enabled();
+    /// let mut registry: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
+    ///
+    /// // Clear before each render cycle
+    /// registry.clear();
+    ///
+    /// let button = Button::new("OK", &state);
+    /// let area = Rect::new(0, 0, 10, 1);
+    /// let mut buf = Buffer::empty(Rect::new(0, 0, 20, 5));
+    ///
+    /// // Render and register in one call
+    /// button.render_with_registry(area, &mut buf, &mut registry, 0);
+    ///
+    /// // Later, check for clicks
+    /// if let Some(&idx) = registry.handle_click(5, 0) {
+    ///     println!("Button {} clicked!", idx);
+    /// }
+    /// ```
+    pub fn render_with_registry<D: Clone>(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+        registry: &mut ClickRegionRegistry<D>,
+        data: D,
+    ) {
+        let region = self.render_stateful(area, buf);
+        registry.register(region.area, data);
     }
 }
 
@@ -519,6 +593,59 @@ mod tests {
         assert_eq!(click_region.area.x, 5);
         assert_eq!(click_region.area.y, 3);
         assert_eq!(click_region.data, ButtonAction::Click);
+    }
+
+    #[test]
+    fn test_render_with_registry() {
+        use crate::traits::ClickRegionRegistry;
+
+        let state = ButtonState::enabled();
+        let button = Button::new("Click", &state);
+        let area = Rect::new(5, 3, 20, 1);
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 30, 10));
+        let mut registry: ClickRegionRegistry<&str> = ClickRegionRegistry::new();
+
+        button.render_with_registry(area, &mut buffer, &mut registry, "test_button");
+
+        // Verify registry has the region
+        assert_eq!(registry.len(), 1);
+
+        // Verify click detection works - click inside the button area
+        assert_eq!(registry.handle_click(5, 3), Some(&"test_button"));
+
+        // Verify click outside returns None
+        assert_eq!(registry.handle_click(100, 100), None);
+    }
+
+    #[test]
+    fn test_render_with_registry_multiple_buttons() {
+        use crate::traits::ClickRegionRegistry;
+
+        let mut registry: ClickRegionRegistry<usize> = ClickRegionRegistry::new();
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 50, 10));
+
+        // Render three buttons
+        let state = ButtonState::enabled();
+
+        let button1 = Button::new("OK", &state);
+        button1.render_with_registry(Rect::new(0, 0, 10, 1), &mut buffer, &mut registry, 0);
+
+        let button2 = Button::new("Cancel", &state);
+        button2.render_with_registry(Rect::new(15, 0, 12, 1), &mut buffer, &mut registry, 1);
+
+        let button3 = Button::new("Help", &state);
+        button3.render_with_registry(Rect::new(30, 0, 10, 1), &mut buffer, &mut registry, 2);
+
+        // Verify all buttons are registered
+        assert_eq!(registry.len(), 3);
+
+        // Verify clicking each button returns the correct index
+        assert_eq!(registry.handle_click(2, 0), Some(&0)); // OK
+        assert_eq!(registry.handle_click(18, 0), Some(&1)); // Cancel
+        assert_eq!(registry.handle_click(32, 0), Some(&2)); // Help
+
+        // Verify clicking in gaps returns None
+        assert_eq!(registry.handle_click(12, 0), None);
     }
 
     #[test]
