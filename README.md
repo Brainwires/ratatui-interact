@@ -12,7 +12,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 
 - **Focus Management** - Tab/Shift+Tab navigation with `FocusManager<T>`
 - **Mouse Click Support** - Click regions with hit-testing via `ClickRegion` and `ClickRegionRegistry`
-- **Interactive Widgets** - CheckBox, Input, Button, PopupDialog, ParagraphExt
+- **Interactive Widgets** - CheckBox, Input, Button, PopupDialog, ParagraphExt, Toast
 - **Composition Traits** - `Focusable`, `Clickable`, `Container` for building custom components
 
 ## Installation
@@ -83,6 +83,43 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **Button** | Multiple variants: SingleLine, Block, Toggle, Icon+Text |
 | **PopupDialog** | Container for modal dialogs with focus management |
 | **ParagraphExt** | Extended paragraph with word-wrapping and scrolling (no trailing spaces) |
+| **Toast** | Transient notification popup with auto-expiration and style variants |
+
+## Toast Notifications
+
+Toast notifications provide transient feedback to users:
+
+```rust
+use ratatui_interact::components::{Toast, ToastState, ToastStyle};
+
+struct App {
+    toast_state: ToastState,
+}
+
+// Show a toast for 3 seconds
+app.toast_state.show("File saved successfully!", 3000);
+
+// In your render function:
+fn render(app: &mut App, frame: &mut Frame, area: Rect) {
+    // Draw your main content first...
+
+    // Then draw toast on top if visible
+    if let Some(message) = app.toast_state.get_message() {
+        Toast::new(message)
+            .style(ToastStyle::Success)
+            .render_with_clear(area, frame.buffer_mut());
+    }
+}
+
+// In your event loop, periodically clear expired toasts
+app.toast_state.clear_if_expired();
+```
+
+Toast styles are auto-detected from message content, or can be set explicitly:
+- `ToastStyle::Info` (cyan) - default
+- `ToastStyle::Success` (green) - messages containing "success", "saved", "done"
+- `ToastStyle::Warning` (yellow) - messages containing "warning", "warn"
+- `ToastStyle::Error` (red) - messages containing "error", "fail"
 
 ## Mouse Click Handling for Buttons
 

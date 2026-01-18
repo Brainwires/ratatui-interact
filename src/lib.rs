@@ -168,7 +168,8 @@ pub mod prelude {
     pub use crate::components::{
         Button, ButtonAction, ButtonState, ButtonStyle, ButtonVariant, CheckBox, CheckBoxAction,
         CheckBoxState, CheckBoxStyle, DialogConfig, DialogFocusTarget, DialogState, Input,
-        InputAction, InputState, InputStyle, ParagraphExt, PopupDialog,
+        InputAction, InputState, InputStyle, ParagraphExt, PopupDialog, Toast, ToastState,
+        ToastStyle,
     };
 
     // Traits
