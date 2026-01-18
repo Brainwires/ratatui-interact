@@ -12,7 +12,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 
 - **Focus Management** - Tab/Shift+Tab navigation with `FocusManager<T>`
 - **Mouse Click Support** - Click regions with hit-testing via `ClickRegion` and `ClickRegionRegistry`
-- **Interactive Widgets** - CheckBox, Input, Button, PopupDialog
+- **Interactive Widgets** - CheckBox, Input, Button, PopupDialog, ParagraphExt
 - **Composition Traits** - `Focusable`, `Clickable`, `Container` for building custom components
 
 ## Installation
@@ -82,6 +82,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **Input** | Text input with cursor, insertion, deletion, and navigation |
 | **Button** | Multiple variants: SingleLine, Block, Toggle, Icon+Text |
 | **PopupDialog** | Container for modal dialogs with focus management |
+| **ParagraphExt** | Extended paragraph with word-wrapping and scrolling (no trailing spaces) |
 
 ## Mouse Click Handling for Buttons
 
