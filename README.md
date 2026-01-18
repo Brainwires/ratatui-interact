@@ -12,7 +12,11 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 
 - **Focus Management** - Tab/Shift+Tab navigation with `FocusManager<T>`
 - **Mouse Click Support** - Click regions with hit-testing via `ClickRegion` and `ClickRegionRegistry`
-- **Interactive Widgets** - CheckBox, Input, Button, PopupDialog, ParagraphExt, Toast
+- **Interactive Widgets** - CheckBox, Input, Button, PopupDialog
+- **Display Widgets** - ParagraphExt, Toast, Progress
+- **Navigation Widgets** - ListPicker, TreeView, FileExplorer
+- **Viewer Widgets** - LogViewer, StepDisplay
+- **Utilities** - ANSI parsing, display helpers
 - **Composition Traits** - `Focusable`, `Clickable`, `Container` for building custom components
 
 ## Installation
@@ -76,14 +80,211 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 
 ## Components
 
+### Interactive Components
+
 | Component | Description |
 |-----------|-------------|
 | **CheckBox** | Toggleable checkbox with multiple symbol styles (ASCII, Unicode, checkmark) |
 | **Input** | Text input with cursor, insertion, deletion, and navigation |
 | **Button** | Multiple variants: SingleLine, Block, Toggle, Icon+Text |
 | **PopupDialog** | Container for modal dialogs with focus management |
-| **ParagraphExt** | Extended paragraph with word-wrapping and scrolling (no trailing spaces) |
+
+### Display Components
+
+| Component | Description |
+|-----------|-------------|
+| **ParagraphExt** | Extended paragraph with word-wrapping and scrolling |
 | **Toast** | Transient notification popup with auto-expiration and style variants |
+| **Progress** | Progress bar with label, percentage, and step counter |
+
+### Navigation Components
+
+| Component | Description |
+|-----------|-------------|
+| **ListPicker** | Scrollable list with selection cursor for picking items |
+| **TreeView** | Collapsible tree view with selection and customizable rendering |
+| **FileExplorer** | File browser with multi-select, search, and hidden file toggle |
+
+### Viewer Components
+
+| Component | Description |
+|-----------|-------------|
+| **LogViewer** | Scrollable log viewer with line numbers, search, and log-level coloring |
+| **StepDisplay** | Multi-step progress display with sub-steps and output areas |
+
+## Utilities
+
+### ANSI Parser
+
+Parse ANSI escape codes to ratatui styles:
+
+```rust
+use ratatui_interact::utils::ansi::parse_ansi_to_spans;
+
+let text = "\x1b[31mRed\x1b[0m Normal";
+let spans = parse_ansi_to_spans(text);
+```
+
+Supports: SGR codes (bold, italic, colors), 256-color mode, RGB mode.
+
+### Display Utilities
+
+```rust
+use ratatui_interact::utils::display::{
+    truncate_to_width, pad_to_width, clean_for_display, format_size
+};
+
+// Unicode-aware truncation with ellipsis
+let truncated = truncate_to_width("Hello World", 8); // "Hello..."
+
+// Unicode-aware padding
+let padded = pad_to_width("Hi", 10); // "Hi        "
+
+// Clean text for display (strips ANSI, handles \r)
+let clean = clean_for_display("\x1b[31mText\x1b[0m");
+
+// Human-readable file sizes
+let size = format_size(1536); // "1.5 KB"
+```
+
+## Component Examples
+
+### Progress Bar
+
+```rust
+use ratatui_interact::components::{Progress, ProgressStyle};
+
+// From ratio (0.0 to 1.0)
+let progress = Progress::new(0.75)
+    .label("Downloading")
+    .show_percentage(true);
+
+// From step counts
+let progress = Progress::from_steps(3, 10)
+    .label("Processing")
+    .show_steps(true);
+
+// Different styles
+let success = Progress::new(1.0).style(ProgressStyle::success());
+let warning = Progress::new(0.9).style(ProgressStyle::warning());
+```
+
+### List Picker
+
+```rust
+use ratatui_interact::components::{ListPicker, ListPickerState};
+use ratatui::text::Line;
+
+let items = vec!["Option A", "Option B", "Option C"];
+let mut state = ListPickerState::new(items.len());
+
+// Navigate
+state.select_next();
+state.select_prev();
+
+// Custom rendering
+let picker = ListPicker::new(&items, &state)
+    .title("Select Option")
+    .render_item(|item, _idx, selected| {
+        vec![Line::from(item.to_string())]
+    });
+```
+
+### Tree View
+
+```rust
+use ratatui_interact::components::{TreeView, TreeViewState, TreeNode};
+
+#[derive(Clone, Debug)]
+struct Task { name: String, done: bool }
+
+let nodes = vec![
+    TreeNode::new("1", Task { name: "Build".into(), done: false })
+        .with_children(vec![
+            TreeNode::new("1.1", Task { name: "Compile".into(), done: true }),
+            TreeNode::new("1.2", Task { name: "Link".into(), done: false }),
+        ]),
+];
+
+let mut state = TreeViewState::new();
+state.toggle_collapsed("1"); // Collapse/expand
+
+let tree = TreeView::new(&nodes, &state)
+    .render_item(|node, selected| {
+        format!("[{}] {}", if node.data.done { "x" } else { " " }, node.data.name)
+    });
+```
+
+### Log Viewer
+
+```rust
+use ratatui_interact::components::{LogViewer, LogViewerState};
+
+let logs = vec![
+    "[INFO] Application started".to_string(),
+    "[ERROR] Connection failed".to_string(),
+];
+
+let mut state = LogViewerState::new(logs);
+
+// Search
+state.search("ERROR");
+state.next_match();
+
+// Scroll
+state.scroll_down(5);
+state.scroll_right(10);
+
+let viewer = LogViewer::new(&state)
+    .title("Application Log")
+    .show_line_numbers(true);
+```
+
+### Step Display
+
+```rust
+use ratatui_interact::components::{Step, StepDisplayState, StepDisplay, StepStatus};
+
+let steps = vec![
+    Step::new("Initialize").with_sub_steps(vec!["Load config", "Connect DB"]),
+    Step::new("Process data"),
+    Step::new("Finalize"),
+];
+
+let mut state = StepDisplayState::new(steps);
+
+// Update progress
+state.start_step(0);
+state.start_sub_step(0, 0);
+state.complete_sub_step(0, 0);
+state.add_output(0, "Config loaded successfully");
+state.complete_step(0);
+
+let display = StepDisplay::new(&state);
+```
+
+### File Explorer
+
+```rust
+use ratatui_interact::components::{FileExplorerState, FileExplorer};
+use std::path::PathBuf;
+
+let mut state = FileExplorerState::new(PathBuf::from("/home/user"));
+
+// Navigate
+state.cursor_down();
+state.cursor_up();
+state.toggle_selection(); // Multi-select
+state.toggle_hidden(); // Show/hide hidden files
+
+// Enter search mode
+state.start_search();
+state.search_push('r'); // Filter by 'r'
+
+let explorer = FileExplorer::new(&state)
+    .title("Select Files")
+    .show_hidden(true);
+```
 
 ## Toast Notifications
 
@@ -180,7 +381,7 @@ cargo run --example dialog_demo
 |---------|------------------|-----------|-----------|
 | Focus management | ✅ Generic `FocusManager<T>` | ✅ `FocusFlag` based | ❌ |
 | Mouse click regions | ✅ `ClickRegion` with hit-testing | ✅ Area-based | ❌ |
-| Ready-to-use widgets | ✅ CheckBox, Input, Button, Dialog | ❌ | ✅ Input only |
+| Ready-to-use widgets | ✅ Many (see above) | ❌ | ✅ Input only |
 | Composition traits | ✅ Focusable, Clickable, Container | ❌ | ❌ |
 
 ## License

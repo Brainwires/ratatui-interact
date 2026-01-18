@@ -155,6 +155,7 @@ pub mod components;
 pub mod events;
 pub mod state;
 pub mod traits;
+pub mod utils;
 
 /// Prelude for convenient imports.
 ///
@@ -164,12 +165,38 @@ pub mod traits;
 /// use ratatui_interact::prelude::*;
 /// ```
 pub mod prelude {
-    // Components
+    // Interactive Components
     pub use crate::components::{
         Button, ButtonAction, ButtonState, ButtonStyle, ButtonVariant, CheckBox, CheckBoxAction,
         CheckBoxState, CheckBoxStyle, DialogConfig, DialogFocusTarget, DialogState, Input,
-        InputAction, InputState, InputStyle, ParagraphExt, PopupDialog, Toast, ToastState,
-        ToastStyle,
+        InputAction, InputState, InputStyle, PopupDialog,
+    };
+
+    // Display Components
+    pub use crate::components::{
+        ParagraphExt, Progress, ProgressStyle, Toast, ToastState, ToastStyle,
+    };
+
+    // Navigation Components
+    pub use crate::components::{
+        key_hints_footer, EntryType, FileEntry, FileExplorer, FileExplorerState,
+        FileExplorerStyle, ListPicker, ListPickerState, ListPickerStyle,
+    };
+
+    // Tree Components
+    pub use crate::components::{
+        get_selected_id, FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState,
+    };
+
+    // Viewer Components
+    pub use crate::components::{
+        step_display_height, LogViewer, LogViewerState, LogViewerStyle, SearchState, Step,
+        StepDisplay, StepDisplayState, StepDisplayStyle, StepStatus, SubStep,
+    };
+
+    // Utilities
+    pub use crate::utils::{
+        clean_for_display, format_size, pad_to_width, parse_ansi_to_spans, truncate_to_width,
     };
 
     // Traits
