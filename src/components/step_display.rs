@@ -347,16 +347,17 @@ impl<'a> StepDisplay<'a> {
             };
 
             lines.push(Line::from(vec![
-                Span::styled(format!("{} ", step.status.icon()), Style::default().fg(icon_color)),
+                Span::styled(
+                    format!("{} ", step.status.icon()),
+                    Style::default().fg(icon_color),
+                ),
                 Span::styled(format!("Step {}: ", idx + 1), step_style),
                 Span::styled(step.name.clone(), step_style),
                 Span::styled(header_suffix, Style::default().fg(Color::DarkGray)),
             ]));
 
             // Sub-steps (if running or expanded)
-            if !step.sub_steps.is_empty()
-                && (step.expanded || step.status == StepStatus::Running)
-            {
+            if !step.sub_steps.is_empty() && (step.expanded || step.status == StepStatus::Running) {
                 for sub in &step.sub_steps {
                     let sub_color = sub.status.color();
                     let sub_style = match sub.status {
@@ -369,7 +370,10 @@ impl<'a> StepDisplay<'a> {
 
                     lines.push(Line::from(vec![
                         Span::raw("    "),
-                        Span::styled(format!("{} ", sub.status.sub_icon()), Style::default().fg(sub_color)),
+                        Span::styled(
+                            format!("{} ", sub.status.sub_icon()),
+                            Style::default().fg(sub_color),
+                        ),
                         Span::styled(sub.name.clone(), sub_style),
                     ]));
                 }

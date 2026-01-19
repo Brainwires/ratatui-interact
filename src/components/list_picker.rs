@@ -277,7 +277,13 @@ where
             )]));
         } else {
             let scroll = self.state.scroll as usize;
-            for (idx, item) in self.items.iter().enumerate().skip(scroll).take(available_height) {
+            for (idx, item) in self
+                .items
+                .iter()
+                .enumerate()
+                .skip(scroll)
+                .take(available_height)
+            {
                 let is_selected = idx == self.state.selected_index;
                 let indicator = if is_selected {
                     self.style.indicator
@@ -297,7 +303,10 @@ where
 
                     // Only show indicator on first line of item
                     if line_idx == 0 {
-                        spans.push(Span::styled(indicator.to_string(), self.style.indicator_style));
+                        spans.push(Span::styled(
+                            indicator.to_string(),
+                            self.style.indicator_style,
+                        ));
                     } else {
                         // Indent continuation lines
                         spans.push(Span::raw(" ".repeat(self.style.indicator.len())));

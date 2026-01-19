@@ -179,19 +179,19 @@ pub mod prelude {
 
     // Navigation Components
     pub use crate::components::{
-        key_hints_footer, EntryType, FileEntry, FileExplorer, FileExplorerState,
-        FileExplorerStyle, ListPicker, ListPickerState, ListPickerStyle,
+        EntryType, FileEntry, FileExplorer, FileExplorerState, FileExplorerStyle, ListPicker,
+        ListPickerState, ListPickerStyle, key_hints_footer,
     };
 
     // Tree Components
     pub use crate::components::{
-        get_selected_id, FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState,
+        FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState, get_selected_id,
     };
 
     // Viewer Components
     pub use crate::components::{
-        step_display_height, LogViewer, LogViewerState, LogViewerStyle, SearchState, Step,
-        StepDisplay, StepDisplayState, StepDisplayStyle, StepStatus, SubStep,
+        LogViewer, LogViewerState, LogViewerStyle, SearchState, Step, StepDisplay,
+        StepDisplayState, StepDisplayStyle, StepStatus, SubStep, step_display_height,
     };
 
     // Utilities

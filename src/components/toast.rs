@@ -197,7 +197,9 @@ impl<'a> Toast<'a> {
     /// Calculate the toast area centered within the given area
     pub fn calculate_area(&self, area: Rect) -> Rect {
         // Calculate toast dimensions
-        let max_content_width = (area.width as usize).saturating_sub(8).min(self.max_width as usize);
+        let max_content_width = (area.width as usize)
+            .saturating_sub(8)
+            .min(self.max_width as usize);
         let content_width = self.message.len() + 4; // padding
         let toast_width = content_width.min(max_content_width).max(20) as u16;
 
@@ -208,7 +210,10 @@ impl<'a> Toast<'a> {
 
         // Center horizontally and position from top
         let x = area.x + (area.width.saturating_sub(toast_width)) / 2;
-        let y = area.y + self.top_offset.min(area.height.saturating_sub(toast_height));
+        let y = area.y
+            + self
+                .top_offset
+                .min(area.height.saturating_sub(toast_height));
 
         Rect::new(x, y, toast_width, toast_height)
     }
@@ -281,9 +286,15 @@ mod tests {
 
     #[test]
     fn test_toast_style_detection() {
-        assert_eq!(ToastStyle::from_message("error occurred"), ToastStyle::Error);
+        assert_eq!(
+            ToastStyle::from_message("error occurred"),
+            ToastStyle::Error
+        );
         assert_eq!(ToastStyle::from_message("File saved"), ToastStyle::Success);
-        assert_eq!(ToastStyle::from_message("Warning: low disk"), ToastStyle::Warning);
+        assert_eq!(
+            ToastStyle::from_message("Warning: low disk"),
+            ToastStyle::Warning
+        );
         assert_eq!(ToastStyle::from_message("Hello world"), ToastStyle::Info);
     }
 

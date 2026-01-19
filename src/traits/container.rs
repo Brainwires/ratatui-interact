@@ -44,8 +44,8 @@
 //! }
 //! ```
 
-use ratatui::{layout::Rect, Frame};
 use crossterm::event::{KeyEvent, MouseEvent};
+use ratatui::{Frame, layout::Rect};
 
 /// Result of handling an event.
 ///
@@ -219,7 +219,12 @@ pub trait PopupContainer: Container {
     /// * `screen` - The full screen dimensions
     /// * `anchor_x` - Optional x position to anchor near
     /// * `anchor_y` - Optional y position to anchor near
-    fn popup_area_anchored(&self, screen: Rect, anchor_x: Option<u16>, anchor_y: Option<u16>) -> Rect {
+    fn popup_area_anchored(
+        &self,
+        screen: Rect,
+        anchor_x: Option<u16>,
+        anchor_y: Option<u16>,
+    ) -> Rect {
         let (width, height) = self.preferred_size();
         let margin = self.screen_margin();
         let width = width.min(screen.width.saturating_sub(margin * 2));

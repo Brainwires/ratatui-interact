@@ -40,21 +40,15 @@ pub mod tree_view;
 pub use button::{Button, ButtonAction, ButtonState, ButtonStyle, ButtonVariant};
 pub use checkbox::{CheckBox, CheckBoxAction, CheckBoxState, CheckBoxStyle};
 pub use container::{DialogConfig, DialogFocusTarget, DialogState, PopupDialog};
-pub use file_explorer::{
-    EntryType, FileEntry, FileExplorer, FileExplorerState, FileExplorerStyle,
-};
+pub use file_explorer::{EntryType, FileEntry, FileExplorer, FileExplorerState, FileExplorerStyle};
 pub use input::{Input, InputAction, InputState, InputStyle};
-pub use list_picker::{
-    key_hints_footer, ListPicker, ListPickerState, ListPickerStyle,
-};
+pub use list_picker::{ListPicker, ListPickerState, ListPickerStyle, key_hints_footer};
 pub use log_viewer::{LogViewer, LogViewerState, LogViewerStyle, SearchState};
 pub use paragraph_ext::ParagraphExt;
 pub use progress::{Progress, ProgressStyle};
 pub use step_display::{
-    calculate_height as step_display_height, Step, StepDisplay, StepDisplayState,
-    StepDisplayStyle, StepStatus, SubStep,
+    Step, StepDisplay, StepDisplayState, StepDisplayStyle, StepStatus, SubStep,
+    calculate_height as step_display_height,
 };
 pub use toast::{Toast, ToastState, ToastStyle};
-pub use tree_view::{
-    get_selected_id, FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState,
-};
+pub use tree_view::{FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState, get_selected_id};

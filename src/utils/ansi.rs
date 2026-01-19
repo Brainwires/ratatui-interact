@@ -211,7 +211,7 @@ fn parse_sgr_params(params: &str, mut style: Style) -> Style {
 /// ```
 #[cfg(feature = "markdown")]
 pub fn render_markdown_to_lines(markdown: &str) -> Vec<Line<'static>> {
-    use termimad::{crossterm::style::Color as TermColor, MadSkin};
+    use termimad::{MadSkin, crossterm::style::Color as TermColor};
 
     let mut skin = MadSkin::default();
 
@@ -246,7 +246,10 @@ pub fn render_markdown_to_lines(markdown: &str) -> Vec<Line<'static>> {
 #[cfg(not(feature = "markdown"))]
 pub fn render_markdown_to_lines(markdown: &str) -> Vec<Line<'static>> {
     // Without termimad, just return plain text lines
-    markdown.lines().map(|l| Line::from(l.to_string())).collect()
+    markdown
+        .lines()
+        .map(|l| Line::from(l.to_string()))
+        .collect()
 }
 
 #[cfg(test)]

@@ -315,7 +315,12 @@ where
         let scroll = self.state.scroll as usize;
         let viewport_height = area.height as usize;
 
-        for (idx, flat_node) in visible.iter().enumerate().skip(scroll).take(viewport_height) {
+        for (idx, flat_node) in visible
+            .iter()
+            .enumerate()
+            .skip(scroll)
+            .take(viewport_height)
+        {
             let is_selected = idx == self.state.selected_index;
             let mut spans = Vec::new();
 
@@ -341,7 +346,10 @@ where
                 } else {
                     self.style.connector_vertical
                 };
-                spans.push(Span::styled(connector.to_string(), self.style.connector_style));
+                spans.push(Span::styled(
+                    connector.to_string(),
+                    self.style.connector_style,
+                ));
             }
 
             // Branch connector for this node (if not root)
@@ -351,7 +359,10 @@ where
                 } else {
                     self.style.connector_branch
                 };
-                spans.push(Span::styled(connector.to_string(), self.style.connector_style));
+                spans.push(Span::styled(
+                    connector.to_string(),
+                    self.style.connector_style,
+                ));
             }
 
             // Expand/collapse icon (if has children)
@@ -414,11 +425,32 @@ mod tests {
 
     fn create_test_tree() -> Vec<TreeNode<TestItem>> {
         vec![
-            TreeNode::new("1", TestItem { name: "Root 1".into() }).with_children(vec![
-                TreeNode::new("1.1", TestItem { name: "Child 1.1".into() }),
-                TreeNode::new("1.2", TestItem { name: "Child 1.2".into() }),
+            TreeNode::new(
+                "1",
+                TestItem {
+                    name: "Root 1".into(),
+                },
+            )
+            .with_children(vec![
+                TreeNode::new(
+                    "1.1",
+                    TestItem {
+                        name: "Child 1.1".into(),
+                    },
+                ),
+                TreeNode::new(
+                    "1.2",
+                    TestItem {
+                        name: "Child 1.2".into(),
+                    },
+                ),
             ]),
-            TreeNode::new("2", TestItem { name: "Root 2".into() }),
+            TreeNode::new(
+                "2",
+                TestItem {
+                    name: "Root 2".into(),
+                },
+            ),
         ]
     }
 

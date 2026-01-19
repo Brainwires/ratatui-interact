@@ -30,7 +30,10 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget},
+    widgets::{
+        Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget,
+        Widget,
+    },
 };
 
 /// State for the log viewer widget
@@ -331,7 +334,9 @@ impl<'a> LogViewer<'a> {
     fn build_lines(&self, inner: Rect) -> Vec<Line<'static>> {
         let visible_height = inner.height as usize;
         let visible_width = if self.style.show_line_numbers {
-            inner.width.saturating_sub(self.style.line_number_width as u16 + 1) as usize
+            inner
+                .width
+                .saturating_sub(self.style.line_number_width as u16 + 1) as usize
         } else {
             inner.width as usize
         };
@@ -374,7 +379,11 @@ impl<'a> LogViewer<'a> {
 
             // Line number
             if self.style.show_line_numbers {
-                let line_num = format!("{:>width$} ", line_idx + 1, width = self.style.line_number_width);
+                let line_num = format!(
+                    "{:>width$} ",
+                    line_idx + 1,
+                    width = self.style.line_number_width
+                );
                 spans.push(Span::styled(line_num, self.style.line_number_style));
             }
 
@@ -502,11 +511,7 @@ mod tests {
 
     #[test]
     fn test_log_viewer_state() {
-        let content = vec![
-            "Line 1".into(),
-            "Line 2".into(),
-            "Line 3".into(),
-        ];
+        let content = vec!["Line 1".into(), "Line 2".into(), "Line 3".into()];
         let mut state = LogViewerState::new(content);
 
         assert_eq!(state.scroll_y, 0);

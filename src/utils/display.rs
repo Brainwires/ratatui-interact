@@ -211,7 +211,10 @@ mod tests {
     #[test]
     fn test_clean_for_display_ansi() {
         assert_eq!(clean_for_display("\x1b[31mred\x1b[0m"), "red");
-        assert_eq!(clean_for_display("\x1b[1;32mbold green\x1b[0m"), "bold green");
+        assert_eq!(
+            clean_for_display("\x1b[1;32mbold green\x1b[0m"),
+            "bold green"
+        );
     }
 
     #[test]

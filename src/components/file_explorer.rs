@@ -23,12 +23,12 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use ratatui::{
+    Frame,
     buffer::Buffer,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Widget},
-    Frame,
 };
 
 use crate::utils::display::format_size;
@@ -46,9 +46,7 @@ pub enum EntryType {
     /// Parent directory (..)
     ParentDir,
     /// Symbolic link with target
-    Symlink {
-        target: Option<PathBuf>,
-    },
+    Symlink { target: Option<PathBuf> },
 }
 
 /// A file system entry
@@ -151,7 +149,8 @@ impl FileExplorerState {
 
         // Add parent directory if not at root
         if let Some(parent) = self.current_dir.parent() {
-            self.entries.push(FileEntry::parent_dir(parent.to_path_buf()));
+            self.entries
+                .push(FileEntry::parent_dir(parent.to_path_buf()));
         }
 
         // Read directory entries
@@ -243,7 +242,9 @@ impl FileExplorerState {
     /// Get the currently selected entry
     pub fn current_entry(&self) -> Option<&FileEntry> {
         if let Some(ref indices) = self.filtered_indices {
-            indices.get(self.cursor_index).and_then(|&i| self.entries.get(i))
+            indices
+                .get(self.cursor_index)
+                .and_then(|&i| self.entries.get(i))
         } else {
             self.entries.get(self.cursor_index)
         }
@@ -428,15 +429,21 @@ impl<'a> FileExplorer<'a> {
 
         let entries_to_show: Vec<(usize, &FileEntry)> =
             if let Some(ref indices) = self.state.filtered_indices {
-                indices.iter().map(|&i| (i, &self.state.entries[i])).collect()
+                indices
+                    .iter()
+                    .map(|&i| (i, &self.state.entries[i]))
+                    .collect()
             } else {
                 self.state.entries.iter().enumerate().collect()
             };
 
         let mut lines = Vec::new();
 
-        for (display_idx, (_entry_idx, entry)) in
-            entries_to_show.iter().enumerate().skip(scroll).take(visible_height)
+        for (display_idx, (_entry_idx, entry)) in entries_to_show
+            .iter()
+            .enumerate()
+            .skip(scroll)
+            .take(visible_height)
         {
             let is_cursor = display_idx == self.state.cursor_index;
             let is_checked = self.state.selected_files.contains(&entry.path);
@@ -517,7 +524,10 @@ impl<'a> FileExplorer<'a> {
                 Span::styled(" ", style),
                 Span::styled(icon.to_string(), style),
                 Span::styled(" ", style),
-                Span::styled(format!("{:<width$}", display_name, width = name_width), name_style),
+                Span::styled(
+                    format!("{:<width$}", display_name, width = name_width),
+                    name_style,
+                ),
                 Span::styled(
                     format!("{:>10}", size_str),
                     if is_cursor {
@@ -606,14 +616,12 @@ fn build_footer(mode: FileExplorerMode) -> Vec<Line<'static>> {
                 Span::raw(":Close"),
             ]),
         ],
-        FileExplorerMode::Search => vec![
-            Line::from(vec![
-                Span::styled("Enter", Style::default().fg(Color::Green)),
-                Span::raw(":Confirm "),
-                Span::styled("Esc", Style::default().fg(Color::Green)),
-                Span::raw(":Cancel"),
-            ]),
-        ],
+        FileExplorerMode::Search => vec![Line::from(vec![
+            Span::styled("Enter", Style::default().fg(Color::Green)),
+            Span::raw(":Confirm "),
+            Span::styled("Esc", Style::default().fg(Color::Green)),
+            Span::raw(":Cancel"),
+        ])],
     }
 }
 
@@ -662,11 +670,7 @@ mod tests {
         assert!(!entry.is_dir());
         assert!(entry.is_selectable());
 
-        let dir = FileEntry::new(
-            "src",
-            PathBuf::from("/home/user/src"),
-            EntryType::Directory,
-        );
+        let dir = FileEntry::new("src", PathBuf::from("/home/user/src"), EntryType::Directory);
         assert!(dir.is_dir());
         assert!(!dir.is_selectable());
     }
@@ -676,14 +680,22 @@ mod tests {
         let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
         state.entries = vec![
             FileEntry::parent_dir(PathBuf::from("/")),
-            FileEntry::new("file1.txt", PathBuf::from("/tmp/file1.txt"), EntryType::File {
-                extension: Some("txt".into()),
-                size: 100,
-            }),
-            FileEntry::new("file2.txt", PathBuf::from("/tmp/file2.txt"), EntryType::File {
-                extension: Some("txt".into()),
-                size: 200,
-            }),
+            FileEntry::new(
+                "file1.txt",
+                PathBuf::from("/tmp/file1.txt"),
+                EntryType::File {
+                    extension: Some("txt".into()),
+                    size: 100,
+                },
+            ),
+            FileEntry::new(
+                "file2.txt",
+                PathBuf::from("/tmp/file2.txt"),
+                EntryType::File {
+                    extension: Some("txt".into()),
+                    size: 200,
+                },
+            ),
         ];
 
         assert_eq!(state.cursor_index, 0);
@@ -700,12 +712,14 @@ mod tests {
     #[test]
     fn test_selection() {
         let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
-        state.entries = vec![
-            FileEntry::new("file.txt", PathBuf::from("/tmp/file.txt"), EntryType::File {
+        state.entries = vec![FileEntry::new(
+            "file.txt",
+            PathBuf::from("/tmp/file.txt"),
+            EntryType::File {
                 extension: Some("txt".into()),
                 size: 100,
-            }),
-        ];
+            },
+        )];
 
         assert!(state.selected_files.is_empty());
         state.toggle_selection();

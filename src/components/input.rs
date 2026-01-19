@@ -24,11 +24,11 @@
 //! ```
 
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 use crate::traits::{ClickRegion, FocusId};
@@ -119,7 +119,8 @@ impl InputState {
         self.cursor_pos -= 1;
         let byte_pos = self.char_to_byte_index(self.cursor_pos);
         if let Some(c) = self.text[byte_pos..].chars().next() {
-            self.text.replace_range(byte_pos..byte_pos + c.len_utf8(), "");
+            self.text
+                .replace_range(byte_pos..byte_pos + c.len_utf8(), "");
             return true;
         }
         false
@@ -137,7 +138,8 @@ impl InputState {
         if byte_pos < self.text.len()
             && let Some(c) = self.text[byte_pos..].chars().next()
         {
-            self.text.replace_range(byte_pos..byte_pos + c.len_utf8(), "");
+            self.text
+                .replace_range(byte_pos..byte_pos + c.len_utf8(), "");
             return true;
         }
         false

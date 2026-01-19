@@ -177,7 +177,10 @@ mod tests {
 
     #[test]
     fn test_is_activate_key() {
-        assert!(is_activate_key(&make_key(KeyCode::Enter, KeyModifiers::NONE)));
+        assert!(is_activate_key(&make_key(
+            KeyCode::Enter,
+            KeyModifiers::NONE
+        )));
         assert!(is_activate_key(&make_key(
             KeyCode::Char(' '),
             KeyModifiers::NONE
@@ -190,12 +193,18 @@ mod tests {
 
     #[test]
     fn test_is_navigation_key() {
-        assert!(is_navigation_key(&make_key(KeyCode::Tab, KeyModifiers::NONE)));
+        assert!(is_navigation_key(&make_key(
+            KeyCode::Tab,
+            KeyModifiers::NONE
+        )));
         assert!(is_navigation_key(&make_key(
             KeyCode::BackTab,
             KeyModifiers::NONE
         )));
-        assert!(is_navigation_key(&make_key(KeyCode::Up, KeyModifiers::NONE)));
+        assert!(is_navigation_key(&make_key(
+            KeyCode::Up,
+            KeyModifiers::NONE
+        )));
         assert!(is_navigation_key(&make_key(
             KeyCode::Down,
             KeyModifiers::NONE
@@ -230,7 +239,10 @@ mod tests {
             get_char(&make_key(KeyCode::Char('a'), KeyModifiers::CONTROL)),
             None
         );
-        assert_eq!(get_char(&make_key(KeyCode::Enter, KeyModifiers::NONE)), None);
+        assert_eq!(
+            get_char(&make_key(KeyCode::Enter, KeyModifiers::NONE)),
+            None
+        );
     }
 
     #[test]

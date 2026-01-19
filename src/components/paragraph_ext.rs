@@ -27,13 +27,7 @@
 //! widget.render(area, &mut buf);
 //! ```
 
-use ratatui::{
-    buffer::Buffer,
-    layout::Rect,
-    style::Style,
-    text::Line,
-    widgets::Widget,
-};
+use ratatui::{buffer::Buffer, layout::Rect, style::Style, text::Line, widgets::Widget};
 
 /// Extended paragraph widget with word-wrapping and scrolling.
 ///
@@ -262,11 +256,7 @@ mod tests {
 
     #[test]
     fn test_empty_line_preserved() {
-        let lines = vec![
-            Line::from("Line 1"),
-            Line::from(""),
-            Line::from("Line 3"),
-        ];
+        let lines = vec![Line::from("Line 1"), Line::from(""), Line::from("Line 3")];
         let widget = ParagraphExt::new(lines);
         let count = widget.line_count(20);
         assert_eq!(count, 3);

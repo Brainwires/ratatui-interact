@@ -13,15 +13,15 @@ use std::io;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
+    Frame, Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame, Terminal,
 };
 
 use ratatui_interact::{
@@ -174,7 +174,12 @@ impl App {
     }
 
     fn handle_dialog_click(&mut self, col: u16, row: u16) {
-        let clicked_idx = self.dialog_state.children.click_regions.handle_click(col, row).cloned();
+        let clicked_idx = self
+            .dialog_state
+            .children
+            .click_regions
+            .handle_click(col, row)
+            .cloned();
 
         if let Some(idx) = clicked_idx {
             // Set focus to clicked child
@@ -334,16 +339,30 @@ fn ui(f: &mut Frame, app: &mut App) {
 fn render_dialog(f: &mut Frame, app: &mut App) {
     // Compute focus states first
     let focus_states = [
-        app.dialog_state.focus.is_focused(&DialogFocusTarget::Child(0)),
-        app.dialog_state.focus.is_focused(&DialogFocusTarget::Child(1)),
-        app.dialog_state.focus.is_focused(&DialogFocusTarget::Child(2)),
-        app.dialog_state.focus.is_focused(&DialogFocusTarget::Child(3)),
-        app.dialog_state.focus.is_focused(&DialogFocusTarget::Child(4)),
+        app.dialog_state
+            .focus
+            .is_focused(&DialogFocusTarget::Child(0)),
+        app.dialog_state
+            .focus
+            .is_focused(&DialogFocusTarget::Child(1)),
+        app.dialog_state
+            .focus
+            .is_focused(&DialogFocusTarget::Child(2)),
+        app.dialog_state
+            .focus
+            .is_focused(&DialogFocusTarget::Child(3)),
+        app.dialog_state
+            .focus
+            .is_focused(&DialogFocusTarget::Child(4)),
     ];
 
-    let mut dialog = PopupDialog::new(&app.config, &mut app.dialog_state, |frame, area, content| {
-        render_settings_content(frame, area, content, &focus_states);
-    });
+    let mut dialog = PopupDialog::new(
+        &app.config,
+        &mut app.dialog_state,
+        |frame, area, content| {
+            render_settings_content(frame, area, content, &focus_states);
+        },
+    );
     dialog.render(f);
 }
 
@@ -384,8 +403,7 @@ fn render_settings_content(
 
     // Dark mode checkbox (child 2)
     content.dark_mode.focused = focus_states[2];
-    let checkbox =
-        CheckBox::new("Dark Mode", &content.dark_mode).style(CheckBoxStyle::unicode());
+    let checkbox = CheckBox::new("Dark Mode", &content.dark_mode).style(CheckBoxStyle::unicode());
     let region = checkbox.render_stateful(chunks[3], f.buffer_mut());
     content.click_regions.register(region.area, 2);
 
@@ -398,8 +416,7 @@ fn render_settings_content(
 
     // Auto-save checkbox (child 4)
     content.auto_save.focused = focus_states[4];
-    let checkbox =
-        CheckBox::new("Auto-save", &content.auto_save).style(CheckBoxStyle::unicode());
+    let checkbox = CheckBox::new("Auto-save", &content.auto_save).style(CheckBoxStyle::unicode());
     let region = checkbox.render_stateful(chunks[5], f.buffer_mut());
     content.click_regions.register(region.area, 4);
 }

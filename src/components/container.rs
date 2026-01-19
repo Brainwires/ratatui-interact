@@ -29,14 +29,14 @@
 //! dialog.render(frame);
 //! ```
 
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::Span,
     widgets::{Block, Borders, Clear, Paragraph},
-    Frame,
 };
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
 use crate::{
     state::FocusManager,
@@ -306,7 +306,11 @@ where
     /// * `config` - Dialog configuration
     /// * `state` - Dialog state
     /// * `content_renderer` - Closure to render dialog content
-    pub fn new(config: &'a DialogConfig, state: &'a mut DialogState<T>, content_renderer: F) -> Self {
+    pub fn new(
+        config: &'a DialogConfig,
+        state: &'a mut DialogState<T>,
+        content_renderer: F,
+    ) -> Self {
         Self {
             config,
             state,
@@ -361,10 +365,7 @@ where
         let button_height = if self.config.buttons.is_empty() { 0 } else { 2 };
         let chunks = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Min(1),
-                Constraint::Length(button_height),
-            ])
+            .constraints([Constraint::Min(1), Constraint::Length(button_height)])
             .split(inner);
 
         // Render content
@@ -382,7 +383,8 @@ where
             return;
         }
 
-        let total_button_width: u16 = self.config
+        let total_button_width: u16 = self
+            .config
             .buttons
             .iter()
             .map(|(label, _)| label.len() as u16 + 4)

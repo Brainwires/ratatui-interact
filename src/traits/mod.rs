@@ -10,10 +10,10 @@
 //! - [`Container`] - For components that manage child components
 //! - [`PopupContainer`] - Extension of Container for popup dialogs
 
-mod focusable;
 mod clickable;
 mod container;
+mod focusable;
 
-pub use focusable::{FocusId, Focusable};
 pub use clickable::{ClickRegion, ClickRegionRegistry, Clickable};
 pub use container::{Container, ContainerAction, EventResult, PopupContainer};
+pub use focusable::{FocusId, Focusable};

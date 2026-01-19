@@ -466,16 +466,12 @@ impl Widget for Button<'_> {
             }
 
             ButtonVariant::Block => {
-                let block = Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(style);
+                let block = Block::default().borders(Borders::ALL).border_style(style);
 
                 let inner = block.inner(area);
                 block.render(area, buf);
 
-                let paragraph = Paragraph::new(text)
-                    .style(style)
-                    .alignment(self.alignment);
+                let paragraph = Paragraph::new(text).style(style).alignment(self.alignment);
                 paragraph.render(inner, buf);
             }
 
