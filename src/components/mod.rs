@@ -21,6 +21,9 @@
 //! - [`TreeView`] - Collapsible tree view with selection
 //! - [`FileExplorer`] - File browser with multi-select
 //!
+//! ## Layout Components
+//! - [`TabView`] - Tab bar with switchable content panes
+//!
 //! ## Viewer Components
 //! - [`LogViewer`] - Scrollable log viewer with search
 //! - [`StepDisplay`] - Multi-step progress display
@@ -36,6 +39,7 @@ pub mod marquee;
 pub mod paragraph_ext;
 pub mod progress;
 pub mod step_display;
+pub mod tab_view;
 pub mod toast;
 pub mod tree_view;
 
@@ -55,3 +59,7 @@ pub use step_display::{
 pub use toast::{Toast, ToastState, ToastStyle};
 pub use tree_view::{FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState, get_selected_id};
 pub use marquee::{MarqueeMode, MarqueeState, MarqueeStyle, MarqueeText, ScrollDir, bounce_marquee, continuous_marquee};
+pub use tab_view::{
+    Tab, TabPosition, TabView, TabViewAction, TabViewState, TabViewStyle,
+    handle_tab_view_key, handle_tab_view_mouse,
+};
