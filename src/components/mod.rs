@@ -30,6 +30,9 @@
 //! - [`TabView`] - Tab bar with switchable content panes
 //! - [`SplitPane`] - Resizable split pane with drag-to-resize divider
 //!
+//! ## Dialog Components
+//! - [`HotkeyDialog`] - Hotkey configuration dialog with search and categories
+//!
 //! ## Viewer Components
 //! - [`LogViewer`] - Scrollable log viewer with search
 //! - [`DiffViewer`] - Diff viewer with unified and side-by-side modes
@@ -42,6 +45,7 @@ pub mod checkbox;
 pub mod container;
 pub mod diff_viewer;
 pub mod file_explorer;
+pub mod hotkey_dialog;
 pub mod input;
 pub mod list_picker;
 pub mod log_viewer;
@@ -73,6 +77,12 @@ pub use diff_viewer::{
     DiffViewerState, DiffViewerStyle, handle_diff_viewer_key, handle_diff_viewer_mouse,
 };
 pub use file_explorer::{EntryType, FileEntry, FileExplorer, FileExplorerState, FileExplorerStyle};
+pub use hotkey_dialog::{
+    CategoryClickRegion, HotkeyCategory, HotkeyClickRegion, HotkeyDialog, HotkeyDialogAction,
+    HotkeyDialogState, HotkeyDialogStyle, HotkeyEntryData, HotkeyFocus, HotkeyProvider,
+    handle_hotkey_dialog_key, handle_hotkey_dialog_mouse, is_close_key as hotkey_is_close_key,
+    is_navigation_key as hotkey_is_navigation_key, render_hotkey_dialog,
+};
 pub use input::{Input, InputAction, InputState, InputStyle};
 pub use list_picker::{ListPicker, ListPickerState, ListPickerStyle, key_hints_footer};
 pub use log_viewer::{LogViewer, LogViewerState, LogViewerStyle, SearchState};
