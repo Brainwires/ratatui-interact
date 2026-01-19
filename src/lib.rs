@@ -209,13 +209,6 @@ pub mod prelude {
         handle_hotkey_dialog_key, handle_hotkey_dialog_mouse, render_hotkey_dialog,
     };
 
-    // Dialog Components
-    pub use crate::components::{
-        CategoryClickRegion, HotkeyCategory, HotkeyClickRegion, HotkeyDialog, HotkeyDialogAction,
-        HotkeyDialogState, HotkeyDialogStyle, HotkeyEntryData, HotkeyFocus, HotkeyProvider,
-        handle_hotkey_dialog_key, handle_hotkey_dialog_mouse, render_hotkey_dialog,
-    };
-
     // Utilities
     pub use crate::utils::{
         clean_for_display, format_size, pad_to_width, parse_ansi_to_spans, truncate_to_width,
