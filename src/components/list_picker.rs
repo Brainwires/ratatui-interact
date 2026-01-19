@@ -385,6 +385,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_state_new() {
+        let state = ListPickerState::new(10);
+        assert_eq!(state.selected_index, 0);
+        assert_eq!(state.scroll, 0);
+        assert_eq!(state.total_items, 10);
+    }
+
+    #[test]
     fn test_state_navigation() {
         let mut state = ListPickerState::new(5);
         assert_eq!(state.selected_index, 0);
@@ -406,11 +414,79 @@ mod tests {
     }
 
     #[test]
+    fn test_select_first_and_last() {
+        let mut state = ListPickerState::new(10);
+        state.selected_index = 5;
+
+        state.select_first();
+        assert_eq!(state.selected_index, 0);
+
+        state.select_last();
+        assert_eq!(state.selected_index, 9);
+    }
+
+    #[test]
+    fn test_select_specific_index() {
+        let mut state = ListPickerState::new(10);
+
+        state.select(5);
+        assert_eq!(state.selected_index, 5);
+
+        // Should clamp to valid range
+        state.select(100);
+        assert_eq!(state.selected_index, 5); // Unchanged because out of range
+    }
+
+    #[test]
     fn test_ensure_visible() {
         let mut state = ListPickerState::new(20);
         state.selected_index = 15;
         state.ensure_visible(10);
         assert!(state.scroll >= 6); // 15 - 10 + 1 = 6
+    }
+
+    #[test]
+    fn test_ensure_visible_scroll_up() {
+        let mut state = ListPickerState::new(20);
+        state.scroll = 10;
+        state.selected_index = 5;
+        state.ensure_visible(10);
+        assert_eq!(state.scroll, 5);
+    }
+
+    #[test]
+    fn test_ensure_visible_zero_viewport() {
+        let mut state = ListPickerState::new(20);
+        state.selected_index = 10;
+        state.scroll = 5;
+        state.ensure_visible(0);
+        // Should not change scroll on zero viewport
+        assert_eq!(state.scroll, 5);
+    }
+
+    #[test]
+    fn test_set_total() {
+        let mut state = ListPickerState::new(10);
+        state.selected_index = 8;
+
+        // Reduce total, selected should be clamped
+        state.set_total(5);
+        assert_eq!(state.total_items, 5);
+        assert_eq!(state.selected_index, 4);
+
+        // Increase total
+        state.set_total(20);
+        assert_eq!(state.total_items, 20);
+        assert_eq!(state.selected_index, 4); // Unchanged
+    }
+
+    #[test]
+    fn test_empty_list() {
+        let mut state = ListPickerState::new(0);
+        state.select_next();
+        assert_eq!(state.selected_index, 0);
+        state.select_last();
+        assert_eq!(state.selected_index, 0);
     }
 
     #[test]
@@ -425,8 +501,49 @@ mod tests {
     }
 
     #[test]
+    fn test_list_picker_with_custom_render() {
+        let items = vec!["A", "B", "C"];
+        let state = ListPickerState::new(items.len());
+        let picker = ListPicker::new(&items, &state).render_item(|item, idx, selected| {
+            let prefix = if selected { "> " } else { "  " };
+            vec![Line::from(format!("{}{}. {}", prefix, idx + 1, item))]
+        });
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        picker.render(Rect::new(0, 0, 40, 10), &mut buf);
+    }
+
+    #[test]
+    fn test_list_picker_styles() {
+        let arrow = ListPickerStyle::arrow();
+        assert_eq!(arrow.indicator, "▶ ");
+
+        let bracket = ListPickerStyle::bracket();
+        assert_eq!(bracket.indicator, "> ");
+
+        let checkbox = ListPickerStyle::checkbox();
+        assert_eq!(checkbox.indicator, "[x] ");
+        assert_eq!(checkbox.indicator_empty, "[ ] ");
+    }
+
+    #[test]
+    fn test_list_picker_style_bordered() {
+        let style = ListPickerStyle::default().bordered(false);
+        assert!(!style.bordered);
+
+        let style = ListPickerStyle::default().bordered(true);
+        assert!(style.bordered);
+    }
+
+    #[test]
     fn test_key_hints_footer() {
         let footer = key_hints_footer(&[("↑↓", "Navigate"), ("Enter", "Select")]);
         assert_eq!(footer.len(), 2);
+    }
+
+    #[test]
+    fn test_key_hints_footer_empty() {
+        let footer = key_hints_footer(&[]);
+        assert_eq!(footer.len(), 2); // Empty line + spans line
     }
 }

@@ -267,6 +267,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_toast_state_new() {
+        let state = ToastState::new();
+        assert!(state.message.is_none());
+        assert!(state.expires_at.is_none());
+    }
+
+    #[test]
     fn test_toast_state_lifecycle() {
         let mut state = ToastState::new();
 
@@ -285,6 +292,29 @@ mod tests {
     }
 
     #[test]
+    fn test_toast_show_replaces_existing() {
+        let mut state = ToastState::new();
+
+        state.show("First message", 100_000);
+        assert_eq!(state.get_message(), Some("First message"));
+
+        state.show("Second message", 100_000);
+        assert_eq!(state.get_message(), Some("Second message"));
+    }
+
+    #[test]
+    fn test_toast_clear_if_expired() {
+        let mut state = ToastState::new();
+
+        // Show toast that expires immediately (duration 0)
+        state.show("Quick message", 0);
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        state.clear_if_expired();
+        assert!(!state.is_visible());
+    }
+
+    #[test]
     fn test_toast_style_detection() {
         assert_eq!(
             ToastStyle::from_message("error occurred"),
@@ -299,11 +329,43 @@ mod tests {
     }
 
     #[test]
+    fn test_toast_style_detection_case_insensitive() {
+        assert_eq!(
+            ToastStyle::from_message("ERROR OCCURRED"),
+            ToastStyle::Error
+        );
+        assert_eq!(ToastStyle::from_message("FILE SAVED"), ToastStyle::Success);
+        assert_eq!(ToastStyle::from_message("WARNING"), ToastStyle::Warning);
+    }
+
+    #[test]
+    fn test_toast_style_detection_variants() {
+        assert_eq!(
+            ToastStyle::from_message("failed to load"),
+            ToastStyle::Error
+        );
+        assert_eq!(
+            ToastStyle::from_message("done processing"),
+            ToastStyle::Success
+        );
+        assert_eq!(
+            ToastStyle::from_message("warn: deprecated"),
+            ToastStyle::Warning
+        );
+    }
+
+    #[test]
     fn test_toast_style_colors() {
         assert_eq!(ToastStyle::Info.border_color(), Color::Cyan);
         assert_eq!(ToastStyle::Success.border_color(), Color::Green);
         assert_eq!(ToastStyle::Warning.border_color(), Color::Yellow);
         assert_eq!(ToastStyle::Error.border_color(), Color::Red);
+    }
+
+    #[test]
+    fn test_toast_style_default() {
+        let style = ToastStyle::default();
+        assert_eq!(style, ToastStyle::Info);
     }
 
     #[test]
@@ -321,6 +383,47 @@ mod tests {
     }
 
     #[test]
+    fn test_toast_area_calculation_long_message() {
+        let long_msg = "This is a very long message that should wrap to multiple lines";
+        let toast = Toast::new(long_msg);
+        let area = Rect::new(0, 0, 40, 20);
+        let toast_area = toast.calculate_area(area);
+
+        // Width should be constrained
+        assert!(toast_area.width <= area.width);
+    }
+
+    #[test]
+    fn test_toast_area_calculation_custom_offset() {
+        let toast = Toast::new("Hello").top_offset(10);
+        let area = Rect::new(0, 0, 100, 50);
+        let toast_area = toast.calculate_area(area);
+
+        assert_eq!(toast_area.y, 10);
+    }
+
+    #[test]
+    fn test_toast_builder_methods() {
+        let toast = Toast::new("Test")
+            .style(ToastStyle::Error)
+            .max_width(60)
+            .max_height(5)
+            .top_offset(5);
+
+        assert_eq!(toast.style, ToastStyle::Error);
+        assert_eq!(toast.max_width, 60);
+        assert_eq!(toast.max_height, 5);
+        assert_eq!(toast.top_offset, 5);
+        assert!(!toast.auto_style); // auto_style disabled when style is set
+    }
+
+    #[test]
+    fn test_toast_auto_style() {
+        let toast = Toast::new("Test").auto_style();
+        assert!(toast.auto_style);
+    }
+
+    #[test]
     fn test_toast_render() {
         let mut buf = Buffer::empty(Rect::new(0, 0, 60, 20));
         let toast = Toast::new("Test toast message");
@@ -331,5 +434,26 @@ mod tests {
         // The toast should contain the message text
         let content: String = buf.content.iter().map(|c| c.symbol()).collect();
         assert!(content.contains("Test"));
+    }
+
+    #[test]
+    fn test_toast_render_with_style() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 60, 20));
+        let toast = Toast::new("Success!").style(ToastStyle::Success);
+
+        toast.render_with_clear(Rect::new(0, 0, 60, 20), &mut buf);
+
+        let content: String = buf.content.iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Success"));
+    }
+
+    #[test]
+    fn test_toast_widget_render() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 30, 5));
+        let toast = Toast::new("Widget test");
+        let area = Rect::new(0, 0, 30, 5);
+
+        toast.render(area, &mut buf);
+        // Should not panic
     }
 }

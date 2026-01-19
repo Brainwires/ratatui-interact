@@ -12,6 +12,7 @@
 //! use ratatui::text::Line;
 //!
 //! // Define your accordion items
+//! #[derive(Debug)]
 //! struct FaqItem {
 //!     id: String,
 //!     question: String,

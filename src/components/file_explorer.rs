@@ -676,6 +676,38 @@ mod tests {
     }
 
     #[test]
+    fn test_file_entry_parent_dir() {
+        let entry = FileEntry::parent_dir(PathBuf::from("/home"));
+        assert_eq!(entry.name, "..");
+        assert!(entry.is_dir());
+        assert!(!entry.is_selectable());
+        assert_eq!(entry.entry_type, EntryType::ParentDir);
+    }
+
+    #[test]
+    fn test_file_entry_symlink() {
+        let entry = FileEntry::new(
+            "link",
+            PathBuf::from("/home/user/link"),
+            EntryType::Symlink {
+                target: Some(PathBuf::from("/target")),
+            },
+        );
+        assert!(!entry.is_dir());
+        assert!(!entry.is_selectable()); // Symlinks are not selectable
+    }
+
+    #[test]
+    fn test_state_new() {
+        let state = FileExplorerState::new(PathBuf::from("/tmp"));
+        assert_eq!(state.current_dir, PathBuf::from("/tmp"));
+        assert!(state.entries.is_empty());
+        assert_eq!(state.cursor_index, 0);
+        assert!(!state.show_hidden);
+        assert_eq!(state.mode, FileExplorerMode::Browse);
+    }
+
+    #[test]
     fn test_state_navigation() {
         let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
         state.entries = vec![
@@ -710,6 +742,22 @@ mod tests {
     }
 
     #[test]
+    fn test_cursor_up_at_top() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        state.entries = vec![FileEntry::new(
+            "file.txt",
+            PathBuf::from("/tmp/file.txt"),
+            EntryType::File {
+                extension: Some("txt".into()),
+                size: 100,
+            },
+        )];
+        state.cursor_index = 0;
+        state.cursor_up();
+        assert_eq!(state.cursor_index, 0); // Should not go negative
+    }
+
+    #[test]
     fn test_selection() {
         let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
         state.entries = vec![FileEntry::new(
@@ -729,11 +777,229 @@ mod tests {
     }
 
     #[test]
+    fn test_select_all() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        state.entries = vec![
+            FileEntry::new("dir", PathBuf::from("/tmp/dir"), EntryType::Directory),
+            FileEntry::new(
+                "file1.txt",
+                PathBuf::from("/tmp/file1.txt"),
+                EntryType::File {
+                    extension: Some("txt".into()),
+                    size: 100,
+                },
+            ),
+            FileEntry::new(
+                "file2.txt",
+                PathBuf::from("/tmp/file2.txt"),
+                EntryType::File {
+                    extension: Some("txt".into()),
+                    size: 200,
+                },
+            ),
+        ];
+
+        state.select_all();
+        // Only files should be selected, not directories
+        assert_eq!(state.selected_files.len(), 2);
+    }
+
+    #[test]
+    fn test_select_none() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        state.entries = vec![FileEntry::new(
+            "file.txt",
+            PathBuf::from("/tmp/file.txt"),
+            EntryType::File {
+                extension: Some("txt".into()),
+                size: 100,
+            },
+        )];
+
+        state.toggle_selection();
+        assert_eq!(state.selected_files.len(), 1);
+        state.select_none();
+        assert!(state.selected_files.is_empty());
+    }
+
+    #[test]
+    fn test_toggle_hidden() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        assert!(!state.show_hidden);
+        state.toggle_hidden();
+        assert!(state.show_hidden);
+        state.toggle_hidden();
+        assert!(!state.show_hidden);
+    }
+
+    #[test]
+    fn test_search_mode() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        assert_eq!(state.mode, FileExplorerMode::Browse);
+
+        state.start_search();
+        assert_eq!(state.mode, FileExplorerMode::Search);
+        assert!(state.search_query.is_empty());
+
+        state.cancel_search();
+        assert_eq!(state.mode, FileExplorerMode::Browse);
+        assert!(state.filtered_indices.is_none());
+    }
+
+    #[test]
+    fn test_update_filter() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        state.entries = vec![
+            FileEntry::new(
+                "test.rs",
+                PathBuf::from("/tmp/test.rs"),
+                EntryType::File {
+                    extension: Some("rs".into()),
+                    size: 100,
+                },
+            ),
+            FileEntry::new(
+                "main.rs",
+                PathBuf::from("/tmp/main.rs"),
+                EntryType::File {
+                    extension: Some("rs".into()),
+                    size: 200,
+                },
+            ),
+            FileEntry::new(
+                "other.txt",
+                PathBuf::from("/tmp/other.txt"),
+                EntryType::File {
+                    extension: Some("txt".into()),
+                    size: 300,
+                },
+            ),
+        ];
+
+        state.search_query = "test".into();
+        state.update_filter();
+
+        assert!(state.filtered_indices.is_some());
+        assert_eq!(state.filtered_indices.as_ref().unwrap().len(), 1);
+        assert_eq!(state.visible_count(), 1);
+    }
+
+    #[test]
+    fn test_update_filter_empty_clears() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        state.entries = vec![FileEntry::new(
+            "file.txt",
+            PathBuf::from("/tmp/file.txt"),
+            EntryType::File {
+                extension: Some("txt".into()),
+                size: 100,
+            },
+        )];
+
+        state.search_query = "file".into();
+        state.update_filter();
+        assert!(state.filtered_indices.is_some());
+
+        state.search_query = "".into();
+        state.update_filter();
+        assert!(state.filtered_indices.is_none());
+    }
+
+    #[test]
+    fn test_current_entry() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        state.entries = vec![
+            FileEntry::new(
+                "first.txt",
+                PathBuf::from("/tmp/first.txt"),
+                EntryType::File {
+                    extension: Some("txt".into()),
+                    size: 100,
+                },
+            ),
+            FileEntry::new(
+                "second.txt",
+                PathBuf::from("/tmp/second.txt"),
+                EntryType::File {
+                    extension: Some("txt".into()),
+                    size: 200,
+                },
+            ),
+        ];
+
+        assert_eq!(state.current_entry().unwrap().name, "first.txt");
+        state.cursor_down();
+        assert_eq!(state.current_entry().unwrap().name, "second.txt");
+    }
+
+    #[test]
+    fn test_ensure_visible() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        state.entries = (0..20)
+            .map(|i| {
+                FileEntry::new(
+                    format!("file{}.txt", i),
+                    PathBuf::from(format!("/tmp/file{}.txt", i)),
+                    EntryType::File {
+                        extension: Some("txt".into()),
+                        size: 100,
+                    },
+                )
+            })
+            .collect();
+
+        state.cursor_index = 15;
+        state.ensure_visible(10);
+        assert!(state.scroll >= 6); // 15 - 10 + 1 = 6
+    }
+
+    #[test]
+    fn test_ensure_visible_zero_viewport() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        state.cursor_index = 5;
+        state.scroll = 3;
+        state.ensure_visible(0);
+        assert_eq!(state.scroll, 3); // Should not change
+    }
+
+    #[test]
     fn test_style_color_for_extension() {
         let style = FileExplorerStyle::default();
         assert_eq!(style.color_for_extension(Some("rs")), Color::Yellow);
         assert_eq!(style.color_for_extension(Some("json")), Color::Green);
         assert_eq!(style.color_for_extension(Some("unknown")), Color::Gray);
         assert_eq!(style.color_for_extension(None), Color::Gray);
+    }
+
+    #[test]
+    fn test_style_color_for_various_extensions() {
+        let style = FileExplorerStyle::default();
+        assert_eq!(style.color_for_extension(Some("toml")), Color::Green);
+        assert_eq!(style.color_for_extension(Some("yaml")), Color::Green);
+        assert_eq!(style.color_for_extension(Some("md")), Color::White);
+        assert_eq!(style.color_for_extension(Some("py")), Color::Cyan);
+        assert_eq!(style.color_for_extension(Some("js")), Color::Magenta);
+        assert_eq!(style.color_for_extension(Some("sh")), Color::Red);
+    }
+
+    #[test]
+    fn test_file_explorer_render() {
+        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        state.entries = vec![
+            FileEntry::new("dir", PathBuf::from("/tmp/dir"), EntryType::Directory),
+            FileEntry::new(
+                "file.txt",
+                PathBuf::from("/tmp/file.txt"),
+                EntryType::File {
+                    extension: Some("txt".into()),
+                    size: 1024,
+                },
+            ),
+        ];
+
+        let explorer = FileExplorer::new(&state);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 60, 20));
+        explorer.render(Rect::new(0, 0, 60, 20), &mut buf);
+        // Should not panic
     }
 }

@@ -475,10 +475,49 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_step_status() {
+    fn test_step_status_icons() {
         assert_eq!(StepStatus::Pending.icon(), "[ ]");
         assert_eq!(StepStatus::Running.icon(), "[▶]");
         assert_eq!(StepStatus::Completed.icon(), "[✓]");
+        assert_eq!(StepStatus::Failed.icon(), "[✗]");
+        assert_eq!(StepStatus::Skipped.icon(), "[↷]");
+    }
+
+    #[test]
+    fn test_step_status_sub_icons() {
+        assert_eq!(StepStatus::Pending.sub_icon(), "○");
+        assert_eq!(StepStatus::Running.sub_icon(), "◐");
+        assert_eq!(StepStatus::Completed.sub_icon(), "●");
+        assert_eq!(StepStatus::Failed.sub_icon(), "✗");
+        assert_eq!(StepStatus::Skipped.sub_icon(), "◌");
+    }
+
+    #[test]
+    fn test_step_status_colors() {
+        assert_eq!(StepStatus::Pending.color(), Color::DarkGray);
+        assert_eq!(StepStatus::Running.color(), Color::Yellow);
+        assert_eq!(StepStatus::Completed.color(), Color::Green);
+        assert_eq!(StepStatus::Failed.color(), Color::Red);
+        assert_eq!(StepStatus::Skipped.color(), Color::DarkGray);
+    }
+
+    #[test]
+    fn test_step_new() {
+        let step = Step::new("Build");
+        assert_eq!(step.name, "Build");
+        assert_eq!(step.status, StepStatus::Pending);
+        assert!(step.sub_steps.is_empty());
+        assert!(!step.expanded);
+        assert!(step.output.is_empty());
+    }
+
+    #[test]
+    fn test_step_with_sub_steps() {
+        let step = Step::new("Build").with_sub_steps(vec!["Compile", "Link", "Package"]);
+        assert_eq!(step.sub_steps.len(), 3);
+        assert_eq!(step.sub_steps[0].name, "Compile");
+        assert_eq!(step.sub_steps[1].name, "Link");
+        assert_eq!(step.sub_steps[2].name, "Package");
     }
 
     #[test]
@@ -487,6 +526,53 @@ mod tests {
         let (completed, total) = step.sub_step_progress();
         assert_eq!(completed, 0);
         assert_eq!(total, 3);
+    }
+
+    #[test]
+    fn test_step_add_output() {
+        let mut step = Step::new("Test");
+        step.add_output("Line 1");
+        step.add_output("Line 2");
+        assert_eq!(step.output.len(), 2);
+        assert_eq!(step.output[0], "Line 1");
+    }
+
+    #[test]
+    fn test_step_clear_output() {
+        let mut step = Step::new("Test");
+        step.add_output("Line 1");
+        step.add_output("Line 2");
+        step.scroll = 1;
+        step.clear_output();
+        assert!(step.output.is_empty());
+        assert_eq!(step.scroll, 0);
+    }
+
+    #[test]
+    fn test_step_auto_scroll() {
+        let mut step = Step::new("Test");
+        // Add more than 5 lines to trigger auto-scroll
+        for i in 0..10 {
+            step.add_output(format!("Line {}", i));
+        }
+        // scroll should be updated to show latest content
+        assert!(step.scroll > 0);
+    }
+
+    #[test]
+    fn test_sub_step_new() {
+        let sub = SubStep::new("Compile");
+        assert_eq!(sub.name, "Compile");
+        assert_eq!(sub.status, StepStatus::Pending);
+    }
+
+    #[test]
+    fn test_state_new() {
+        let steps = vec![Step::new("Step 1"), Step::new("Step 2")];
+        let state = StepDisplayState::new(steps);
+        assert_eq!(state.steps.len(), 2);
+        assert!(state.focused_step.is_none());
+        assert_eq!(state.scroll, 0);
     }
 
     #[test]
@@ -509,6 +595,30 @@ mod tests {
     }
 
     #[test]
+    fn test_state_progress_empty() {
+        let state = StepDisplayState::new(vec![]);
+        assert_eq!(state.progress(), 0.0);
+    }
+
+    #[test]
+    fn test_state_current_step() {
+        let steps = vec![
+            Step::new("Step 1"),
+            Step::new("Step 2"),
+            Step::new("Step 3"),
+        ];
+        let mut state = StepDisplayState::new(steps);
+
+        assert_eq!(state.current_step(), 0);
+
+        state.complete_step(0);
+        assert_eq!(state.current_step(), 1);
+
+        state.skip_step(1);
+        assert_eq!(state.current_step(), 2);
+    }
+
+    #[test]
     fn test_state_operations() {
         let steps = vec![Step::new("Test")];
         let mut state = StepDisplayState::new(steps);
@@ -522,5 +632,126 @@ mod tests {
 
         state.complete_step(0);
         assert_eq!(state.steps[0].status, StepStatus::Completed);
+    }
+
+    #[test]
+    fn test_state_fail_step() {
+        let steps = vec![Step::new("Test")];
+        let mut state = StepDisplayState::new(steps);
+
+        state.fail_step(0);
+        assert_eq!(state.steps[0].status, StepStatus::Failed);
+    }
+
+    #[test]
+    fn test_state_skip_step() {
+        let steps = vec![Step::new("Test")];
+        let mut state = StepDisplayState::new(steps);
+
+        state.skip_step(0);
+        assert_eq!(state.steps[0].status, StepStatus::Skipped);
+    }
+
+    #[test]
+    fn test_state_sub_step_operations() {
+        let steps = vec![Step::new("Test").with_sub_steps(vec!["A", "B"])];
+        let mut state = StepDisplayState::new(steps);
+
+        state.start_sub_step(0, 0);
+        assert_eq!(state.steps[0].sub_steps[0].status, StepStatus::Running);
+
+        state.complete_sub_step(0, 0);
+        assert_eq!(state.steps[0].sub_steps[0].status, StepStatus::Completed);
+    }
+
+    #[test]
+    fn test_state_toggle_expanded() {
+        let steps = vec![Step::new("Test")];
+        let mut state = StepDisplayState::new(steps);
+
+        assert!(!state.steps[0].expanded);
+        state.toggle_expanded(0);
+        assert!(state.steps[0].expanded);
+        state.toggle_expanded(0);
+        assert!(!state.steps[0].expanded);
+    }
+
+    #[test]
+    fn test_state_scroll_output() {
+        let mut step = Step::new("Test");
+        for i in 0..20 {
+            step.add_output(format!("Line {}", i));
+        }
+        let steps = vec![step];
+        let mut state = StepDisplayState::new(steps);
+        state.steps[0].scroll = 0;
+
+        state.scroll_output(0, 5);
+        assert_eq!(state.steps[0].scroll, 5);
+
+        state.scroll_output(0, -3);
+        assert_eq!(state.steps[0].scroll, 2);
+
+        // Should not go negative
+        state.scroll_output(0, -10);
+        assert_eq!(state.steps[0].scroll, 0);
+    }
+
+    #[test]
+    fn test_state_invalid_index() {
+        let steps = vec![Step::new("Test")];
+        let mut state = StepDisplayState::new(steps);
+
+        // These should not panic with invalid indices
+        state.start_step(10);
+        state.complete_step(10);
+        state.fail_step(10);
+        state.skip_step(10);
+        state.add_output(10, "test");
+        state.toggle_expanded(10);
+        state.scroll_output(10, 5);
+        state.start_sub_step(10, 0);
+        state.complete_sub_step(10, 0);
+    }
+
+    #[test]
+    fn test_step_display_style_default() {
+        let style = StepDisplayStyle::default();
+        assert_eq!(style.focused_border, Color::Cyan);
+        assert_eq!(style.unfocused_border, Color::DarkGray);
+        assert_eq!(style.max_output_lines, 5);
+    }
+
+    #[test]
+    fn test_calculate_height() {
+        let steps = vec![
+            Step::new("Step 1"),
+            Step::new("Step 2").with_sub_steps(vec!["A", "B"]),
+        ];
+        let mut state = StepDisplayState::new(steps);
+        let style = StepDisplayStyle::default();
+
+        // Initially just 2 headers
+        let height = calculate_height(&state, &style);
+        assert_eq!(height, 2);
+
+        // Expand step 2 with sub-steps
+        state.start_step(1);
+        let height = calculate_height(&state, &style);
+        assert!(height > 2); // Should include sub-steps
+    }
+
+    #[test]
+    fn test_step_display_render() {
+        let steps = vec![
+            Step::new("Build").with_sub_steps(vec!["Compile", "Link"]),
+            Step::new("Test"),
+        ];
+        let state = StepDisplayState::new(steps);
+        let display = StepDisplay::new(&state);
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 60, 20));
+        display.render(Rect::new(0, 0, 60, 20), &mut buf);
+        // Should not panic
     }
 }

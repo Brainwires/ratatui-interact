@@ -54,6 +54,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `accordion_demo` - Accordion component with single and multiple modes
   - `tab_view_demo` - Tab view with position cycling and content switching
   - `breadcrumb_demo` - Breadcrumb navigation with multiple style presets and dynamic path manipulation
+  - `display_demo` - Display components: Progress, StepDisplay, ParagraphExt
+  - `navigation_demo` - Navigation components: ListPicker, TreeView
+  - `explorer_log_demo` - Combined FileExplorer, LogViewer, and Toast (requires `filesystem` feature)
+
+- **Tests**
+  - Comprehensive unit tests for all 17 components
+  - Tests for state management, rendering, styling, and edge cases
 
 ### Changed
 - Renamed crate from `ratatui-extension` to `ratatui-interact`

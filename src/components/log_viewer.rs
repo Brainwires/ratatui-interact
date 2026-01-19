@@ -510,6 +510,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_log_viewer_state_new() {
+        let content = vec!["Line 1".into(), "Line 2".into()];
+        let state = LogViewerState::new(content);
+        assert_eq!(state.content.len(), 2);
+        assert_eq!(state.scroll_y, 0);
+        assert_eq!(state.scroll_x, 0);
+    }
+
+    #[test]
+    fn test_log_viewer_state_empty() {
+        let state = LogViewerState::empty();
+        assert!(state.content.is_empty());
+    }
+
+    #[test]
     fn test_log_viewer_state() {
         let content = vec!["Line 1".into(), "Line 2".into(), "Line 3".into()];
         let mut state = LogViewerState::new(content);
@@ -519,6 +534,87 @@ mod tests {
         assert_eq!(state.scroll_y, 1);
         state.scroll_up();
         assert_eq!(state.scroll_y, 0);
+    }
+
+    #[test]
+    fn test_horizontal_scroll() {
+        let content = vec!["Long line of text".into()];
+        let mut state = LogViewerState::new(content);
+
+        state.scroll_right();
+        assert_eq!(state.scroll_x, 4);
+        state.scroll_right();
+        assert_eq!(state.scroll_x, 8);
+        state.scroll_left();
+        assert_eq!(state.scroll_x, 4);
+        state.scroll_left();
+        assert_eq!(state.scroll_x, 0);
+        state.scroll_left(); // Should not go negative
+        assert_eq!(state.scroll_x, 0);
+    }
+
+    #[test]
+    fn test_page_navigation() {
+        let content: Vec<String> = (0..100).map(|i| format!("Line {}", i)).collect();
+        let mut state = LogViewerState::new(content);
+        state.visible_height = 10;
+
+        state.page_down();
+        assert_eq!(state.scroll_y, 10);
+        state.page_down();
+        assert_eq!(state.scroll_y, 20);
+
+        state.page_up();
+        assert_eq!(state.scroll_y, 10);
+        state.page_up();
+        assert_eq!(state.scroll_y, 0);
+    }
+
+    #[test]
+    fn test_go_to_top_bottom() {
+        let content: Vec<String> = (0..50).map(|i| format!("Line {}", i)).collect();
+        let mut state = LogViewerState::new(content);
+        state.visible_height = 10;
+
+        state.go_to_bottom();
+        assert_eq!(state.scroll_y, 40); // 50 - 10
+
+        state.go_to_top();
+        assert_eq!(state.scroll_y, 0);
+    }
+
+    #[test]
+    fn test_go_to_line() {
+        let content: Vec<String> = (0..50).map(|i| format!("Line {}", i)).collect();
+        let mut state = LogViewerState::new(content);
+
+        state.go_to_line(25);
+        assert_eq!(state.scroll_y, 25);
+
+        state.go_to_line(100); // Clamped to max
+        assert_eq!(state.scroll_y, 49);
+    }
+
+    #[test]
+    fn test_set_content() {
+        let mut state = LogViewerState::new(vec!["Old content".into()]);
+        state.scroll_y = 10;
+        state.scroll_x = 5;
+        state.search.query = "test".into();
+
+        state.set_content(vec!["New content".into()]);
+        assert_eq!(state.content.len(), 1);
+        assert_eq!(state.content[0], "New content");
+        assert_eq!(state.scroll_y, 0);
+        assert_eq!(state.scroll_x, 0);
+    }
+
+    #[test]
+    fn test_append() {
+        let mut state = LogViewerState::new(vec!["Line 1".into()]);
+        state.append("Line 2".into());
+        assert_eq!(state.content.len(), 2);
+        assert_eq!(state.content[1], "Line 2");
     }
 
     #[test]
@@ -538,6 +634,41 @@ mod tests {
         assert_eq!(state.search.matches.len(), 2);
         assert_eq!(state.search.matches[0], 1);
         assert_eq!(state.search.matches[1], 3);
+    }
+
+    #[test]
+    fn test_search_case_insensitive() {
+        let content = vec![
+            "ERROR message".into(),
+            "error again".into(),
+            "No match".into(),
+        ];
+        let mut state = LogViewerState::new(content);
+
+        state.search.query = "error".into();
+        state.update_search();
+
+        assert_eq!(state.search.matches.len(), 2);
+    }
+
+    #[test]
+    fn test_search_empty_query() {
+        let content = vec!["Line 1".into(), "Line 2".into()];
+        let mut state = LogViewerState::new(content);
+
+        state.search.query = "".into();
+        state.update_search();
+
+        assert!(state.search.matches.is_empty());
+    }
+
+    #[test]
+    fn test_cancel_search() {
+        let mut state = LogViewerState::new(vec!["Test".into()]);
+        state.start_search();
+        assert!(state.search.active);
+        state.cancel_search();
+        assert!(!state.search.active);
     }
 
     #[test]
@@ -563,6 +694,18 @@ mod tests {
     }
 
     #[test]
+    fn test_next_prev_match_empty() {
+        let mut state = LogViewerState::new(vec!["No matches".into()]);
+        state.search.query = "xyz".into();
+        state.update_search();
+
+        // Should not panic with empty matches
+        state.next_match();
+        state.prev_match();
+        assert_eq!(state.search.current_match, 0);
+    }
+
+    #[test]
     fn test_style_for_line() {
         let style = LogViewerStyle::default();
 
@@ -574,5 +717,54 @@ mod tests {
 
         let success_style = style.style_for_line("✓ Task completed");
         assert_eq!(success_style.fg, Some(Color::Green));
+    }
+
+    #[test]
+    fn test_style_for_line_debug_trace() {
+        let style = LogViewerStyle::default();
+
+        let debug_style = style.style_for_line("[DEBUG] Debug message");
+        assert_eq!(debug_style.fg, Some(Color::DarkGray));
+
+        let trace_style = style.style_for_line("[TRACE] Trace message");
+        assert_eq!(trace_style.fg, Some(Color::DarkGray));
+    }
+
+    #[test]
+    fn test_style_default_values() {
+        let style = LogViewerStyle::default();
+        assert!(style.show_line_numbers);
+        assert_eq!(style.line_number_width, 6);
+    }
+
+    #[test]
+    fn test_log_level_colors_default() {
+        let colors = LogLevelColors::default();
+        assert_eq!(colors.error, Color::Red);
+        assert_eq!(colors.warn, Color::Yellow);
+        assert_eq!(colors.info, Color::White);
+        assert_eq!(colors.debug, Color::DarkGray);
+        assert_eq!(colors.success, Color::Green);
+    }
+
+    #[test]
+    fn test_log_viewer_render() {
+        let content = vec!["[INFO] Test".into(), "[ERROR] Error".into()];
+        let state = LogViewerState::new(content);
+        let viewer = LogViewer::new(&state).title("Test Log");
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 80, 20));
+        viewer.render(Rect::new(0, 0, 80, 20), &mut buf);
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_log_viewer_show_line_numbers() {
+        let content = vec!["Line 1".into()];
+        let state = LogViewerState::new(content);
+        let viewer = LogViewer::new(&state).show_line_numbers(false);
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        viewer.render(Rect::new(0, 0, 40, 10), &mut buf);
     }
 }

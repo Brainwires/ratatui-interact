@@ -592,15 +592,25 @@ registry.register(region.area, my_custom_action);
 Run the examples to see components in action:
 
 ```bash
-cargo run --example checkbox_demo
-cargo run --example input_demo
-cargo run --example button_demo
-cargo run --example select_demo
-cargo run --example dialog_demo
-cargo run --example marquee_demo
-cargo run --example accordion_demo
-cargo run --example tab_view_demo
-cargo run --example breadcrumb_demo
+# Interactive Components
+cargo run --example checkbox_demo    # Checkbox with multiple styles
+cargo run --example input_demo       # Text input with cursor
+cargo run --example button_demo      # Button variants and styles
+cargo run --example select_demo      # Dropdown select boxes
+cargo run --example dialog_demo      # Modal dialogs
+
+# Display & Viewer Components
+cargo run --example marquee_demo     # Scrolling text animation
+cargo run --example display_demo     # Progress, StepDisplay, ParagraphExt
+
+# Navigation Components
+cargo run --example accordion_demo   # Collapsible sections
+cargo run --example tab_view_demo    # Tab bar with positions
+cargo run --example breadcrumb_demo  # Hierarchical path navigation
+cargo run --example navigation_demo  # ListPicker and TreeView
+
+# Combined Demo (requires filesystem feature)
+cargo run --example explorer_log_demo --features filesystem  # FileExplorer + LogViewer + Toast
 ```
 
 ## Comparison with Alternatives

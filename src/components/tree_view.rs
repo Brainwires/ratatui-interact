@@ -454,6 +454,104 @@ mod tests {
         ]
     }
 
+    fn create_deep_tree() -> Vec<TreeNode<TestItem>> {
+        vec![
+            TreeNode::new(
+                "root",
+                TestItem {
+                    name: "Root".into(),
+                },
+            )
+            .with_children(vec![
+                TreeNode::new(
+                    "level1",
+                    TestItem {
+                        name: "Level 1".into(),
+                    },
+                )
+                .with_children(vec![
+                    TreeNode::new(
+                        "level2",
+                        TestItem {
+                            name: "Level 2".into(),
+                        },
+                    )
+                    .with_children(vec![TreeNode::new(
+                        "level3",
+                        TestItem {
+                            name: "Level 3".into(),
+                        },
+                    )]),
+                ]),
+            ]),
+        ]
+    }
+
+    #[test]
+    fn test_tree_node_new() {
+        let node: TreeNode<TestItem> = TreeNode::new(
+            "test-id",
+            TestItem {
+                name: "Test".into(),
+            },
+        );
+        assert_eq!(node.id, "test-id");
+        assert_eq!(node.data.name, "Test");
+        assert!(node.children.is_empty());
+    }
+
+    #[test]
+    fn test_tree_node_with_children() {
+        let node: TreeNode<TestItem> = TreeNode::new(
+            "parent",
+            TestItem {
+                name: "Parent".into(),
+            },
+        )
+        .with_children(vec![
+            TreeNode::new(
+                "child1",
+                TestItem {
+                    name: "Child 1".into(),
+                },
+            ),
+            TreeNode::new(
+                "child2",
+                TestItem {
+                    name: "Child 2".into(),
+                },
+            ),
+        ]);
+        assert_eq!(node.children.len(), 2);
+    }
+
+    #[test]
+    fn test_tree_node_has_children() {
+        let leaf: TreeNode<TestItem> = TreeNode::new(
+            "leaf",
+            TestItem {
+                name: "Leaf".into(),
+            },
+        );
+        assert!(!leaf.has_children());
+
+        let parent: TreeNode<TestItem> = TreeNode::new(
+            "parent",
+            TestItem {
+                name: "Parent".into(),
+            },
+        )
+        .with_children(vec![leaf.clone()]);
+        assert!(parent.has_children());
+    }
+
+    #[test]
+    fn test_tree_state_new() {
+        let state = TreeViewState::new();
+        assert_eq!(state.selected_index, 0);
+        assert!(state.collapsed.is_empty());
+    }
+
     #[test]
     fn test_tree_state() {
         let mut state = TreeViewState::new();
@@ -464,6 +562,83 @@ mod tests {
 
         state.toggle_collapsed("1");
         assert!(!state.is_collapsed("1"));
+    }
+
+    #[test]
+    fn test_tree_state_expand() {
+        let mut state = TreeViewState::new();
+        state.collapse("node1");
+        state.collapse("node2");
+
+        assert!(state.is_collapsed("node1"));
+        state.expand("node1");
+        assert!(!state.is_collapsed("node1"));
+        assert!(state.is_collapsed("node2"));
+    }
+
+    #[test]
+    fn test_tree_state_collapse_multiple() {
+        let mut state = TreeViewState::new();
+
+        state.collapse("1");
+        state.collapse("2");
+        assert!(state.is_collapsed("1"));
+        assert!(state.is_collapsed("2"));
+
+        state.expand("1");
+        state.expand("2");
+        assert!(!state.is_collapsed("1"));
+        assert!(!state.is_collapsed("2"));
+    }
+
+    #[test]
+    fn test_tree_state_navigation() {
+        let mut state = TreeViewState::new();
+        assert_eq!(state.selected_index, 0);
+
+        state.select_next(5);
+        assert_eq!(state.selected_index, 1);
+
+        state.select_next(5);
+        state.select_next(5);
+        state.select_next(5);
+        assert_eq!(state.selected_index, 4);
+
+        state.select_next(5); // At max, should not increase
+        assert_eq!(state.selected_index, 4);
+
+        state.select_prev();
+        assert_eq!(state.selected_index, 3);
+
+        state.select_prev();
+        state.select_prev();
+        state.select_prev();
+        state.select_prev(); // At min, should not decrease
+        assert_eq!(state.selected_index, 0);
+    }
+
+    #[test]
+    fn test_tree_state_ensure_visible() {
+        let mut state = TreeViewState::new();
+        state.selected_index = 15;
+        state.scroll = 5;
+        state.ensure_visible(10);
+        assert!(state.scroll >= 6); // 15 - 10 + 1 = 6
+
+        state.selected_index = 2;
+        state.scroll = 10;
+        state.ensure_visible(10);
+        assert_eq!(state.scroll, 2);
+    }
+
+    #[test]
+    fn test_tree_state_ensure_visible_zero_viewport() {
+        let mut state = TreeViewState::new();
+        state.scroll = 5;
+        state.selected_index = 10;
+        state.ensure_visible(0);
+        // With viewport 0, condition (10 >= 5 + 0) is true, so scroll updates
+        assert_eq!(state.scroll, 11); // selected_index - 0 + 1
     }
 
     #[test]
@@ -488,6 +663,35 @@ mod tests {
     }
 
     #[test]
+    fn test_flatten_deep_tree() {
+        let nodes = create_deep_tree();
+        let state = TreeViewState::new();
+        let tree = TreeView::new(&nodes, &state);
+
+        let visible = tree.flatten_visible();
+        assert_eq!(visible.len(), 4); // root, level1, level2, level3
+
+        // Check depth levels
+        assert_eq!(visible[0].depth, 0);
+        assert_eq!(visible[1].depth, 1);
+        assert_eq!(visible[2].depth, 2);
+        assert_eq!(visible[3].depth, 3);
+    }
+
+    #[test]
+    fn test_visible_count() {
+        let nodes = create_test_tree();
+        let state = TreeViewState::new();
+        let tree = TreeView::new(&nodes, &state);
+        assert_eq!(tree.visible_count(), 4);
+
+        let mut collapsed_state = TreeViewState::new();
+        collapsed_state.collapse("1");
+        let collapsed_tree = TreeView::new(&nodes, &collapsed_state);
+        assert_eq!(collapsed_tree.visible_count(), 2);
+    }
+
+    #[test]
     fn test_selection_navigation() {
         let nodes = create_test_tree();
         let mut state = TreeViewState::new();
@@ -499,5 +703,79 @@ mod tests {
         assert_eq!(state.selected_index, 1);
         state.select_prev();
         assert_eq!(state.selected_index, 0);
+    }
+
+    #[test]
+    fn test_get_selected_id() {
+        let nodes = create_test_tree();
+        let mut state = TreeViewState::new();
+
+        let id = get_selected_id(&nodes, &state);
+        assert_eq!(id, Some("1".to_string()));
+
+        state.selected_index = 2;
+        let id = get_selected_id(&nodes, &state);
+        assert_eq!(id, Some("1.2".to_string()));
+
+        state.selected_index = 3;
+        let id = get_selected_id(&nodes, &state);
+        assert_eq!(id, Some("2".to_string()));
+    }
+
+    #[test]
+    fn test_get_selected_id_with_collapsed() {
+        let nodes = create_test_tree();
+        let mut state = TreeViewState::new();
+        state.collapse("1");
+        state.selected_index = 1;
+
+        let id = get_selected_id(&nodes, &state);
+        assert_eq!(id, Some("2".to_string()));
+    }
+
+    #[test]
+    fn test_tree_style_default() {
+        let style = TreeStyle::default();
+        assert_eq!(style.collapsed_icon, "▶ ");
+        assert_eq!(style.expanded_icon, "▼ ");
+        assert_eq!(style.connector_branch, "├── ");
+        assert_eq!(style.connector_last, "└── ");
+    }
+
+    #[test]
+    fn test_tree_view_render() {
+        let nodes = create_test_tree();
+        let state = TreeViewState::new();
+        let tree = TreeView::new(&nodes, &state)
+            .render_item(|node, _| format!("Item: {}", node.data.name));
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        tree.render(Rect::new(0, 0, 40, 10), &mut buf);
+        // Should not panic
+    }
+
+    #[test]
+    fn test_tree_view_with_style() {
+        let nodes = create_test_tree();
+        let state = TreeViewState::new();
+        let custom_style = TreeStyle {
+            collapsed_icon: "+",
+            expanded_icon: "-",
+            ..TreeStyle::default()
+        };
+        let tree = TreeView::new(&nodes, &state).style(custom_style);
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        tree.render(Rect::new(0, 0, 40, 10), &mut buf);
+    }
+
+    #[test]
+    fn test_empty_tree() {
+        let nodes: Vec<TreeNode<TestItem>> = vec![];
+        let state = TreeViewState::new();
+        let tree = TreeView::new(&nodes, &state);
+
+        assert_eq!(tree.visible_count(), 0);
+        assert!(tree.flatten_visible().is_empty());
     }
 }
