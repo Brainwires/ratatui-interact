@@ -7,6 +7,7 @@
 //! ## Interactive Components
 //! - [`CheckBox`] - Toggleable checkbox with label
 //! - [`Input`] - Text input field with cursor
+//! - [`TextArea`] - Multi-line text input with cursor and scrolling
 //! - [`Button`] - Various button styles
 //! - [`Select`] - Dropdown select box with popup options
 //! - [`PopupDialog`] - Container for popup dialogs
@@ -48,6 +49,7 @@ pub mod select;
 pub mod spinner;
 pub mod step_display;
 pub mod tab_view;
+pub mod textarea;
 pub mod toast;
 pub mod tree_view;
 
@@ -85,5 +87,6 @@ pub use tab_view::{
     Tab, TabPosition, TabView, TabViewAction, TabViewState, TabViewStyle, handle_tab_view_key,
     handle_tab_view_mouse,
 };
+pub use textarea::{TabConfig, TextArea, TextAreaAction, TextAreaState, TextAreaStyle, WrapMode};
 pub use toast::{Toast, ToastState, ToastStyle};
 pub use tree_view::{FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState, get_selected_id};
