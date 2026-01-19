@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ParagraphExt` - Extended paragraph with click region registry support
   - `Progress` - Progress bar indicator
   - `MarqueeText` - Scrolling text widget with continuous, bounce, and static modes
+  - `Spinner` - Animated loading indicator with 12 frame styles (dots, braille, line, circle, arrow, clock, moon, etc.)
 
 - **Navigation Components**
   - `FileExplorer` - File system browser with selection, search, and hidden file toggle
@@ -51,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `input_demo` - Input component demonstration
   - `select_demo` - Select dropdown component with multiple instances
   - `marquee_demo` - Marquee text scrolling demonstration
+  - `spinner_demo` - Animated spinner with 12 different frame styles
   - `accordion_demo` - Accordion component with single and multiple modes
   - `tab_view_demo` - Tab view with position cycling and content switching
   - `breadcrumb_demo` - Breadcrumb navigation with multiple style presets and dynamic path manipulation

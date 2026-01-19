@@ -13,7 +13,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 - **Focus Management** - Tab/Shift+Tab navigation with `FocusManager<T>`
 - **Mouse Click Support** - Click regions with hit-testing via `ClickRegion` and `ClickRegionRegistry`
 - **Interactive Widgets** - CheckBox, Input, Button, Select, PopupDialog
-- **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText
+- **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText, Spinner
 - **Navigation Widgets** - ListPicker, TreeView, FileExplorer, Accordion
 - **Layout Widgets** - TabView
 - **Viewer Widgets** - LogViewer, StepDisplay
@@ -99,6 +99,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **Toast** | Transient notification popup with auto-expiration and style variants |
 | **Progress** | Progress bar with label, percentage, and step counter |
 | **MarqueeText** | Scrolling text for long content in limited space (continuous, bounce, static modes) |
+| **Spinner** | Animated loading indicator with 12 frame styles (dots, braille, line, etc.) |
 
 ### Navigation Components
 
@@ -179,6 +180,52 @@ let progress = Progress::from_steps(3, 10)
 let success = Progress::new(1.0).style(ProgressStyle::success());
 let warning = Progress::new(0.9).style(ProgressStyle::warning());
 ```
+
+### Spinner
+
+```rust
+use ratatui_interact::components::{Spinner, SpinnerState, SpinnerStyle, SpinnerFrames};
+
+// Create state (call tick() each frame to animate)
+let mut state = SpinnerState::new();
+
+// Simple spinner
+let spinner = Spinner::new(&state);
+
+// With label
+let spinner = Spinner::new(&state)
+    .label("Loading...");
+
+// Different frame styles
+let spinner = Spinner::new(&state)
+    .frames(SpinnerFrames::Braille)
+    .label("Processing");
+
+// Custom color
+let spinner = Spinner::new(&state)
+    .color(Color::Green)
+    .label("Success!");
+
+// In your event loop, advance the animation
+let frame_count = SpinnerFrames::Dots.frames().len();
+state.tick_with_frames(frame_count);
+
+// Or use state configured for specific frames
+let mut state = SpinnerState::for_frames(SpinnerFrames::Moon);
+state.tick_with_frames(SpinnerFrames::Moon.frames().len());
+```
+
+Available frame styles:
+- `Dots` - ⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏ (default)
+- `Braille` - ⣾ ⣽ ⣻ ⢿ ⡿ ⣟ ⣯ ⣷
+- `Line` - | / - \
+- `Circle` - ◐ ◓ ◑ ◒
+- `Arrow` - ← ↖ ↑ ↗ → ↘ ↓ ↙
+- `Clock` - 🕐 🕑 🕒 ... (12 frames)
+- `Moon` - 🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘
+- And more: `Box`, `Bounce`, `Grow`, `Ascii`, `Toggle`
+
+Style presets: `SpinnerStyle::success()`, `warning()`, `error()`, `info()`, `minimal()`
 
 ### Marquee Text
 
@@ -601,6 +648,7 @@ cargo run --example dialog_demo      # Modal dialogs
 
 # Display & Viewer Components
 cargo run --example marquee_demo     # Scrolling text animation
+cargo run --example spinner_demo     # Animated loading indicators
 cargo run --example display_demo     # Progress, StepDisplay, ParagraphExt
 
 # Navigation Components

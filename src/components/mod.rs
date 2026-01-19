@@ -16,6 +16,7 @@
 //! - [`Toast`] - Toast notifications with auto-dismiss
 //! - [`Progress`] - Progress bar with label and percentage
 //! - [`MarqueeText`] - Scrolling text for long content in limited space
+//! - [`Spinner`] - Animated loading/processing indicator with multiple styles
 //!
 //! ## Navigation Components
 //! - [`ListPicker`] - Scrollable list with selection
@@ -44,6 +45,7 @@ pub mod marquee;
 pub mod paragraph_ext;
 pub mod progress;
 pub mod select;
+pub mod spinner;
 pub mod step_display;
 pub mod tab_view;
 pub mod toast;
@@ -70,6 +72,7 @@ pub use marquee::{
 };
 pub use paragraph_ext::ParagraphExt;
 pub use progress::{Progress, ProgressStyle};
+pub use spinner::{LabelPosition, Spinner, SpinnerFrames, SpinnerState, SpinnerStyle};
 pub use select::{
     Select, SelectAction, SelectState, SelectStyle, calculate_dropdown_height, handle_select_key,
     handle_select_mouse,
