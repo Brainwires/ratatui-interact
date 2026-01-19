@@ -28,6 +28,7 @@
 //!
 //! ## Layout Components
 //! - [`TabView`] - Tab bar with switchable content panes
+//! - [`SplitPane`] - Resizable split pane with drag-to-resize divider
 //!
 //! ## Viewer Components
 //! - [`LogViewer`] - Scrollable log viewer with search
@@ -47,6 +48,7 @@ pub mod paragraph_ext;
 pub mod progress;
 pub mod select;
 pub mod spinner;
+pub mod split_pane;
 pub mod step_display;
 pub mod tab_view;
 pub mod textarea;
@@ -78,6 +80,10 @@ pub use spinner::{LabelPosition, Spinner, SpinnerFrames, SpinnerState, SpinnerSt
 pub use select::{
     Select, SelectAction, SelectState, SelectStyle, calculate_dropdown_height, handle_select_key,
     handle_select_mouse,
+};
+pub use split_pane::{
+    Orientation, SplitPane, SplitPaneAction, SplitPaneState, SplitPaneStyle, handle_split_pane_key,
+    handle_split_pane_mouse,
 };
 pub use step_display::{
     Step, StepDisplay, StepDisplayState, StepDisplayStyle, StepStatus, SubStep,

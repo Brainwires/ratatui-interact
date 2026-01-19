@@ -188,6 +188,12 @@ pub mod prelude {
         FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState, get_selected_id,
     };
 
+    // Layout Components
+    pub use crate::components::{
+        Orientation, SplitPane, SplitPaneAction, SplitPaneState, SplitPaneStyle,
+        handle_split_pane_key, handle_split_pane_mouse,
+    };
+
     // Viewer Components
     pub use crate::components::{
         LogViewer, LogViewerState, LogViewerStyle, SearchState, Step, StepDisplay,

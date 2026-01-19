@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Layout Components**
   - `TabView` - Tab bar with content switching, supports top/bottom/left/right positions, keyboard navigation (arrows, number keys, Home/End), and mouse click support
+  - `SplitPane` - Resizable split pane with drag-to-resize divider, supports horizontal (left/right) and vertical (top/bottom) orientations, keyboard resize with arrow keys, and nested split panes
 
 - **Viewer Components**
   - `LogViewer` - Scrollable log display with ANSI color support
@@ -55,13 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `spinner_demo` - Animated spinner with 12 different frame styles
   - `accordion_demo` - Accordion component with single and multiple modes
   - `tab_view_demo` - Tab view with position cycling and content switching
+  - `split_pane_demo` - Split pane with nested panes, drag-to-resize, and orientation toggle
   - `breadcrumb_demo` - Breadcrumb navigation with multiple style presets and dynamic path manipulation
   - `display_demo` - Display components: Progress, StepDisplay, ParagraphExt
   - `navigation_demo` - Navigation components: ListPicker, TreeView
   - `explorer_log_demo` - Combined FileExplorer, LogViewer, and Toast (requires `filesystem` feature)
 
 - **Tests**
-  - Comprehensive unit tests for all 17 components
+  - Comprehensive unit tests for all 18 components
   - Tests for state management, rendering, styling, and edge cases
 
 ### Changed

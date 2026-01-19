@@ -15,7 +15,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 - **Interactive Widgets** - CheckBox, Input, Button, Select, PopupDialog
 - **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText, Spinner
 - **Navigation Widgets** - ListPicker, TreeView, FileExplorer, Accordion
-- **Layout Widgets** - TabView
+- **Layout Widgets** - TabView, SplitPane
 - **Viewer Widgets** - LogViewer, StepDisplay
 - **Utilities** - ANSI parsing, display helpers
 - **Composition Traits** - `Focusable`, `Clickable`, `Container` for building custom components
@@ -116,6 +116,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | Component | Description |
 |-----------|-------------|
 | **TabView** | Tab bar with content switching, supports top/bottom/left/right positions |
+| **SplitPane** | Resizable split pane with drag-to-resize divider, horizontal/vertical orientations |
 
 ### Viewer Components
 
@@ -485,6 +486,61 @@ Style presets:
 - `TabViewStyle::right()` - Vertical tabs on right side
 - `TabViewStyle::minimal()` - No borders, simple dividers
 
+### Split Pane
+
+```rust
+use ratatui_interact::components::{
+    SplitPane, SplitPaneState, SplitPaneStyle, SplitPaneAction, Orientation,
+    handle_split_pane_key, handle_split_pane_mouse,
+};
+use ratatui_interact::traits::ClickRegionRegistry;
+
+// Create state with initial split percentage (50% = equal split)
+let mut state = SplitPaneState::new(50);
+state.divider_focused = true; // Enable keyboard resize
+
+// Create split pane with horizontal orientation (left | right)
+let split_pane = SplitPane::new(&state)
+    .orientation(Orientation::Horizontal)
+    .style(SplitPaneStyle::default())
+    .min_percent(10)  // Minimum 10% for first pane
+    .max_percent(90); // Maximum 90% for first pane
+
+// Calculate areas for manual rendering
+let (first_area, divider_area, second_area) = split_pane.calculate_areas(area);
+
+// Register click regions for mouse support
+let mut registry: ClickRegionRegistry<SplitPaneAction> = ClickRegionRegistry::new();
+registry.register(first_area, SplitPaneAction::FirstPaneClick);
+registry.register(divider_area, SplitPaneAction::DividerDrag);
+registry.register(second_area, SplitPaneAction::SecondPaneClick);
+
+// Or use the all-in-one render method with closures
+split_pane.render_with_content(
+    area,
+    buf,
+    &mut state,
+    |first_area, buf| { /* render first pane content */ },
+    |second_area, buf| { /* render second pane content */ },
+    &mut registry,
+);
+
+// Handle keyboard (arrows resize when divider focused, Home/End for min/max)
+handle_split_pane_key(&mut state, &key_event, Orientation::Horizontal, 5, 10, 90);
+
+// Handle mouse (drag divider to resize)
+handle_split_pane_mouse(&mut state, &mouse_event, Orientation::Horizontal, &registry, 10, 90);
+```
+
+Orientations:
+- `Orientation::Horizontal` - Left | Right split (default)
+- `Orientation::Vertical` - Top / Bottom split
+
+Style presets:
+- `SplitPaneStyle::default()` - Dark gray divider with grab indicator
+- `SplitPaneStyle::minimal()` - Thin line divider, no background
+- `SplitPaneStyle::prominent()` - Blue divider with high visibility
+
 ### Log Viewer
 
 ```rust
@@ -651,11 +707,12 @@ cargo run --example marquee_demo     # Scrolling text animation
 cargo run --example spinner_demo     # Animated loading indicators
 cargo run --example display_demo     # Progress, StepDisplay, ParagraphExt
 
-# Navigation Components
-cargo run --example accordion_demo   # Collapsible sections
-cargo run --example tab_view_demo    # Tab bar with positions
-cargo run --example breadcrumb_demo  # Hierarchical path navigation
-cargo run --example navigation_demo  # ListPicker and TreeView
+# Navigation & Layout Components
+cargo run --example accordion_demo     # Collapsible sections
+cargo run --example tab_view_demo      # Tab bar with positions
+cargo run --example split_pane_demo    # Resizable split panes
+cargo run --example breadcrumb_demo    # Hierarchical path navigation
+cargo run --example navigation_demo    # ListPicker and TreeView
 
 # Combined Demo (requires filesystem feature)
 cargo run --example explorer_log_demo --features filesystem  # FileExplorer + LogViewer + Toast
