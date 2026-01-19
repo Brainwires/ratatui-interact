@@ -8,6 +8,7 @@
 //! - [`CheckBox`] - Toggleable checkbox with label
 //! - [`Input`] - Text input field with cursor
 //! - [`Button`] - Various button styles
+//! - [`Select`] - Dropdown select box with popup options
 //! - [`PopupDialog`] - Container for popup dialogs
 //!
 //! ## Display Components
@@ -40,6 +41,7 @@ pub mod log_viewer;
 pub mod marquee;
 pub mod paragraph_ext;
 pub mod progress;
+pub mod select;
 pub mod step_display;
 pub mod tab_view;
 pub mod toast;
@@ -65,6 +67,10 @@ pub use step_display::{
 pub use toast::{Toast, ToastState, ToastStyle};
 pub use tree_view::{FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState, get_selected_id};
 pub use marquee::{MarqueeMode, MarqueeState, MarqueeStyle, MarqueeText, ScrollDir, bounce_marquee, continuous_marquee};
+pub use select::{
+    Select, SelectAction, SelectState, SelectStyle,
+    calculate_dropdown_height, handle_select_key, handle_select_mouse,
+};
 pub use tab_view::{
     Tab, TabPosition, TabView, TabViewAction, TabViewState, TabViewStyle,
     handle_tab_view_key, handle_tab_view_mouse,
