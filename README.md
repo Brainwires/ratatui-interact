@@ -15,6 +15,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 - **Interactive Widgets** - CheckBox, Input, Button, Select, PopupDialog
 - **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText
 - **Navigation Widgets** - ListPicker, TreeView, FileExplorer, Accordion
+- **Layout Widgets** - TabView
 - **Viewer Widgets** - LogViewer, StepDisplay
 - **Utilities** - ANSI parsing, display helpers
 - **Composition Traits** - `Focusable`, `Clickable`, `Container` for building custom components
@@ -107,6 +108,12 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **TreeView** | Collapsible tree view with selection and customizable rendering |
 | **FileExplorer** | File browser with multi-select, search, and hidden file toggle |
 | **Accordion** | Collapsible sections with single or multiple expansion modes |
+
+### Layout Components
+
+| Component | Description |
+|-----------|-------------|
+| **TabView** | Tab bar with content switching, supports top/bottom/left/right positions |
 
 ### Viewer Components
 
@@ -326,6 +333,58 @@ let accordion = Accordion::new(&items, &state)
     });
 ```
 
+### Tab View
+
+```rust
+use ratatui_interact::components::{
+    Tab, TabView, TabViewState, TabViewStyle, TabPosition,
+    handle_tab_view_key, handle_tab_view_mouse,
+};
+use ratatui_interact::traits::ClickRegionRegistry;
+
+// Create tabs with optional icons and badges
+let tabs = vec![
+    Tab::new("General").icon("⚙"),
+    Tab::new("Network").icon("🌐").badge("3"),
+    Tab::new("Security").icon("🔒"),
+];
+
+// Create state
+let mut state = TabViewState::new(tabs.len());
+
+// Create style (tabs on left side)
+let style = TabViewStyle::left().tab_width(18);
+
+// Create tab view with content renderer
+let tab_view = TabView::new(&tabs, &state)
+    .style(style)
+    .content(|idx, area, buf| {
+        let text = match idx {
+            0 => "General settings content",
+            1 => "Network configuration content",
+            _ => "Security options content",
+        };
+        Paragraph::new(text).render(area, buf);
+    });
+
+// Render and register click regions
+let mut registry: ClickRegionRegistry<TabViewAction> = ClickRegionRegistry::new();
+tab_view.render_with_registry(area, buf, &mut registry);
+
+// Handle keyboard (arrows navigate, Enter focuses content, Esc focuses tabs, 1-9 direct select)
+handle_tab_view_key(&mut state, &key_event, style.position);
+
+// Handle mouse clicks
+handle_tab_view_mouse(&mut state, &registry, &mouse_event);
+```
+
+Style presets:
+- `TabViewStyle::top()` - Horizontal tabs above content (default)
+- `TabViewStyle::bottom()` - Horizontal tabs below content
+- `TabViewStyle::left()` - Vertical tabs on left side
+- `TabViewStyle::right()` - Vertical tabs on right side
+- `TabViewStyle::minimal()` - No borders, simple dividers
+
 ### Log Viewer
 
 ```rust
@@ -487,6 +546,7 @@ cargo run --example select_demo
 cargo run --example dialog_demo
 cargo run --example marquee_demo
 cargo run --example accordion_demo
+cargo run --example tab_view_demo
 ```
 
 ## Comparison with Alternatives
