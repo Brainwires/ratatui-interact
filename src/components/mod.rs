@@ -20,6 +20,7 @@
 //! - [`ListPicker`] - Scrollable list with selection
 //! - [`TreeView`] - Collapsible tree view with selection
 //! - [`FileExplorer`] - File browser with multi-select
+//! - [`Accordion`] - Collapsible sections with single or multiple expansion
 //!
 //! ## Layout Components
 //! - [`TabView`] - Tab bar with switchable content panes
@@ -28,6 +29,7 @@
 //! - [`LogViewer`] - Scrollable log viewer with search
 //! - [`StepDisplay`] - Multi-step progress display
 
+pub mod accordion;
 pub mod button;
 pub mod checkbox;
 pub mod container;
@@ -43,6 +45,10 @@ pub mod tab_view;
 pub mod toast;
 pub mod tree_view;
 
+pub use accordion::{
+    Accordion, AccordionMode, AccordionState, AccordionStyle,
+    calculate_height as accordion_height, handle_accordion_key, handle_accordion_mouse,
+};
 pub use button::{Button, ButtonAction, ButtonState, ButtonStyle, ButtonVariant};
 pub use checkbox::{CheckBox, CheckBoxAction, CheckBoxState, CheckBoxStyle};
 pub use container::{DialogConfig, DialogFocusTarget, DialogState, PopupDialog};
