@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Viewer Components**
   - `LogViewer` - Scrollable log display with ANSI color support
+  - `DiffViewer` - Diff viewer with unified and side-by-side modes, hunk/change navigation, search, and syntax highlighting for additions/deletions
   - `StepDisplay` - Step-by-step progress display
 
 - **Utilities**
@@ -54,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `select_demo` - Select dropdown component with multiple instances
   - `marquee_demo` - Marquee text scrolling demonstration
   - `spinner_demo` - Animated spinner with 12 different frame styles
+  - `diff_viewer_demo` - Diff viewer with unified/side-by-side modes and navigation
   - `accordion_demo` - Accordion component with single and multiple modes
   - `tab_view_demo` - Tab view with position cycling and content switching
   - `split_pane_demo` - Split pane with nested panes, drag-to-resize, and orientation toggle
@@ -63,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `explorer_log_demo` - Combined FileExplorer, LogViewer, and Toast (requires `filesystem` feature)
 
 - **Tests**
-  - Comprehensive unit tests for all 18 components
+  - Comprehensive unit tests for all 19 components
   - Tests for state management, rendering, styling, and edge cases
 
 ### Changed

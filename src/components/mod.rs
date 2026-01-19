@@ -32,6 +32,7 @@
 //!
 //! ## Viewer Components
 //! - [`LogViewer`] - Scrollable log viewer with search
+//! - [`DiffViewer`] - Diff viewer with unified and side-by-side modes
 //! - [`StepDisplay`] - Multi-step progress display
 
 pub mod accordion;
@@ -39,6 +40,7 @@ pub mod breadcrumb;
 pub mod button;
 pub mod checkbox;
 pub mod container;
+pub mod diff_viewer;
 pub mod file_explorer;
 pub mod input;
 pub mod list_picker;
@@ -66,6 +68,10 @@ pub use breadcrumb::{
 pub use button::{Button, ButtonAction, ButtonState, ButtonStyle, ButtonVariant};
 pub use checkbox::{CheckBox, CheckBoxAction, CheckBoxState, CheckBoxStyle};
 pub use container::{DialogConfig, DialogFocusTarget, DialogState, PopupDialog};
+pub use diff_viewer::{
+    DiffData, DiffHunk, DiffLine, DiffLineType, DiffViewMode, DiffViewer, DiffViewerAction,
+    DiffViewerState, DiffViewerStyle, handle_diff_viewer_key, handle_diff_viewer_mouse,
+};
 pub use file_explorer::{EntryType, FileEntry, FileExplorer, FileExplorerState, FileExplorerStyle};
 pub use input::{Input, InputAction, InputState, InputStyle};
 pub use list_picker::{ListPicker, ListPickerState, ListPickerStyle, key_hints_footer};

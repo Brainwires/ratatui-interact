@@ -16,7 +16,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 - **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText, Spinner
 - **Navigation Widgets** - ListPicker, TreeView, FileExplorer, Accordion
 - **Layout Widgets** - TabView, SplitPane
-- **Viewer Widgets** - LogViewer, StepDisplay
+- **Viewer Widgets** - LogViewer, DiffViewer, StepDisplay
 - **Utilities** - ANSI parsing, display helpers
 - **Composition Traits** - `Focusable`, `Clickable`, `Container` for building custom components
 
@@ -123,6 +123,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | Component | Description |
 |-----------|-------------|
 | **LogViewer** | Scrollable log viewer with line numbers, search, and log-level coloring |
+| **DiffViewer** | Diff viewer with unified and side-by-side modes, hunk navigation, search, and syntax highlighting |
 | **StepDisplay** | Multi-step progress display with sub-steps and output areas |
 
 ## Utilities
@@ -566,6 +567,71 @@ let viewer = LogViewer::new(&state)
     .show_line_numbers(true);
 ```
 
+### Diff Viewer
+
+```rust
+use ratatui_interact::components::{
+    DiffViewer, DiffViewerState, DiffViewMode, DiffData,
+    handle_diff_viewer_key, handle_diff_viewer_mouse,
+};
+
+// Parse a unified diff (e.g., from `git diff`)
+let diff_text = r#"--- a/src/main.rs
++++ b/src/main.rs
+@@ -1,5 +1,6 @@
+ fn main() {
+-    println!("Hello, world!");
++    println!("Hello, Rust!");
++    println!("Welcome!");
+ }
+"#;
+
+let mut state = DiffViewerState::from_unified_diff(diff_text);
+
+// Toggle view mode
+state.toggle_view_mode(); // Switches between Unified and SideBySide
+
+// Hunk navigation
+state.next_hunk();
+state.prev_hunk();
+
+// Change navigation (jump to next/prev addition or deletion)
+state.next_change();
+state.prev_change();
+
+// Search within diff
+state.start_search();
+state.search.query = "println".to_string();
+state.update_search();
+state.next_match();
+
+// Create viewer
+let viewer = DiffViewer::new(&state)
+    .title("Code Changes")
+    .show_stats(true); // Shows +/- counts in title
+
+// Handle keyboard input (in your event loop)
+// handle_diff_viewer_key(&mut state, &key_event);
+
+// Handle mouse scroll
+// handle_diff_viewer_mouse(&mut state, &mouse_event);
+```
+
+Key bindings:
+- `j/k` or `↑/↓`: Scroll up/down
+- `h/l` or `←/→`: Scroll left/right
+- `g/G` or `Home/End`: Go to top/bottom
+- `]/[`: Next/previous hunk
+- `n/N`: Next/previous change (or search match)
+- `v` or `m`: Toggle view mode (unified/side-by-side)
+- `/`: Start search
+- `PgUp/PgDn` or `Ctrl+U/D`: Page navigation
+
+Style presets:
+- `DiffViewerStyle::default()` - Green additions, red deletions with dark backgrounds
+- `DiffViewerStyle::high_contrast()` - Brighter colors for better visibility
+- `DiffViewerStyle::monochrome()` - Bold/dim text without colors
+
 ### Step Display
 
 ```rust
@@ -703,9 +769,10 @@ cargo run --example select_demo      # Dropdown select boxes
 cargo run --example dialog_demo      # Modal dialogs
 
 # Display & Viewer Components
-cargo run --example marquee_demo     # Scrolling text animation
-cargo run --example spinner_demo     # Animated loading indicators
-cargo run --example display_demo     # Progress, StepDisplay, ParagraphExt
+cargo run --example marquee_demo       # Scrolling text animation
+cargo run --example spinner_demo       # Animated loading indicators
+cargo run --example display_demo       # Progress, StepDisplay, ParagraphExt
+cargo run --example diff_viewer_demo   # Diff viewer with unified/side-by-side modes
 
 # Navigation & Layout Components
 cargo run --example accordion_demo     # Collapsible sections

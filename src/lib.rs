@@ -196,8 +196,10 @@ pub mod prelude {
 
     // Viewer Components
     pub use crate::components::{
-        LogViewer, LogViewerState, LogViewerStyle, SearchState, Step, StepDisplay,
-        StepDisplayState, StepDisplayStyle, StepStatus, SubStep, step_display_height,
+        DiffData, DiffHunk, DiffLine, DiffLineType, DiffViewMode, DiffViewer, DiffViewerAction,
+        DiffViewerState, DiffViewerStyle, LogViewer, LogViewerState, LogViewerStyle, SearchState,
+        Step, StepDisplay, StepDisplayState, StepDisplayStyle, StepStatus, SubStep,
+        handle_diff_viewer_key, handle_diff_viewer_mouse, step_display_height,
     };
 
     // Utilities
