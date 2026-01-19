@@ -14,7 +14,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 - **Mouse Click Support** - Click regions with hit-testing via `ClickRegion` and `ClickRegionRegistry`
 - **Interactive Widgets** - CheckBox, Input, Button, PopupDialog
 - **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText
-- **Navigation Widgets** - ListPicker, TreeView, FileExplorer
+- **Navigation Widgets** - ListPicker, TreeView, FileExplorer, Accordion
 - **Viewer Widgets** - LogViewer, StepDisplay
 - **Utilities** - ANSI parsing, display helpers
 - **Composition Traits** - `Focusable`, `Clickable`, `Container` for building custom components
@@ -105,6 +105,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **ListPicker** | Scrollable list with selection cursor for picking items |
 | **TreeView** | Collapsible tree view with selection and customizable rendering |
 | **FileExplorer** | File browser with multi-select, search, and hidden file toggle |
+| **Accordion** | Collapsible sections with single or multiple expansion modes |
 
 ### Viewer Components
 
@@ -249,6 +250,37 @@ state.toggle_collapsed("1"); // Collapse/expand
 let tree = TreeView::new(&nodes, &state)
     .render_item(|node, selected| {
         format!("[{}] {}", if node.data.done { "x" } else { " " }, node.data.name)
+    });
+```
+
+### Accordion
+
+```rust
+use ratatui_interact::components::{Accordion, AccordionState, AccordionMode};
+
+// Single mode: only one section expanded at a time (FAQ-style)
+let mut state = AccordionState::new(items.len())
+    .with_mode(AccordionMode::Single);
+
+// Multiple mode: any number can be expanded (settings-style)
+let mut state = AccordionState::new(items.len())
+    .with_mode(AccordionMode::Multiple)
+    .with_expanded(vec!["section1".into()]);
+
+// Toggle, expand, collapse
+state.toggle("faq1");
+state.expand("faq2");
+state.collapse("faq1");
+
+// Create accordion with custom renderers
+let accordion = Accordion::new(&items, &state)
+    .id_fn(|item, _| item.id.clone())
+    .render_header(|item, _idx, is_focused| {
+        Line::raw(item.title.clone())
+    })
+    .render_content(|item, _idx, area, buf| {
+        let paragraph = Paragraph::new(item.content.as_str());
+        paragraph.render(area, buf);
     });
 ```
 
@@ -411,6 +443,7 @@ cargo run --example input_demo
 cargo run --example button_demo
 cargo run --example dialog_demo
 cargo run --example marquee_demo
+cargo run --example accordion_demo
 ```
 
 ## Comparison with Alternatives

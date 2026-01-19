@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `FileExplorer` - File system browser with selection, search, and hidden file toggle
   - `ListPicker` - Scrollable list selection component
   - `TreeView` - Hierarchical tree structure navigation
+  - `Accordion` - Collapsible sections with single or multiple expansion modes
 
 - **Viewer Components**
   - `LogViewer` - Scrollable log display with ANSI color support
@@ -44,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `dialog_demo` - Dialog component demonstration
   - `input_demo` - Input component demonstration
   - `marquee_demo` - Marquee text scrolling demonstration
+  - `accordion_demo` - Accordion component with single and multiple modes
 
 ### Changed
 - Renamed crate from `ratatui-extension` to `ratatui-interact`
