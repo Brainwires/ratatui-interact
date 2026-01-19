@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Toast` - Notification widget with auto-dismiss and multiple severity levels
   - `ParagraphExt` - Extended paragraph with click region registry support
   - `Progress` - Progress bar indicator
+  - `MarqueeText` - Scrolling text widget with continuous, bounce, and static modes
 
 - **Navigation Components**
   - `FileExplorer` - File system browser with selection, search, and hidden file toggle
@@ -42,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `checkbox_demo` - Checkbox component demonstration
   - `dialog_demo` - Dialog component demonstration
   - `input_demo` - Input component demonstration
+  - `marquee_demo` - Marquee text scrolling demonstration
 
 ### Changed
 - Renamed crate from `ratatui-extension` to `ratatui-interact`

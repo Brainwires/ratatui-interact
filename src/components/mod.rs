@@ -14,6 +14,7 @@
 //! - [`ParagraphExt`] - Extended paragraph with word-wrapping and scrolling
 //! - [`Toast`] - Toast notifications with auto-dismiss
 //! - [`Progress`] - Progress bar with label and percentage
+//! - [`MarqueeText`] - Scrolling text for long content in limited space
 //!
 //! ## Navigation Components
 //! - [`ListPicker`] - Scrollable list with selection
@@ -31,6 +32,7 @@ pub mod file_explorer;
 pub mod input;
 pub mod list_picker;
 pub mod log_viewer;
+pub mod marquee;
 pub mod paragraph_ext;
 pub mod progress;
 pub mod step_display;
@@ -52,3 +54,4 @@ pub use step_display::{
 };
 pub use toast::{Toast, ToastState, ToastStyle};
 pub use tree_view::{FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState, get_selected_id};
+pub use marquee::{MarqueeMode, MarqueeState, MarqueeStyle, MarqueeText, ScrollDir, bounce_marquee, continuous_marquee};

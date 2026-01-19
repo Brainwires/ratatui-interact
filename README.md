@@ -13,7 +13,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 - **Focus Management** - Tab/Shift+Tab navigation with `FocusManager<T>`
 - **Mouse Click Support** - Click regions with hit-testing via `ClickRegion` and `ClickRegionRegistry`
 - **Interactive Widgets** - CheckBox, Input, Button, PopupDialog
-- **Display Widgets** - ParagraphExt, Toast, Progress
+- **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText
 - **Navigation Widgets** - ListPicker, TreeView, FileExplorer
 - **Viewer Widgets** - LogViewer, StepDisplay
 - **Utilities** - ANSI parsing, display helpers
@@ -96,6 +96,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **ParagraphExt** | Extended paragraph with word-wrapping and scrolling |
 | **Toast** | Transient notification popup with auto-expiration and style variants |
 | **Progress** | Progress bar with label, percentage, and step counter |
+| **MarqueeText** | Scrolling text for long content in limited space (continuous, bounce, static modes) |
 
 ### Navigation Components
 
@@ -168,6 +169,42 @@ let progress = Progress::from_steps(3, 10)
 let success = Progress::new(1.0).style(ProgressStyle::success());
 let warning = Progress::new(0.9).style(ProgressStyle::warning());
 ```
+
+### Marquee Text
+
+```rust
+use ratatui_interact::components::{MarqueeText, MarqueeState, MarqueeStyle, MarqueeMode};
+
+// Create state (call tick() each frame to animate)
+let mut state = MarqueeState::new();
+
+// Continuous scrolling (loops around)
+let marquee = MarqueeText::new("This is a long message that scrolls continuously", &mut state)
+    .style(MarqueeStyle::default().mode(MarqueeMode::Continuous));
+
+// Bounce mode (scrolls back and forth) - great for file paths
+let mut state = MarqueeState::new();
+let marquee = MarqueeText::new("/home/user/very/long/path/to/file.rs", &mut state)
+    .style(MarqueeStyle::file_path());
+
+// Static mode (truncate with ellipsis)
+let mut state = MarqueeState::new();
+let marquee = MarqueeText::new("Long text truncated with ellipsis", &mut state)
+    .style(MarqueeStyle::default().mode(MarqueeMode::Static));
+
+// In your event loop, advance the animation
+state.tick(text_width, viewport_width, &style);
+```
+
+Marquee modes:
+- `Continuous` - Text loops with a separator (default: "   ")
+- `Bounce` - Text scrolls to end, pauses, then scrolls back
+- `Static` - No animation, just truncate with ellipsis
+
+Style presets:
+- `MarqueeStyle::file_path()` - Cyan, bounce mode, longer pause
+- `MarqueeStyle::status()` - Yellow bold, continuous
+- `MarqueeStyle::title()` - Bold, bounce mode, long pause
 
 ### List Picker
 
@@ -373,6 +410,7 @@ cargo run --example checkbox_demo
 cargo run --example input_demo
 cargo run --example button_demo
 cargo run --example dialog_demo
+cargo run --example marquee_demo
 ```
 
 ## Comparison with Alternatives
