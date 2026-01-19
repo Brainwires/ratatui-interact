@@ -184,7 +184,7 @@ pub trait HotkeyProvider {
 mod tests {
     use super::*;
 
-    #[derive(Clone, Copy, PartialEq, Eq, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
     enum TestCategory {
         #[default]
         General,

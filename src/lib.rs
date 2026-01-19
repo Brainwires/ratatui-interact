@@ -168,8 +168,10 @@ pub mod prelude {
     // Interactive Components
     pub use crate::components::{
         Button, ButtonAction, ButtonState, ButtonStyle, ButtonVariant, CheckBox, CheckBoxAction,
-        CheckBoxState, CheckBoxStyle, DialogConfig, DialogFocusTarget, DialogState, Input,
-        InputAction, InputState, InputStyle, PopupDialog,
+        CheckBoxState, CheckBoxStyle, ContextMenu, ContextMenuAction, ContextMenuItem,
+        ContextMenuState, ContextMenuStyle, DialogConfig, DialogFocusTarget, DialogState, Input,
+        InputAction, InputState, InputStyle, PopupDialog, calculate_menu_height,
+        handle_context_menu_key, handle_context_menu_mouse, is_context_menu_trigger,
     };
 
     // Display Components

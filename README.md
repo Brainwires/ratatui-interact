@@ -12,7 +12,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 
 - **Focus Management** - Tab/Shift+Tab navigation with `FocusManager<T>`
 - **Mouse Click Support** - Click regions with hit-testing via `ClickRegion` and `ClickRegionRegistry`
-- **Interactive Widgets** - CheckBox, Input, Button, Select, PopupDialog
+- **Interactive Widgets** - CheckBox, Input, Button, Select, ContextMenu, PopupDialog
 - **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText, Spinner
 - **Navigation Widgets** - ListPicker, TreeView, FileExplorer, Accordion
 - **Layout Widgets** - TabView, SplitPane
@@ -89,6 +89,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **Input** | Text input with cursor, insertion, deletion, and navigation |
 | **Button** | Multiple variants: SingleLine, Block, Toggle, Icon+Text |
 | **Select** | Dropdown select box with popup options, keyboard/mouse navigation |
+| **ContextMenu** | Right-click popup menu with actions, separators, shortcuts, and submenus |
 | **PopupDialog** | Container for modal dialogs with focus management |
 
 ### Display Components
@@ -305,6 +306,70 @@ Style presets:
 - `SelectStyle::minimal()` - Subtle yellow text highlight
 - `SelectStyle::arrow()` - Arrow indicator (`→`)
 - `SelectStyle::bracket()` - Bracket indicator (`[x]`)
+
+### Context Menu
+
+```rust
+use ratatui_interact::components::{
+    ContextMenu, ContextMenuItem, ContextMenuState, ContextMenuStyle,
+    handle_context_menu_key, handle_context_menu_mouse, is_context_menu_trigger,
+};
+
+// Create menu items with actions, separators, and submenus
+let items = vec![
+    ContextMenuItem::action("open", "Open").icon("📂").shortcut("Enter"),
+    ContextMenuItem::action("edit", "Edit").icon("✏️").shortcut("E"),
+    ContextMenuItem::separator(),
+    ContextMenuItem::action("copy", "Copy").icon("📋").shortcut("Ctrl+C"),
+    ContextMenuItem::action("paste", "Paste").icon("📄").enabled(false), // Disabled
+    ContextMenuItem::separator(),
+    ContextMenuItem::submenu("More", vec![
+        ContextMenuItem::action("new_file", "New File").icon("📄"),
+        ContextMenuItem::action("new_folder", "New Folder").icon("📁"),
+    ]).icon("➕"),
+    ContextMenuItem::separator(),
+    ContextMenuItem::action("delete", "Delete").icon("🗑️").shortcut("Del"),
+];
+
+// Create state
+let mut state = ContextMenuState::new();
+
+// Open menu on right-click
+if is_context_menu_trigger(&mouse_event) {
+    state.open_at(mouse_event.column, mouse_event.row);
+}
+
+// Render the menu (must be rendered last to appear on top)
+if state.is_open {
+    let menu = ContextMenu::new(&items, &state)
+        .style(ContextMenuStyle::default());
+    let (menu_area, click_regions) = menu.render_stateful(frame, screen_area);
+}
+
+// Handle keyboard (Up/Down to navigate, Enter to select, Esc to close, Right for submenu)
+if let Some(action) = handle_context_menu_key(&key_event, &mut state, &items) {
+    match action {
+        ContextMenuAction::Select(id) => println!("Selected: {}", id),
+        ContextMenuAction::Close => println!("Menu closed"),
+        _ => {}
+    }
+}
+
+// Handle mouse clicks
+handle_context_menu_mouse(&mouse_event, &mut state, menu_area, &click_regions);
+```
+
+Key bindings:
+- `Up/Down`: Navigate items (skips separators)
+- `Enter/Space`: Select item or open submenu
+- `Right`: Open submenu
+- `Left/Esc`: Close submenu or close menu
+- `Home/End`: Jump to first/last item
+
+Style presets:
+- `ContextMenuStyle::default()` - Dark theme with blue highlight
+- `ContextMenuStyle::light()` - Light theme
+- `ContextMenuStyle::minimal()` - Simple style with reset background
 
 ### List Picker
 
@@ -762,11 +827,12 @@ Run the examples to see components in action:
 
 ```bash
 # Interactive Components
-cargo run --example checkbox_demo    # Checkbox with multiple styles
-cargo run --example input_demo       # Text input with cursor
-cargo run --example button_demo      # Button variants and styles
-cargo run --example select_demo      # Dropdown select boxes
-cargo run --example dialog_demo      # Modal dialogs
+cargo run --example checkbox_demo       # Checkbox with multiple styles
+cargo run --example input_demo          # Text input with cursor
+cargo run --example button_demo         # Button variants and styles
+cargo run --example select_demo         # Dropdown select boxes
+cargo run --example context_menu_demo   # Right-click context menus
+cargo run --example dialog_demo         # Modal dialogs
 
 # Display & Viewer Components
 cargo run --example marquee_demo       # Scrolling text animation

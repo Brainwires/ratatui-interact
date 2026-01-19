@@ -10,6 +10,7 @@
 //! - [`TextArea`] - Multi-line text input with cursor and scrolling
 //! - [`Button`] - Various button styles
 //! - [`Select`] - Dropdown select box with popup options
+//! - [`ContextMenu`] - Right-click popup menu with actions and submenus
 //! - [`PopupDialog`] - Container for popup dialogs
 //!
 //! ## Display Components
@@ -43,6 +44,7 @@ pub mod breadcrumb;
 pub mod button;
 pub mod checkbox;
 pub mod container;
+pub mod context_menu;
 pub mod diff_viewer;
 pub mod file_explorer;
 pub mod hotkey_dialog;
@@ -72,6 +74,11 @@ pub use breadcrumb::{
 pub use button::{Button, ButtonAction, ButtonState, ButtonStyle, ButtonVariant};
 pub use checkbox::{CheckBox, CheckBoxAction, CheckBoxState, CheckBoxStyle};
 pub use container::{DialogConfig, DialogFocusTarget, DialogState, PopupDialog};
+pub use context_menu::{
+    ContextMenu, ContextMenuAction, ContextMenuItem, ContextMenuState, ContextMenuStyle,
+    calculate_menu_height, handle_context_menu_key, handle_context_menu_mouse,
+    is_context_menu_trigger,
+};
 pub use diff_viewer::{
     DiffData, DiffHunk, DiffLine, DiffLineType, DiffViewMode, DiffViewer, DiffViewerAction,
     DiffViewerState, DiffViewerStyle, handle_diff_viewer_key, handle_diff_viewer_mouse,

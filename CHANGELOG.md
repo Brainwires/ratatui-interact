@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Interactive Components**
+  - `ContextMenu` - Right-click popup menu with actions, separators, shortcuts, icons, disabled items, and nested submenus
+    - `ContextMenuItem` enum with `Action`, `Separator`, and `Submenu` variants
+    - Builder pattern: `action()`, `separator()`, `submenu()`, `.icon()`, `.shortcut()`, `.enabled()`
+    - `ContextMenuState` for tracking open state, position, highlight, scroll, and submenu state
+    - `ContextMenuAction` enum for handling Open, Close, Select, SubmenuOpen, SubmenuClose, HighlightChange events
+    - `ContextMenuStyle` with customizable colors, sizing, and indicators (default, light, minimal presets)
+    - Smart positioning that adjusts to stay within screen bounds
+    - Full keyboard support: Up/Down, Enter/Space, Right (submenu), Left/Esc (close), Home/End
+    - Full mouse support: click to select, hover to highlight, click outside to close
+
+- **Examples**
+  - `context_menu_demo` - Interactive demonstration of context menu with file list, actions, disabled items, and submenus
+
+- **Tests**
+  - 47 comprehensive unit tests for ContextMenu covering:
+    - Item creation and builder patterns
+    - State management (open, close, navigation, submenu)
+    - Style configuration and presets
+    - Keyboard event handling
+    - Mouse event handling
+    - Edge cases (disabled items, empty menus, bounds)
+
 ## [0.1.0] - 2026-01-19
 
 ### Added
