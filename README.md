@@ -12,7 +12,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 
 - **Focus Management** - Tab/Shift+Tab navigation with `FocusManager<T>`
 - **Mouse Click Support** - Click regions with hit-testing via `ClickRegion` and `ClickRegionRegistry`
-- **Interactive Widgets** - CheckBox, Input, Button, PopupDialog
+- **Interactive Widgets** - CheckBox, Input, Button, Select, PopupDialog
 - **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText
 - **Navigation Widgets** - ListPicker, TreeView, FileExplorer, Accordion
 - **Viewer Widgets** - LogViewer, StepDisplay
@@ -87,6 +87,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **CheckBox** | Toggleable checkbox with multiple symbol styles (ASCII, Unicode, checkmark) |
 | **Input** | Text input with cursor, insertion, deletion, and navigation |
 | **Button** | Multiple variants: SingleLine, Block, Toggle, Icon+Text |
+| **Select** | Dropdown select box with popup options, keyboard/mouse navigation |
 | **PopupDialog** | Container for modal dialogs with focus management |
 
 ### Display Components
@@ -206,6 +207,47 @@ Style presets:
 - `MarqueeStyle::file_path()` - Cyan, bounce mode, longer pause
 - `MarqueeStyle::status()` - Yellow bold, continuous
 - `MarqueeStyle::title()` - Bold, bounce mode, long pause
+
+### Select (Dropdown)
+
+```rust
+use ratatui_interact::components::{Select, SelectState, SelectStyle, handle_select_key, handle_select_mouse};
+
+let options = vec!["Red", "Green", "Blue", "Yellow"];
+let mut state = SelectState::new(options.len());
+
+// Pre-select an option
+let mut state = SelectState::with_selected(options.len(), 1); // "Green"
+
+// Render the select box
+let select = Select::new(&options, &state)
+    .label("Color")
+    .placeholder("Choose a color...");
+let click_region = select.render_stateful(frame, area);
+
+// Render dropdown when open (must be rendered last to appear on top)
+let mut dropdown_regions = Vec::new();
+if state.is_open {
+    dropdown_regions = select.render_dropdown(frame, area, screen_area);
+}
+
+// Handle keyboard (Enter/Space to open, Up/Down to navigate, Enter to select, Esc to close)
+if let Some(action) = handle_select_key(&key_event, &mut state) {
+    match action {
+        SelectAction::Select(idx) => println!("Selected: {}", options[idx]),
+        _ => {}
+    }
+}
+
+// Handle mouse clicks
+handle_select_mouse(&mouse_event, &mut state, area, &dropdown_regions);
+```
+
+Style presets:
+- `SelectStyle::default()` - Yellow highlight, checkmark indicator
+- `SelectStyle::minimal()` - Subtle yellow text highlight
+- `SelectStyle::arrow()` - Arrow indicator (`→`)
+- `SelectStyle::bracket()` - Bracket indicator (`[x]`)
 
 ### List Picker
 
@@ -441,6 +483,7 @@ Run the examples to see components in action:
 cargo run --example checkbox_demo
 cargo run --example input_demo
 cargo run --example button_demo
+cargo run --example select_demo
 cargo run --example dialog_demo
 cargo run --example marquee_demo
 cargo run --example accordion_demo

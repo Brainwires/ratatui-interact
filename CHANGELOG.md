@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Button` - Clickable button with focus support and click region registry
   - `CheckBox` - Toggle checkbox with label
   - `Input` - Text input field with cursor management
+  - `Select` - Dropdown select box with popup options, keyboard navigation, and mouse support
   - `PopupDialog` - Modal dialog component (in `container` module)
 
 - **Display Components**
@@ -44,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `checkbox_demo` - Checkbox component demonstration
   - `dialog_demo` - Dialog component demonstration
   - `input_demo` - Input component demonstration
+  - `select_demo` - Select dropdown component with multiple instances
   - `marquee_demo` - Marquee text scrolling demonstration
   - `accordion_demo` - Accordion component with single and multiple modes
 
