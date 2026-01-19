@@ -543,7 +543,9 @@ where
         // Check if we need scroll indicators
         let has_overflow = self.calculate_overflow_horizontal(area.width);
         let show_prev = self.state.scroll_offset > 0;
-        let show_next = has_overflow && self.state.scroll_offset + self.visible_tabs_horizontal(area.width) < self.tabs.len();
+        let show_next = has_overflow
+            && self.state.scroll_offset + self.visible_tabs_horizontal(area.width)
+                < self.tabs.len();
 
         // Render scroll-left indicator
         if show_prev {
@@ -556,9 +558,19 @@ where
 
         // Render visible tabs
         let visible_start = self.state.scroll_offset;
-        let visible_count = self.visible_tabs_horizontal(area.width.saturating_sub(if show_prev { 2 } else { 0 }).saturating_sub(if show_next { 2 } else { 0 }));
+        let visible_count = self.visible_tabs_horizontal(
+            area.width
+                .saturating_sub(if show_prev { 2 } else { 0 })
+                .saturating_sub(if show_next { 2 } else { 0 }),
+        );
 
-        for (idx, tab) in self.tabs.iter().enumerate().skip(visible_start).take(visible_count) {
+        for (idx, tab) in self
+            .tabs
+            .iter()
+            .enumerate()
+            .skip(visible_start)
+            .take(visible_count)
+        {
             // Remember start position for click region
             let tab_start_x = x;
 
@@ -574,7 +586,8 @@ where
             let style = self.get_tab_style(idx, tab.enabled);
 
             // Render indicator if selected and enabled
-            let text_with_padding = if self.state.selected_index == idx && self.style.show_indicator {
+            let text_with_padding = if self.state.selected_index == idx && self.style.show_indicator
+            {
                 format!("{} {} ", self.style.indicator, text)
             } else {
                 format!(" {} ", text)
@@ -603,7 +616,12 @@ where
             // Render divider (if not last visible) - not part of click region
             if idx + 1 < visible_start + visible_count && idx + 1 < self.tabs.len() {
                 let divider_width = self.style.divider.width() as u16;
-                buf.set_string(x, y, self.style.divider, Style::default().fg(Color::DarkGray));
+                buf.set_string(
+                    x,
+                    y,
+                    self.style.divider,
+                    Style::default().fg(Color::DarkGray),
+                );
                 x += divider_width;
             }
         }
@@ -613,7 +631,12 @@ where
             let indicator = self.style.scroll_right;
             let indicator_x = area.x + area.width - 2;
             let indicator_area = Rect::new(indicator_x, y, 2, 1);
-            buf.set_string(indicator_x, y, indicator, Style::default().fg(Color::Yellow));
+            buf.set_string(
+                indicator_x,
+                y,
+                indicator,
+                Style::default().fg(Color::Yellow),
+            );
             click_regions.push((indicator_area, TabViewAction::ScrollNext));
         }
     }
@@ -643,11 +666,20 @@ where
         }
 
         // Render visible tabs
-        let available_height = area.height.saturating_sub(if show_prev { 1 } else { 0 }).saturating_sub(if show_next { 1 } else { 0 });
+        let available_height = area
+            .height
+            .saturating_sub(if show_prev { 1 } else { 0 })
+            .saturating_sub(if show_next { 1 } else { 0 });
         let visible_start = self.state.scroll_offset;
         let visible_count = (available_height as usize).min(self.tabs.len() - visible_start);
 
-        for (idx, tab) in self.tabs.iter().enumerate().skip(visible_start).take(visible_count) {
+        for (idx, tab) in self
+            .tabs
+            .iter()
+            .enumerate()
+            .skip(visible_start)
+            .take(visible_count)
+        {
             if y >= area.y + area.height - if show_next { 1 } else { 0 } {
                 break;
             }
@@ -694,8 +726,16 @@ where
         if show_next {
             let indicator_y = area.y + area.height - 1;
             let indicator = format!("{:^width$}", self.style.scroll_down, width = width as usize);
-            buf.set_string(x, indicator_y, &indicator, Style::default().fg(Color::Yellow));
-            click_regions.push((Rect::new(x, indicator_y, width, 1), TabViewAction::ScrollNext));
+            buf.set_string(
+                x,
+                indicator_y,
+                &indicator,
+                Style::default().fg(Color::Yellow),
+            );
+            click_regions.push((
+                Rect::new(x, indicator_y, width, 1),
+                TabViewAction::ScrollNext,
+            ));
         }
     }
 
@@ -703,7 +743,10 @@ where
     fn get_tab_style(&self, idx: usize, enabled: bool) -> Style {
         if !enabled {
             self.style.disabled_style
-        } else if idx == self.state.selected_index && self.state.focused && self.state.tab_bar_focused {
+        } else if idx == self.state.selected_index
+            && self.state.focused
+            && self.state.tab_bar_focused
+        {
             self.style.focused_style
         } else if idx == self.state.selected_index {
             self.style.selected_style
@@ -714,7 +757,9 @@ where
 
     /// Calculate if horizontal tabs overflow
     fn calculate_overflow_horizontal(&self, available_width: u16) -> bool {
-        let total_width: u16 = self.tabs.iter()
+        let total_width: u16 = self
+            .tabs
+            .iter()
             .map(|t| t.display_width() as u16 + self.style.divider.width() as u16)
             .sum();
         total_width > available_width
@@ -792,7 +837,11 @@ where
 /// Handle keyboard events for the tab view
 ///
 /// Returns true if the event was handled.
-pub fn handle_tab_view_key(state: &mut TabViewState, key: &KeyEvent, position: TabPosition) -> bool {
+pub fn handle_tab_view_key(
+    state: &mut TabViewState,
+    key: &KeyEvent,
+    position: TabPosition,
+) -> bool {
     // Handle tab bar navigation based on position
     if state.tab_bar_focused {
         match key.code {
@@ -891,10 +940,7 @@ mod tests {
 
     #[test]
     fn test_tab_creation() {
-        let tab = Tab::new("Test")
-            .icon("🔧")
-            .badge("5")
-            .enabled(true);
+        let tab = Tab::new("Test").icon("🔧").badge("5").enabled(true);
 
         assert_eq!(tab.label, "Test");
         assert_eq!(tab.icon, Some("🔧"));
@@ -1012,11 +1058,7 @@ mod tests {
 
     #[test]
     fn test_tab_view_render() {
-        let tabs = vec![
-            Tab::new("Tab 1"),
-            Tab::new("Tab 2"),
-            Tab::new("Tab 3"),
-        ];
+        let tabs = vec![Tab::new("Tab 1"), Tab::new("Tab 2"), Tab::new("Tab 3")];
         let state = TabViewState::new(tabs.len());
         let tab_view = TabView::new(&tabs, &state);
 

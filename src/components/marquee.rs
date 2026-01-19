@@ -372,7 +372,8 @@ impl<'a> MarqueeText<'a> {
             }
             MarqueeMode::Bounce => {
                 // Simple offset-based slicing
-                let visible = Self::extract_visible_slice(self.text, self.state.offset, viewport_width);
+                let visible =
+                    Self::extract_visible_slice(self.text, self.state.offset, viewport_width);
                 buf.set_string(area.x, area.y, &visible, self.style.text_style);
             }
             MarqueeMode::Continuous => {
@@ -627,7 +628,11 @@ mod tests {
         marquee.render(Rect::new(0, 0, 20, 1), &mut buf);
 
         // Text should be left-aligned and padded
-        let content: String = buf.content.iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
+        let content: String = buf
+            .content
+            .iter()
+            .map(|c| c.symbol().chars().next().unwrap_or(' '))
+            .collect();
         assert!(content.starts_with("Hello"));
     }
 
@@ -643,7 +648,11 @@ mod tests {
         marquee.render(Rect::new(0, 0, 10, 1), &mut buf);
 
         // Should show text from offset 5
-        let content: String = buf.content.iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
+        let content: String = buf
+            .content
+            .iter()
+            .map(|c| c.symbol().chars().next().unwrap_or(' '))
+            .collect();
         assert!(content.starts_with(" World T") || content.starts_with("World Th"));
     }
 
@@ -657,7 +666,11 @@ mod tests {
         marquee.render(Rect::new(0, 0, 10, 1), &mut buf);
 
         // Should be truncated with ellipsis
-        let content: String = buf.content.iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
+        let content: String = buf
+            .content
+            .iter()
+            .map(|c| c.symbol().chars().next().unwrap_or(' '))
+            .collect();
         assert!(content.contains("..."));
     }
 

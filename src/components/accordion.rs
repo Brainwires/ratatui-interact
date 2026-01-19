@@ -368,9 +368,26 @@ where
     content_heights: Option<&'a [u16]>,
 }
 
-impl<'a, T> Accordion<'a, T, fn(&T, usize, bool) -> Line<'static>, fn(&T, usize, Rect, &mut Buffer), fn(&T, usize) -> String> {
+impl<'a, T>
+    Accordion<
+        'a,
+        T,
+        fn(&T, usize, bool) -> Line<'static>,
+        fn(&T, usize, Rect, &mut Buffer),
+        fn(&T, usize) -> String,
+    >
+{
     /// Create a new accordion with default rendering
-    pub fn new(items: &'a [T], state: &'a AccordionState) -> Accordion<'a, T, fn(&T, usize, bool) -> Line<'static>, fn(&T, usize, Rect, &mut Buffer), fn(&T, usize) -> String>
+    pub fn new(
+        items: &'a [T],
+        state: &'a AccordionState,
+    ) -> Accordion<
+        'a,
+        T,
+        fn(&T, usize, bool) -> Line<'static>,
+        fn(&T, usize, Rect, &mut Buffer),
+        fn(&T, usize) -> String,
+    >
     where
         T: std::fmt::Debug,
     {
@@ -546,9 +563,12 @@ where
                 // Render icon
                 let icon_span = Span::styled(icon.to_string(), self.style.icon_style);
                 let mut spans = vec![icon_span];
-                spans.extend(header_line.spans.into_iter().map(|s| {
-                    Span::styled(s.content, style)
-                }));
+                spans.extend(
+                    header_line
+                        .spans
+                        .into_iter()
+                        .map(|s| Span::styled(s.content, style)),
+                );
 
                 let line = Line::from(spans);
                 let paragraph = Paragraph::new(line);
@@ -563,7 +583,9 @@ where
             if is_expanded && y < area.y + area.height {
                 let content_start_in_item = header_height;
                 let content_skip = skip_lines.saturating_sub(content_start_in_item);
-                let content_available = (area.y + area.height).saturating_sub(y).min(content_height.saturating_sub(content_skip));
+                let content_available = (area.y + area.height)
+                    .saturating_sub(y)
+                    .min(content_height.saturating_sub(content_skip));
 
                 if content_available > 0 {
                     let indent = self.style.content_indent;
@@ -805,8 +827,14 @@ mod tests {
         }
 
         let items = vec![
-            Item { id: "1".into(), title: "First".into() },
-            Item { id: "2".into(), title: "Second".into() },
+            Item {
+                id: "1".into(),
+                title: "First".into(),
+            },
+            Item {
+                id: "2".into(),
+                title: "Second".into(),
+            },
         ];
         let state = AccordionState::new(items.len());
 
@@ -820,7 +848,12 @@ mod tests {
         accordion.render(area, &mut buf);
 
         // Check that first line contains the collapsed icon and title
-        let line0 = buf.content.iter().take(20).map(|c| c.symbol()).collect::<String>();
+        let line0 = buf
+            .content
+            .iter()
+            .take(20)
+            .map(|c| c.symbol())
+            .collect::<String>();
         assert!(line0.contains("▶"));
         assert!(line0.contains("First"));
     }
@@ -834,8 +867,14 @@ mod tests {
         }
 
         let items = vec![
-            Item { id: "1".into(), title: "First".into() },
-            Item { id: "2".into(), title: "Second".into() },
+            Item {
+                id: "1".into(),
+                title: "First".into(),
+            },
+            Item {
+                id: "2".into(),
+                title: "Second".into(),
+            },
         ];
         let mut state = AccordionState::new(items.len());
         state.expand("1");
@@ -854,12 +893,23 @@ mod tests {
         accordion.render(area, &mut buf);
 
         // Check that first line contains the expanded icon
-        let line0 = buf.content.iter().take(20).map(|c| c.symbol()).collect::<String>();
+        let line0 = buf
+            .content
+            .iter()
+            .take(20)
+            .map(|c| c.symbol())
+            .collect::<String>();
         assert!(line0.contains("▼"));
         assert!(line0.contains("First"));
 
         // Content should be rendered below the header
-        let line1 = buf.content.iter().skip(20).take(20).map(|c| c.symbol()).collect::<String>();
+        let line1 = buf
+            .content
+            .iter()
+            .skip(20)
+            .take(20)
+            .map(|c| c.symbol())
+            .collect::<String>();
         assert!(line1.contains("Content"));
     }
 
@@ -879,21 +929,45 @@ mod tests {
         let content_heights = vec![3u16, 5, 2];
 
         // All collapsed: 3 headers = 3
-        let height = calculate_height(&items, &state, |item, _| item.id.clone(), &content_heights, false);
+        let height = calculate_height(
+            &items,
+            &state,
+            |item, _| item.id.clone(),
+            &content_heights,
+            false,
+        );
         assert_eq!(height, 3);
 
         // One expanded: 3 headers + 3 content = 6
         state.expand("1");
-        let height = calculate_height(&items, &state, |item, _| item.id.clone(), &content_heights, false);
+        let height = calculate_height(
+            &items,
+            &state,
+            |item, _| item.id.clone(),
+            &content_heights,
+            false,
+        );
         assert_eq!(height, 6);
 
         // Two expanded: 3 headers + 3 + 5 = 11
         state.expand("2");
-        let height = calculate_height(&items, &state, |item, _| item.id.clone(), &content_heights, false);
+        let height = calculate_height(
+            &items,
+            &state,
+            |item, _| item.id.clone(),
+            &content_heights,
+            false,
+        );
         assert_eq!(height, 11);
 
         // With borders: 11 + 3 borders = 14
-        let height = calculate_height(&items, &state, |item, _| item.id.clone(), &content_heights, true);
+        let height = calculate_height(
+            &items,
+            &state,
+            |item, _| item.id.clone(),
+            &content_heights,
+            true,
+        );
         assert_eq!(height, 14);
     }
 }

@@ -25,12 +25,12 @@
 
 use crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{
+    Frame,
     buffer::Buffer,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Widget},
-    Frame,
 };
 
 use crate::traits::{ClickRegion, FocusId};
@@ -430,10 +430,16 @@ where
                 let text = (self.render_option)(&self.options[idx]);
                 Span::styled(text, Style::default().fg(self.style.text_fg))
             } else {
-                Span::styled(self.placeholder, Style::default().fg(self.style.placeholder_fg))
+                Span::styled(
+                    self.placeholder,
+                    Style::default().fg(self.style.placeholder_fg),
+                )
             }
         } else {
-            Span::styled(self.placeholder, Style::default().fg(self.style.placeholder_fg))
+            Span::styled(
+                self.placeholder,
+                Style::default().fg(self.style.placeholder_fg),
+            )
         };
 
         // Add dropdown indicator on the right
@@ -586,10 +592,16 @@ where
                 let text = (self.render_option)(&self.options[idx]);
                 Span::styled(text, Style::default().fg(self.style.text_fg))
             } else {
-                Span::styled(self.placeholder, Style::default().fg(self.style.placeholder_fg))
+                Span::styled(
+                    self.placeholder,
+                    Style::default().fg(self.style.placeholder_fg),
+                )
             }
         } else {
-            Span::styled(self.placeholder, Style::default().fg(self.style.placeholder_fg))
+            Span::styled(
+                self.placeholder,
+                Style::default().fg(self.style.placeholder_fg),
+            )
         };
 
         let indicator_color = if self.state.focused {
@@ -924,10 +936,7 @@ mod tests {
     #[test]
     fn test_style_builders() {
         let style = SelectStyle::minimal();
-        assert_eq!(
-            style.highlight_style.add_modifier,
-            Modifier::BOLD
-        );
+        assert_eq!(style.highlight_style.add_modifier, Modifier::BOLD);
 
         let style = SelectStyle::arrow();
         assert_eq!(style.selected_indicator, "→ ");

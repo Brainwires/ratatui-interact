@@ -258,12 +258,9 @@ fn ui(f: &mut Frame, app: &mut App) {
         let chunk = marquee_chunks[idx];
 
         // Label
-        let label = Paragraph::new(format!("{}: ", entry.label))
-            .style(Style::default().fg(Color::White));
-        f.render_widget(
-            label,
-            Rect::new(chunk.x, chunk.y, chunk.width, 1),
-        );
+        let label =
+            Paragraph::new(format!("{}: ", entry.label)).style(Style::default().fg(Color::White));
+        f.render_widget(label, Rect::new(chunk.x, chunk.y, chunk.width, 1));
 
         // Marquee text area (with border to show the constrained area)
         let marquee_area = Rect::new(
@@ -281,7 +278,8 @@ fn ui(f: &mut Frame, app: &mut App) {
             1,
         );
         let border_style = Style::default().fg(Color::DarkGray);
-        f.buffer_mut().set_string(border_area.x, border_area.y, "[", border_style);
+        f.buffer_mut()
+            .set_string(border_area.x, border_area.y, "[", border_style);
         f.buffer_mut().set_string(
             border_area.x + border_area.width - 1,
             border_area.y,
@@ -290,8 +288,7 @@ fn ui(f: &mut Frame, app: &mut App) {
         );
 
         // Render the marquee
-        let marquee = MarqueeText::new(&entry.text, &mut entry.state)
-            .style(entry.style.clone());
+        let marquee = MarqueeText::new(&entry.text, &mut entry.state).style(entry.style.clone());
         f.render_widget(marquee, marquee_area);
     }
 

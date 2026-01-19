@@ -108,6 +108,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **TreeView** | Collapsible tree view with selection and customizable rendering |
 | **FileExplorer** | File browser with multi-select, search, and hidden file toggle |
 | **Accordion** | Collapsible sections with single or multiple expansion modes |
+| **Breadcrumb** | Hierarchical navigation path with ellipsis collapsing and keyboard/mouse support |
 
 ### Layout Components
 
@@ -333,6 +334,58 @@ let accordion = Accordion::new(&items, &state)
     });
 ```
 
+### Breadcrumb
+
+```rust
+use ratatui_interact::components::{
+    Breadcrumb, BreadcrumbItem, BreadcrumbState, BreadcrumbStyle,
+    handle_breadcrumb_key, handle_breadcrumb_mouse,
+};
+
+// Create breadcrumb items with optional icons
+let items = vec![
+    BreadcrumbItem::new("home", "Home").icon("🏠"),
+    BreadcrumbItem::new("users", "Users"),
+    BreadcrumbItem::new("profile", "Profile Settings"),
+];
+
+// Create state
+let mut state = BreadcrumbState::new(items);
+state.focused = true;
+
+// Create breadcrumb with default style (uses " > " separator)
+let breadcrumb = Breadcrumb::new(&state);
+let click_regions = breadcrumb.render_stateful(area, buf);
+
+// Different style presets:
+// - BreadcrumbStyle::slash()   - " / " (Unix path style)
+// - BreadcrumbStyle::chevron() - " › " (Unicode chevron)
+// - BreadcrumbStyle::arrow()   - " → " (Unicode arrow)
+// - BreadcrumbStyle::minimal() - Subdued colors
+
+let breadcrumb = Breadcrumb::new(&state)
+    .style(BreadcrumbStyle::chevron());
+
+// Handle keyboard (arrows navigate, Enter activates, e expands ellipsis)
+if let Some(action) = handle_breadcrumb_key(&key_event, &mut state) {
+    match action {
+        BreadcrumbAction::Navigate(id) => println!("Navigate to: {}", id),
+        BreadcrumbAction::ExpandEllipsis => println!("Ellipsis toggled"),
+    }
+}
+
+// Handle mouse clicks
+handle_breadcrumb_mouse(&mouse_event, &mut state, &click_regions);
+
+// Dynamic path manipulation
+state.push(BreadcrumbItem::new("new_item", "New Item"));
+state.pop();
+state.clear();
+```
+
+Ellipsis collapsing: Long paths automatically collapse with `...` (configurable threshold).
+Example: `Home > ... > Settings > Profile` when showing 7+ items.
+
 ### Tab View
 
 ```rust
@@ -547,6 +600,7 @@ cargo run --example dialog_demo
 cargo run --example marquee_demo
 cargo run --example accordion_demo
 cargo run --example tab_view_demo
+cargo run --example breadcrumb_demo
 ```
 
 ## Comparison with Alternatives

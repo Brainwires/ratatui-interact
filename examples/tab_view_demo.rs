@@ -27,8 +27,8 @@ use ratatui::{
 
 use ratatui_interact::{
     components::{
-        Tab, TabPosition, TabView, TabViewAction, TabViewState, TabViewStyle,
-        handle_tab_view_key, handle_tab_view_mouse,
+        Tab, TabPosition, TabView, TabViewAction, TabViewState, TabViewStyle, handle_tab_view_key,
+        handle_tab_view_mouse,
     },
     events::{is_close_key, is_left_click},
     traits::ClickRegionRegistry,
@@ -160,11 +160,11 @@ fn ui(f: &mut Frame, app: &mut App) {
 
     // Create tabs
     let tabs = vec![
-        Tab::new("General").icon("\u{2699}"),      // Gear icon
+        Tab::new("General").icon("\u{2699}"),             // Gear icon
         Tab::new("Network").icon("\u{1F310}").badge("3"), // Globe icon
-        Tab::new("Security").icon("\u{1F512}"),    // Lock icon
-        Tab::new("Display").icon("\u{1F5B5}"),     // Monitor icon
-        Tab::new("About").icon("\u{2139}"),        // Info icon
+        Tab::new("Security").icon("\u{1F512}"),           // Lock icon
+        Tab::new("Display").icon("\u{1F5B5}"),            // Monitor icon
+        Tab::new("About").icon("\u{2139}"),               // Info icon
     ];
 
     // Create style based on position
@@ -199,12 +199,17 @@ fn ui(f: &mut Frame, app: &mut App) {
             Span::raw(" | "),
             Span::styled("Selected: ", Style::default().fg(Color::Gray)),
             Span::styled(
-                tabs.get(app.tab_state.selected_index).map(|t| t.label).unwrap_or("?"),
+                tabs.get(app.tab_state.selected_index)
+                    .map(|t| t.label)
+                    .unwrap_or("?"),
                 Style::default().fg(Color::Yellow),
             ),
         ]),
         Line::from(vec![
-            Span::styled("\u{2190}\u{2192}/\u{2191}\u{2193}", Style::default().fg(Color::Yellow)),
+            Span::styled(
+                "\u{2190}\u{2192}/\u{2191}\u{2193}",
+                Style::default().fg(Color::Yellow),
+            ),
             Span::raw(": Navigate  "),
             Span::styled("1-5", Style::default().fg(Color::Yellow)),
             Span::raw(": Select tab  "),
@@ -234,8 +239,7 @@ fn render_tab_content(idx: usize, area: Rect, buf: &mut ratatui::buffer::Buffer)
         3 => render_display_tab(area, buf),
         4 => render_about_tab(area, buf),
         _ => {
-            let text = Paragraph::new("Unknown tab")
-                .style(Style::default().fg(Color::Red));
+            let text = Paragraph::new("Unknown tab").style(Style::default().fg(Color::Red));
             text.render(area, buf);
         }
     }
@@ -245,7 +249,9 @@ fn render_general_tab(area: Rect, buf: &mut ratatui::buffer::Buffer) {
     let text = vec![
         Line::from(Span::styled(
             "General Settings",
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(vec![
@@ -273,7 +279,9 @@ fn render_network_tab(area: Rect, buf: &mut ratatui::buffer::Buffer) {
     let text = vec![
         Line::from(Span::styled(
             "Network Configuration",
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(vec![
@@ -306,7 +314,9 @@ fn render_security_tab(area: Rect, buf: &mut ratatui::buffer::Buffer) {
     let text = vec![
         Line::from(Span::styled(
             "Security Options",
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(vec![
@@ -334,7 +344,9 @@ fn render_display_tab(area: Rect, buf: &mut ratatui::buffer::Buffer) {
     let text = vec![
         Line::from(Span::styled(
             "Display Settings",
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(vec![
@@ -362,7 +374,9 @@ fn render_about_tab(area: Rect, buf: &mut ratatui::buffer::Buffer) {
     let text = vec![
         Line::from(Span::styled(
             "About",
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from(vec![
@@ -380,11 +394,15 @@ fn render_about_tab(area: Rect, buf: &mut ratatui::buffer::Buffer) {
         Line::from(""),
         Line::from(Span::styled(
             "A demonstration of the TabView component",
-            Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(Color::Gray)
+                .add_modifier(Modifier::ITALIC),
         )),
         Line::from(Span::styled(
             "supporting tabs on all four sides.",
-            Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(Color::Gray)
+                .add_modifier(Modifier::ITALIC),
         )),
     ];
     let paragraph = Paragraph::new(text).wrap(Wrap { trim: true });

@@ -26,9 +26,7 @@ use ratatui::{
 };
 
 use ratatui_interact::{
-    components::{
-        Accordion, AccordionMode, AccordionState, AccordionStyle, handle_accordion_key,
-    },
+    components::{Accordion, AccordionMode, AccordionState, AccordionStyle, handle_accordion_key},
     events::is_close_key,
 };
 
@@ -129,8 +127,7 @@ impl App {
             },
         ];
 
-        let faq_state = AccordionState::new(faq_items.len())
-            .with_mode(AccordionMode::Single);
+        let faq_state = AccordionState::new(faq_items.len()).with_mode(AccordionMode::Single);
 
         let settings_state = AccordionState::new(settings_sections.len())
             .with_mode(AccordionMode::Multiple)
@@ -171,7 +168,10 @@ impl App {
             FocusedPanel::Settings => {
                 let settings_sections = &self.settings_sections;
                 handle_accordion_key(&mut self.settings_state, key, |idx| {
-                    settings_sections.get(idx).map(|s| s.id.clone()).unwrap_or_default()
+                    settings_sections
+                        .get(idx)
+                        .map(|s| s.id.clone())
+                        .unwrap_or_default()
                 });
             }
         }
@@ -180,8 +180,10 @@ impl App {
     fn handle_mouse_click(&mut self, col: u16, row: u16) {
         // Check FAQ click regions
         for (idx, area, id) in &self.faq_click_regions {
-            if col >= area.x && col < area.x + area.width
-                && row >= area.y && row < area.y + area.height
+            if col >= area.x
+                && col < area.x + area.width
+                && row >= area.y
+                && row < area.y + area.height
             {
                 self.focused_panel = FocusedPanel::Faq;
                 self.faq_state.focus(*idx);
@@ -192,8 +194,10 @@ impl App {
 
         // Check Settings click regions
         for (idx, area, id) in &self.settings_click_regions {
-            if col >= area.x && col < area.x + area.width
-                && row >= area.y && row < area.y + area.height
+            if col >= area.x
+                && col < area.x + area.width
+                && row >= area.y
+                && row < area.y + area.height
             {
                 self.focused_panel = FocusedPanel::Settings;
                 self.settings_state.focus(*idx);
@@ -328,7 +332,9 @@ fn render_faq_panel(f: &mut Frame, app: &mut App, area: Rect) {
         .title(Span::styled(
             " FAQ (Single Mode) ",
             if is_focused {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             },
@@ -344,15 +350,18 @@ fn render_faq_panel(f: &mut Frame, app: &mut App, area: Rect) {
     f.render_widget(block, area);
 
     // Calculate content heights for FAQ items
-    let content_heights: Vec<u16> = app.faq_items.iter().map(|item| {
-        item.answer.lines().count() as u16
-    }).collect();
+    let content_heights: Vec<u16> = app
+        .faq_items
+        .iter()
+        .map(|item| item.answer.lines().count() as u16)
+        .collect();
 
     // Build click regions for headers
     let mut y = inner.y;
     for (idx, item) in app.faq_items.iter().enumerate() {
         let header_area = Rect::new(inner.x, y, inner.width, 1);
-        app.faq_click_regions.push((idx, header_area, item.id.clone()));
+        app.faq_click_regions
+            .push((idx, header_area, item.id.clone()));
 
         y += 1; // header
         if app.faq_state.is_expanded(&item.id) {
@@ -373,9 +382,7 @@ fn render_faq_panel(f: &mut Frame, app: &mut App, area: Rect) {
     // Create and render accordion
     let accordion = Accordion::new(&app.faq_items, &app.faq_state)
         .id_fn(|item, _| item.id.clone())
-        .render_header(|item, _idx, _is_item_focused| {
-            Line::raw(item.question.clone())
-        })
+        .render_header(|item, _idx, _is_item_focused| Line::raw(item.question.clone()))
         .render_content(|item, _idx, content_area, buf| {
             let paragraph = Paragraph::new(item.answer.as_str())
                 .style(Style::default().fg(Color::Gray))
@@ -395,7 +402,9 @@ fn render_settings_panel(f: &mut Frame, app: &mut App, area: Rect) {
         .title(Span::styled(
             " Settings (Multiple Mode) ",
             if is_focused {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             },
@@ -411,15 +420,18 @@ fn render_settings_panel(f: &mut Frame, app: &mut App, area: Rect) {
     f.render_widget(block, area);
 
     // Calculate content heights for settings sections
-    let content_heights: Vec<u16> = app.settings_sections.iter().map(|section| {
-        section.settings.len() as u16
-    }).collect();
+    let content_heights: Vec<u16> = app
+        .settings_sections
+        .iter()
+        .map(|section| section.settings.len() as u16)
+        .collect();
 
     // Build click regions for headers
     let mut y = inner.y;
     for (idx, section) in app.settings_sections.iter().enumerate() {
         let header_area = Rect::new(inner.x, y, inner.width, 1);
-        app.settings_click_regions.push((idx, header_area, section.id.clone()));
+        app.settings_click_regions
+            .push((idx, header_area, section.id.clone()));
 
         y += 1; // header
         if app.settings_state.is_expanded(&section.id) {
@@ -441,16 +453,18 @@ fn render_settings_panel(f: &mut Frame, app: &mut App, area: Rect) {
     // Create and render accordion
     let accordion = Accordion::new(&app.settings_sections, &app.settings_state)
         .id_fn(|section, _| section.id.clone())
-        .render_header(|section, _idx, _is_focused| {
-            Line::raw(section.title.clone())
-        })
+        .render_header(|section, _idx, _is_focused| Line::raw(section.title.clone()))
         .render_content(|section, _idx, content_area, buf| {
-            let lines: Vec<Line> = section.settings.iter().map(|(key, value)| {
-                Line::from(vec![
-                    Span::styled(format!("{}: ", key), Style::default().fg(Color::DarkGray)),
-                    Span::styled(value.clone(), Style::default().fg(Color::White)),
-                ])
-            }).collect();
+            let lines: Vec<Line> = section
+                .settings
+                .iter()
+                .map(|(key, value)| {
+                    Line::from(vec![
+                        Span::styled(format!("{}: ", key), Style::default().fg(Color::DarkGray)),
+                        Span::styled(value.clone(), Style::default().fg(Color::White)),
+                    ])
+                })
+                .collect();
             let paragraph = Paragraph::new(lines);
             paragraph.render(content_area, buf);
         })

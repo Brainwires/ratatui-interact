@@ -25,7 +25,9 @@ use ratatui::{
 };
 
 use ratatui_interact::{
-    components::{Select, SelectAction, SelectState, SelectStyle, handle_select_key, handle_select_mouse},
+    components::{
+        Select, SelectAction, SelectState, SelectStyle, handle_select_key, handle_select_mouse,
+    },
     events::is_close_key,
     traits::ClickRegion,
 };
@@ -68,7 +70,9 @@ struct App {
 
 impl App {
     fn new() -> Self {
-        let colors = vec!["Red", "Green", "Blue", "Yellow", "Purple", "Orange", "Cyan", "Magenta"];
+        let colors = vec![
+            "Red", "Green", "Blue", "Yellow", "Purple", "Orange", "Cyan", "Magenta",
+        ];
         let sizes = vec!["Small", "Medium", "Large", "Extra Large"];
         let priorities = vec!["Low", "Normal", "High", "Critical", "Urgent"];
 
@@ -155,7 +159,9 @@ impl App {
     fn update_message(&mut self, action: SelectAction) {
         match action {
             SelectAction::Open => {
-                self.message = "Dropdown opened. Use Up/Down to navigate, Enter to select, Esc to close.".to_string();
+                self.message =
+                    "Dropdown opened. Use Up/Down to navigate, Enter to select, Esc to close."
+                        .to_string();
             }
             SelectAction::Close => {
                 self.message = "Dropdown closed.".to_string();
@@ -173,13 +179,19 @@ impl App {
     }
 
     fn get_summary(&self) -> String {
-        let color = self.color_state.selected()
+        let color = self
+            .color_state
+            .selected()
             .map(|i| self.colors[i])
             .unwrap_or("None");
-        let size = self.size_state.selected()
+        let size = self
+            .size_state
+            .selected()
             .map(|i| self.sizes[i])
             .unwrap_or("None");
-        let priority = self.priority_state.selected()
+        let priority = self
+            .priority_state
+            .selected()
             .map(|i| self.priorities[i])
             .unwrap_or("None");
 
@@ -223,7 +235,9 @@ fn main() -> io::Result<()> {
                 }
             }
         } else if let Event::Mouse(mouse) = event::read().unwrap_or(Event::FocusGained) {
-            if let crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) = mouse.kind {
+            if let crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) =
+                mouse.kind
+            {
                 // Check which select was clicked
                 let col = mouse.column;
                 let row = mouse.row;
@@ -343,9 +357,10 @@ fn ui(f: &mut Frame, app: &mut App) {
         .split(area);
 
     // Title
-    let title = Paragraph::new(Line::from(vec![
-        Span::styled("Select Component Demo", Style::default().fg(Color::Cyan)),
-    ]));
+    let title = Paragraph::new(Line::from(vec![Span::styled(
+        "Select Component Demo",
+        Style::default().fg(Color::Cyan),
+    )]));
     f.render_widget(title, chunks[0]);
 
     // Color select
@@ -373,15 +388,17 @@ fn ui(f: &mut Frame, app: &mut App) {
     priority_select.render_stateful(f, chunks[3]);
 
     // Summary
-    let summary = Paragraph::new(Line::from(vec![
-        Span::styled(app.get_summary(), Style::default().fg(Color::Green)),
-    ]));
+    let summary = Paragraph::new(Line::from(vec![Span::styled(
+        app.get_summary(),
+        Style::default().fg(Color::Green),
+    )]));
     f.render_widget(summary, chunks[5]);
 
     // Message
-    let message = Paragraph::new(Line::from(vec![
-        Span::styled(&app.message, Style::default().fg(Color::Yellow)),
-    ]));
+    let message = Paragraph::new(Line::from(vec![Span::styled(
+        &app.message,
+        Style::default().fg(Color::Yellow),
+    )]));
     f.render_widget(message, chunks[6]);
 
     // Help
@@ -415,12 +432,10 @@ fn ui(f: &mut Frame, app: &mut App) {
         let select = Select::new(&app.colors, &app.color_state);
         app.dropdown_regions = select.render_dropdown(f, app.color_area, area);
     } else if app.size_state.is_open {
-        let select = Select::new(&app.sizes, &app.size_state)
-            .style(SelectStyle::minimal());
+        let select = Select::new(&app.sizes, &app.size_state).style(SelectStyle::minimal());
         app.dropdown_regions = select.render_dropdown(f, app.size_area, area);
     } else if app.priority_state.is_open {
-        let select = Select::new(&app.priorities, &app.priority_state)
-            .style(SelectStyle::arrow());
+        let select = Select::new(&app.priorities, &app.priority_state).style(SelectStyle::arrow());
         app.dropdown_regions = select.render_dropdown(f, app.priority_area, area);
     }
 }

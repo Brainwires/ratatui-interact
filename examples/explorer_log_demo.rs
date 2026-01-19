@@ -30,10 +30,8 @@ use ratatui::{
 
 use ratatui_interact::{
     components::{
-        FileExplorer, FileExplorerState,
+        FileExplorer, FileExplorerState, LogViewer, LogViewerState, Toast, ToastState,
         file_explorer::{FileExplorerMode, draw_search_bar},
-        LogViewer, LogViewerState,
-        Toast, ToastState,
     },
     events::{is_backtab, is_close_key, is_left_click, is_tab},
     state::FocusManager,
@@ -192,7 +190,11 @@ impl App {
             }
             KeyCode::Char('.') => {
                 self.explorer.toggle_hidden();
-                let status = if self.explorer.show_hidden { "ON" } else { "OFF" };
+                let status = if self.explorer.show_hidden {
+                    "ON"
+                } else {
+                    "OFF"
+                };
                 self.log_action(&format!("[INFO] Hidden files: {}", status));
                 self.toast.show(format!("Hidden files: {}", status), 1500);
             }
@@ -228,7 +230,12 @@ impl App {
             }
             KeyCode::Enter => {
                 self.explorer.mode = FileExplorerMode::Browse;
-                let matches = self.explorer.filtered_indices.as_ref().map(|i| i.len()).unwrap_or(0);
+                let matches = self
+                    .explorer
+                    .filtered_indices
+                    .as_ref()
+                    .map(|i| i.len())
+                    .unwrap_or(0);
                 self.log_action(&format!("[INFO] Search complete: {} matches", matches));
             }
             KeyCode::Backspace => {
@@ -395,10 +402,7 @@ fn ui(f: &mut Frame, app: &mut App) {
     // Content: two panels side by side
     let content_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(50),
-            Constraint::Percentage(50),
-        ])
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(main_chunks[1]);
 
     // File Explorer panel
@@ -410,7 +414,8 @@ fn ui(f: &mut Frame, app: &mut App) {
     f.render_widget(explorer, content_chunks[0]);
 
     // Register click region for file explorer
-    app.click_regions.register(content_chunks[0], FocusTarget::FileExplorer);
+    app.click_regions
+        .register(content_chunks[0], FocusTarget::FileExplorer);
 
     // Draw search bar overlay if in search mode
     if app.explorer.mode == FileExplorerMode::Search {
@@ -434,7 +439,8 @@ fn ui(f: &mut Frame, app: &mut App) {
     f.render_widget(log_viewer, content_chunks[1]);
 
     // Register click region for log viewer
-    app.click_regions.register(content_chunks[1], FocusTarget::LogViewer);
+    app.click_regions
+        .register(content_chunks[1], FocusTarget::LogViewer);
 
     // Footer with help
     let focus_indicator = match app.focus.current() {
@@ -444,7 +450,12 @@ fn ui(f: &mut Frame, app: &mut App) {
     };
 
     let help_line = Line::from(vec![
-        Span::styled(focus_indicator, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            focus_indicator,
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw(" "),
         Span::styled("Tab", Style::default().fg(Color::Yellow)),
         Span::raw(":Switch "),

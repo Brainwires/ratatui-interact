@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ListPicker` - Scrollable list selection component
   - `TreeView` - Hierarchical tree structure navigation
   - `Accordion` - Collapsible sections with single or multiple expansion modes
+  - `Breadcrumb` - Hierarchical navigation path with ellipsis collapsing, keyboard/mouse support, and multiple style presets (default, slash, chevron, arrow)
 
 - **Layout Components**
   - `TabView` - Tab bar with content switching, supports top/bottom/left/right positions, keyboard navigation (arrows, number keys, Home/End), and mouse click support
@@ -52,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `marquee_demo` - Marquee text scrolling demonstration
   - `accordion_demo` - Accordion component with single and multiple modes
   - `tab_view_demo` - Tab view with position cycling and content switching
+  - `breadcrumb_demo` - Breadcrumb navigation with multiple style presets and dynamic path manipulation
 
 ### Changed
 - Renamed crate from `ratatui-extension` to `ratatui-interact`
