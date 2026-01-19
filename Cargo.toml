@@ -33,3 +33,7 @@ default = []
 markdown = []
 # Enable filesystem operations in file explorer
 filesystem = []
+
+[[example]]
+name = "explorer_log_demo"
+required-features = ["filesystem"]
