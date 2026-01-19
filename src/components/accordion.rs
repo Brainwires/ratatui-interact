@@ -379,6 +379,7 @@ impl<'a, T>
     >
 {
     /// Create a new accordion with default rendering
+    #[allow(clippy::type_complexity)]
     pub fn new(
         items: &'a [T],
         state: &'a AccordionState,

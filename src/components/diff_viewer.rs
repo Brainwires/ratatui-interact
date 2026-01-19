@@ -550,11 +550,12 @@ impl DiffViewerState {
             }
 
             for line in &hunk.lines {
-                if running_line > line_idx {
-                    if line.line_type == DiffLineType::Addition || line.line_type == DiffLineType::Deletion {
-                        self.scroll_y = running_line - 1;
-                        return;
-                    }
+                if running_line > line_idx
+                    && (line.line_type == DiffLineType::Addition
+                        || line.line_type == DiffLineType::Deletion)
+                {
+                    self.scroll_y = running_line - 1;
+                    return;
                 }
                 running_line += 1;
             }

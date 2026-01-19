@@ -26,7 +26,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ratatui-interact = "0.1"
+ratatui-interact = "0.2"
 ```
 
 Or from git:
@@ -87,10 +87,12 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 |-----------|-------------|
 | **CheckBox** | Toggleable checkbox with multiple symbol styles (ASCII, Unicode, checkmark) |
 | **Input** | Text input with cursor, insertion, deletion, and navigation |
+| **TextArea** | Multi-line text input with cursor, line numbers, scrolling, and word wrap |
 | **Button** | Multiple variants: SingleLine, Block, Toggle, Icon+Text |
 | **Select** | Dropdown select box with popup options, keyboard/mouse navigation |
 | **ContextMenu** | Right-click popup menu with actions, separators, shortcuts, and submenus |
 | **PopupDialog** | Container for modal dialogs with focus management |
+| **HotkeyDialog** | Hotkey configuration dialog with search, categories, and trait-based customization |
 
 ### Display Components
 
@@ -829,10 +831,12 @@ Run the examples to see components in action:
 # Interactive Components
 cargo run --example checkbox_demo       # Checkbox with multiple styles
 cargo run --example input_demo          # Text input with cursor
+cargo run --example textarea_demo       # Multi-line text input
 cargo run --example button_demo         # Button variants and styles
 cargo run --example select_demo         # Dropdown select boxes
 cargo run --example context_menu_demo   # Right-click context menus
 cargo run --example dialog_demo         # Modal dialogs
+cargo run --example hotkey_dialog_demo  # Hotkey configuration dialog
 
 # Display & Viewer Components
 cargo run --example marquee_demo       # Scrolling text animation

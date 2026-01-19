@@ -216,14 +216,14 @@ impl BreadcrumbState {
     pub fn set_items(&mut self, items: Vec<BreadcrumbItem>) {
         self.items = items;
         // Reset selection if it's now out of bounds
-        if let Some(idx) = self.selected_index
-            && idx >= self.items.len()
-        {
-            self.selected_index = if self.items.is_empty() {
-                None
-            } else {
-                Some(self.items.len() - 1)
-            };
+        if let Some(idx) = self.selected_index {
+            if idx >= self.items.len() {
+                self.selected_index = if self.items.is_empty() {
+                    None
+                } else {
+                    Some(self.items.len() - 1)
+                };
+            }
         }
         self.expanded = false;
     }
@@ -745,10 +745,10 @@ pub fn get_hovered_index(
     state: &BreadcrumbState,
 ) -> Option<usize> {
     for region in regions {
-        if region.contains(col, row)
-            && let BreadcrumbAction::Navigate(ref id) = region.data
-        {
-            return state.items.iter().position(|item| &item.id == id);
+        if region.contains(col, row) {
+            if let BreadcrumbAction::Navigate(ref id) = region.data {
+                return state.items.iter().position(|item| &item.id == id);
+            }
         }
     }
     None

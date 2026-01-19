@@ -315,7 +315,7 @@ impl<'a> MarqueeText<'a> {
             // Check if this character fits
             if current_col + ch_width > width {
                 // If it's a wide character that doesn't fit, add padding
-                if ch_width > 1 && current_col + 1 <= width {
+                if ch_width > 1 && current_col < width {
                     result.push(' ');
                     current_col += 1;
                 }

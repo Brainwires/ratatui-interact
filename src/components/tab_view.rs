@@ -909,24 +909,24 @@ pub fn handle_tab_view_mouse(
 ) -> Option<TabViewAction> {
     use crossterm::event::{MouseButton, MouseEventKind};
 
-    if let MouseEventKind::Down(MouseButton::Left) = mouse.kind
-        && let Some(action) = registry.handle_click(mouse.column, mouse.row)
-    {
-        match action {
-            TabViewAction::TabClick(idx) => {
-                state.select(*idx);
-                state.tab_bar_focused = true;
-                return Some(*action);
-            }
-            TabViewAction::ScrollPrev => {
-                if state.scroll_offset > 0 {
-                    state.scroll_offset -= 1;
+    if let MouseEventKind::Down(MouseButton::Left) = mouse.kind {
+        if let Some(action) = registry.handle_click(mouse.column, mouse.row) {
+            match action {
+                TabViewAction::TabClick(idx) => {
+                    state.select(*idx);
+                    state.tab_bar_focused = true;
+                    return Some(*action);
                 }
-                return Some(*action);
-            }
-            TabViewAction::ScrollNext => {
-                state.scroll_offset += 1;
-                return Some(*action);
+                TabViewAction::ScrollPrev => {
+                    if state.scroll_offset > 0 {
+                        state.scroll_offset -= 1;
+                    }
+                    return Some(*action);
+                }
+                TabViewAction::ScrollNext => {
+                    state.scroll_offset += 1;
+                    return Some(*action);
+                }
             }
         }
     }

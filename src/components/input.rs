@@ -135,12 +135,12 @@ impl InputState {
         }
 
         let byte_pos = self.char_to_byte_index(self.cursor_pos);
-        if byte_pos < self.text.len()
-            && let Some(c) = self.text[byte_pos..].chars().next()
-        {
-            self.text
-                .replace_range(byte_pos..byte_pos + c.len_utf8(), "");
-            return true;
+        if byte_pos < self.text.len() {
+            if let Some(c) = self.text[byte_pos..].chars().next() {
+                self.text
+                    .replace_range(byte_pos..byte_pos + c.len_utf8(), "");
+                return true;
+            }
         }
         false
     }

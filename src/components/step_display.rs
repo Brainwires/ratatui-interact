@@ -240,19 +240,19 @@ impl StepDisplayState {
 
     /// Start a sub-step
     pub fn start_sub_step(&mut self, step_index: usize, sub_index: usize) {
-        if let Some(step) = self.steps.get_mut(step_index)
-            && let Some(sub) = step.sub_steps.get_mut(sub_index)
-        {
-            sub.status = StepStatus::Running;
+        if let Some(step) = self.steps.get_mut(step_index) {
+            if let Some(sub) = step.sub_steps.get_mut(sub_index) {
+                sub.status = StepStatus::Running;
+            }
         }
     }
 
     /// Complete a sub-step
     pub fn complete_sub_step(&mut self, step_index: usize, sub_index: usize) {
-        if let Some(step) = self.steps.get_mut(step_index)
-            && let Some(sub) = step.sub_steps.get_mut(sub_index)
-        {
-            sub.status = StepStatus::Completed;
+        if let Some(step) = self.steps.get_mut(step_index) {
+            if let Some(sub) = step.sub_steps.get_mut(sub_index) {
+                sub.status = StepStatus::Completed;
+            }
         }
     }
 

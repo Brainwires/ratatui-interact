@@ -406,20 +406,17 @@ impl<'a, C: HotkeyCategory, P: HotkeyProvider<Category = C>> HotkeyDialog<'a, C,
             ],
         };
 
-        let mut spans = Vec::new();
-
         // Legend
-        spans.push(Span::styled(
-            &self.style.global_indicator,
-            Style::default().fg(self.style.global_key_color),
-        ));
-        spans.push(Span::styled("=Global ", self.style.dim_style()));
-        spans.push(Span::styled(
-            &self.style.locked_indicator,
-            self.style.locked_style(),
-        ));
-        spans.push(Span::styled("=Locked  ", self.style.dim_style()));
-        spans.push(Span::raw("|  "));
+        let mut spans = vec![
+            Span::styled(
+                &self.style.global_indicator,
+                Style::default().fg(self.style.global_key_color),
+            ),
+            Span::styled("=Global ", self.style.dim_style()),
+            Span::styled(&self.style.locked_indicator, self.style.locked_style()),
+            Span::styled("=Locked  ", self.style.dim_style()),
+            Span::raw("|  "),
+        ];
 
         // Key hints
         for (idx, (key, desc)) in hints.iter().enumerate() {

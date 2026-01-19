@@ -445,14 +445,14 @@ where
                 EventResult::Consumed
             }
             KeyCode::Enter => {
-                if let Some(DialogFocusTarget::Button(idx)) = self.state.focus.current()
-                    && let Some((_, action)) = self.config.buttons.get(*idx)
-                {
-                    let action = action.clone();
-                    if action.is_close() {
-                        self.state.hide();
+                if let Some(DialogFocusTarget::Button(idx)) = self.state.focus.current() {
+                    if let Some((_, action)) = self.config.buttons.get(*idx) {
+                        let action = action.clone();
+                        if action.is_close() {
+                            self.state.hide();
+                        }
+                        return EventResult::Action(action);
                     }
-                    return EventResult::Action(action);
                 }
                 EventResult::NotHandled
             }

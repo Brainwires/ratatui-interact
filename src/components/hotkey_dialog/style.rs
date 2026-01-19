@@ -51,7 +51,7 @@ pub struct HotkeyDialogStyle {
     pub search_height: u16,
     /// Footer height
     pub footer_height: u16,
-    /// Global context indicator (e.g., "[G]")
+    /// Global context indicator (displays before global hotkeys, default: "G")
     pub global_indicator: String,
     /// Locked/non-customizable indicator (e.g., "L")
     pub locked_indicator: String,

@@ -777,21 +777,22 @@ impl<'a> ContextMenu<'a> {
         // Render submenu if open
         if let (Some(submenu_idx), Some(submenu_state)) =
             (self.state.active_submenu, &self.state.submenu_state)
-            && let Some(ContextMenuItem::Submenu { items, .. }) = self.items.get(submenu_idx)
         {
-            // Position submenu to the right of the parent item
-            let submenu_anchor_x = menu_area.x + menu_area.width;
-            let submenu_anchor_y =
-                menu_area.y + 1 + (submenu_idx as u16).saturating_sub(self.state.scroll_offset);
+            if let Some(ContextMenuItem::Submenu { items, .. }) = self.items.get(submenu_idx) {
+                // Position submenu to the right of the parent item
+                let submenu_anchor_x = menu_area.x + menu_area.width;
+                let submenu_anchor_y =
+                    menu_area.y + 1 + (submenu_idx as u16).saturating_sub(self.state.scroll_offset);
 
-            let mut adjusted_state = (**submenu_state).clone();
-            adjusted_state.anchor_position = (submenu_anchor_x, submenu_anchor_y);
+                let mut adjusted_state = (**submenu_state).clone();
+                adjusted_state.anchor_position = (submenu_anchor_x, submenu_anchor_y);
 
-            let adjusted_submenu =
-                ContextMenu::new(items, &adjusted_state).style(self.style.clone());
+                let adjusted_submenu =
+                    ContextMenu::new(items, &adjusted_state).style(self.style.clone());
 
-            let (_, submenu_regions) = adjusted_submenu.render_stateful(frame, screen);
-            regions.extend(submenu_regions);
+                let (_, submenu_regions) = adjusted_submenu.render_stateful(frame, screen);
+                regions.extend(submenu_regions);
+            }
         }
 
         (menu_area, regions)
@@ -824,22 +825,23 @@ pub fn handle_context_menu_key(
     // If submenu is open, delegate to it first
     if let (Some(submenu_idx), Some(submenu_state)) =
         (state.active_submenu, &mut state.submenu_state)
-        && let Some(ContextMenuItem::Submenu { items: sub_items, .. }) = items.get(submenu_idx)
     {
-        match key.code {
-            KeyCode::Left | KeyCode::Esc => {
-                state.close_submenu();
-                return Some(ContextMenuAction::SubmenuClose);
-            }
-            _ => {
-                if let Some(action) =
-                    handle_context_menu_key(key, submenu_state.as_mut(), sub_items)
-                {
-                    return Some(action);
+        if let Some(ContextMenuItem::Submenu { items: sub_items, .. }) = items.get(submenu_idx) {
+            match key.code {
+                KeyCode::Left | KeyCode::Esc => {
+                    state.close_submenu();
+                    return Some(ContextMenuAction::SubmenuClose);
+                }
+                _ => {
+                    if let Some(action) =
+                        handle_context_menu_key(key, submenu_state.as_mut(), sub_items)
+                    {
+                        return Some(action);
+                    }
                 }
             }
+            return None;
         }
-        return None;
     }
 
     match key.code {
@@ -885,12 +887,11 @@ pub fn handle_context_menu_key(
             }
         }
         KeyCode::Right => {
-            if let Some(item) = items.get(state.highlighted_index)
-                && item.has_submenu()
-                && item.is_enabled()
-            {
-                state.open_submenu();
-                return Some(ContextMenuAction::SubmenuOpen(state.highlighted_index));
+            if let Some(item) = items.get(state.highlighted_index) {
+                if item.has_submenu() && item.is_enabled() {
+                    state.open_submenu();
+                    return Some(ContextMenuAction::SubmenuOpen(state.highlighted_index));
+                }
             }
             None
         }
