@@ -252,14 +252,14 @@ impl FileExplorerState {
 
     /// Toggle selection of current file
     pub fn toggle_selection(&mut self) {
-        if let Some(entry) = self.current_entry() {
-            if entry.is_selectable() {
-                let path = entry.path.clone();
-                if self.selected_files.contains(&path) {
-                    self.selected_files.remove(&path);
-                } else {
-                    self.selected_files.insert(path);
-                }
+        if let Some(entry) = self.current_entry()
+            && entry.is_selectable()
+        {
+            let path = entry.path.clone();
+            if self.selected_files.contains(&path) {
+                self.selected_files.remove(&path);
+            } else {
+                self.selected_files.insert(path);
             }
         }
     }

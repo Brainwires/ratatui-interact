@@ -340,7 +340,7 @@ where
             ));
 
             // Tree connectors
-            for (_depth_idx, &parent_is_last) in flat_node.parent_is_last.iter().enumerate() {
+            for &parent_is_last in flat_node.parent_is_last.iter() {
                 let connector = if parent_is_last {
                     self.style.connector_space
                 } else {
