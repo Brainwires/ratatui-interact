@@ -170,8 +170,11 @@ pub mod prelude {
         Button, ButtonAction, ButtonState, ButtonStyle, ButtonVariant, CheckBox, CheckBoxAction,
         CheckBoxState, CheckBoxStyle, ContextMenu, ContextMenuAction, ContextMenuItem,
         ContextMenuState, ContextMenuStyle, DialogConfig, DialogFocusTarget, DialogState, Input,
-        InputAction, InputState, InputStyle, PopupDialog, calculate_menu_height,
-        handle_context_menu_key, handle_context_menu_mouse, is_context_menu_trigger,
+        InputAction, InputState, InputStyle, Menu, MenuBar, MenuBarAction, MenuBarClickTarget,
+        MenuBarItem, MenuBarState, MenuBarStyle, PopupDialog, calculate_menu_bar_height,
+        calculate_menu_height, handle_context_menu_key, handle_context_menu_mouse,
+        handle_menu_bar_key, handle_menu_bar_mouse, is_context_menu_trigger,
+        menu_bar_dropdown_height,
     };
 
     // Display Components

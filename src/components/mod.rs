@@ -11,6 +11,7 @@
 //! - [`Button`] - Various button styles
 //! - [`Select`] - Dropdown select box with popup options
 //! - [`ContextMenu`] - Right-click popup menu with actions and submenus
+//! - [`MenuBar`] - Horizontal menu bar with dropdown menus (File, Edit, View, Help style)
 //! - [`PopupDialog`] - Container for popup dialogs
 //!
 //! ## Display Components
@@ -52,6 +53,7 @@ pub mod input;
 pub mod list_picker;
 pub mod log_viewer;
 pub mod marquee;
+pub mod menu_bar;
 pub mod paragraph_ext;
 pub mod progress;
 pub mod select;
@@ -78,6 +80,11 @@ pub use context_menu::{
     ContextMenu, ContextMenuAction, ContextMenuItem, ContextMenuState, ContextMenuStyle,
     calculate_menu_height, handle_context_menu_key, handle_context_menu_mouse,
     is_context_menu_trigger,
+};
+pub use menu_bar::{
+    Menu, MenuBar, MenuBarAction, MenuBarClickTarget, MenuBarItem, MenuBarState, MenuBarStyle,
+    calculate_dropdown_height as menu_bar_dropdown_height, calculate_menu_bar_height,
+    handle_menu_bar_key, handle_menu_bar_mouse,
 };
 pub use diff_viewer::{
     DiffData, DiffHunk, DiffLine, DiffLineType, DiffViewMode, DiffViewer, DiffViewerAction,
