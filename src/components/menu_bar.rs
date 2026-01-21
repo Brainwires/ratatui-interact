@@ -934,6 +934,7 @@ impl<'a> MenuBar<'a> {
     }
 
     /// Render a single menu item.
+    #[allow(clippy::too_many_arguments)]
     fn render_menu_item(
         &self,
         frame: &mut Frame,
@@ -1093,6 +1094,7 @@ impl<'a> MenuBar<'a> {
 /// - `Escape` - Close menu
 /// - `Home` - Jump to first item
 /// - `End` - Jump to last item
+#[allow(clippy::collapsible_match)]
 pub fn handle_menu_bar_key(
     key: &KeyEvent,
     state: &mut MenuBarState,
@@ -1291,6 +1293,7 @@ pub fn handle_menu_bar_key(
 /// * `dropdown_area` - The rendered dropdown area (if any)
 /// * `click_regions` - Click regions from `render_stateful`
 /// * `menus` - The menu definitions
+#[allow(clippy::collapsible_match)]
 pub fn handle_menu_bar_mouse(
     mouse: &MouseEvent,
     state: &mut MenuBarState,
