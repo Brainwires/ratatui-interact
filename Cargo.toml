@@ -1,7 +1,8 @@
 [package]
 name = "ratatui-interact"
-version = "0.2.0"
-edition = "2021"
+version = "0.3.0"
+edition = "2024"
+rust-version = "1.85"
 description = "Interactive TUI components for ratatui with focus management and mouse support"
 license = "MIT"
 authors = ["Brainwires Team"]
@@ -14,18 +15,18 @@ readme = "README.md"
 
 [dependencies]
 # TUI framework
-ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
-crossterm = "0.28"
+ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
+crossterm = "0.29"
 
 # Error handling
 thiserror = "2.0"
 
 # Text processing
-regex = "1.10"
+regex = "1.12"
 unicode-width = "0.2"
 
 # Optional: Markdown rendering
-termimad = { version = "0.30", optional = true }
+termimad = { version = "0.34", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

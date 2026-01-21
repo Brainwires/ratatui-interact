@@ -257,13 +257,13 @@ fn ui(f: &mut Frame, app: &mut App) {
         SplitPaneStyle::default()
     };
 
-    let split_pane = SplitPane::new(&app.split_state)
+    let split_pane = SplitPane::new()
         .orientation(app.orientation)
         .style(main_style.clone())
         .min_percent(10)
         .max_percent(90);
 
-    let (first_area, divider_area, second_area) = split_pane.calculate_areas(chunks[1]);
+    let (first_area, divider_area, second_area) = split_pane.calculate_areas(chunks[1], app.split_state.split_percent());
 
     // Update total size for drag calculations
     let total_size = match app.orientation {
@@ -318,13 +318,13 @@ fn render_nested_split(f: &mut Frame, app: &mut App, area: Rect) {
         SplitPaneStyle::minimal()
     };
 
-    let nested_split = SplitPane::new(&app.nested_split_state)
+    let nested_split = SplitPane::new()
         .orientation(app.nested_orientation)
         .style(nested_style.clone())
         .min_percent(10)
         .max_percent(90);
 
-    let (nested_first, nested_divider, nested_second) = nested_split.calculate_areas(area);
+    let (nested_first, nested_divider, nested_second) = nested_split.calculate_areas(area, app.nested_split_state.split_percent());
 
     // Update total size for nested drag calculations
     let nested_total_size = match app.nested_orientation {

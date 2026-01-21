@@ -12,8 +12,8 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 
 - **Focus Management** - Tab/Shift+Tab navigation with `FocusManager<T>`
 - **Mouse Click Support** - Click regions with hit-testing via `ClickRegion` and `ClickRegionRegistry`
-- **Interactive Widgets** - CheckBox, Input, Button, Select, ContextMenu, PopupDialog
-- **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText, Spinner
+- **Interactive Widgets** - CheckBox, Input, Button, Select, ContextMenu, MenuBar, PopupDialog
+- **Display Widgets** - ParagraphExt, Toast, Progress, MarqueeText, Spinner, MousePointer
 - **Navigation Widgets** - ListPicker, TreeView, FileExplorer, Accordion
 - **Layout Widgets** - TabView, SplitPane
 - **Viewer Widgets** - LogViewer, DiffViewer, StepDisplay
@@ -26,7 +26,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ratatui-interact = "0.2"
+ratatui-interact = "0.3"
 ```
 
 Or from git:
@@ -91,6 +91,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **Button** | Multiple variants: SingleLine, Block, Toggle, Icon+Text |
 | **Select** | Dropdown select box with popup options, keyboard/mouse navigation |
 | **ContextMenu** | Right-click popup menu with actions, separators, shortcuts, and submenus |
+| **MenuBar** | Traditional File/Edit/View/Help style menu bar with dropdowns, submenus, and shortcuts |
 | **PopupDialog** | Container for modal dialogs with focus management |
 | **HotkeyDialog** | Hotkey configuration dialog with search, categories, and trait-based customization |
 
@@ -103,6 +104,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **Progress** | Progress bar with label, percentage, and step counter |
 | **MarqueeText** | Scrolling text for long content in limited space (continuous, bounce, static modes) |
 | **Spinner** | Animated loading indicator with 12 frame styles (dots, braille, line, etc.) |
+| **MousePointer** | Visual indicator at mouse cursor position with customizable styles |
 
 ### Navigation Components
 
@@ -372,6 +374,113 @@ Style presets:
 - `ContextMenuStyle::default()` - Dark theme with blue highlight
 - `ContextMenuStyle::light()` - Light theme
 - `ContextMenuStyle::minimal()` - Simple style with reset background
+
+### Menu Bar
+
+```rust
+use ratatui_interact::components::{
+    Menu, MenuBar, MenuBarItem, MenuBarState, MenuBarStyle,
+    handle_menu_bar_key, handle_menu_bar_mouse,
+};
+
+// Create menus with items, separators, shortcuts, and submenus
+let menus = vec![
+    Menu::new("File").items(vec![
+        MenuBarItem::action("new", "New").shortcut("Ctrl+N"),
+        MenuBarItem::action("open", "Open...").shortcut("Ctrl+O"),
+        MenuBarItem::separator(),
+        MenuBarItem::action("save", "Save").shortcut("Ctrl+S"),
+        MenuBarItem::submenu("Export", vec![
+            MenuBarItem::action("export_pdf", "Export as PDF"),
+            MenuBarItem::action("export_html", "Export as HTML"),
+        ]),
+        MenuBarItem::separator(),
+        MenuBarItem::action("quit", "Quit").shortcut("Ctrl+Q"),
+    ]),
+    Menu::new("Edit").items(vec![
+        MenuBarItem::action("undo", "Undo").shortcut("Ctrl+Z"),
+        MenuBarItem::action("redo", "Redo").shortcut("Ctrl+Y"),
+        MenuBarItem::separator(),
+        MenuBarItem::action("cut", "Cut").shortcut("Ctrl+X"),
+        MenuBarItem::action("copy", "Copy").shortcut("Ctrl+C"),
+        MenuBarItem::action("paste", "Paste").shortcut("Ctrl+V").enabled(false), // Disabled
+    ]),
+];
+
+// Create state
+let mut state = MenuBarState::new();
+state.focused = true;
+
+// Render the menu bar
+let menu_bar = MenuBar::new(&menus, &state)
+    .style(MenuBarStyle::default());
+let (bar_area, dropdown_area, click_regions) = menu_bar.render_stateful(frame, area);
+
+// Handle keyboard (arrows navigate, Enter selects, Esc closes)
+if let Some(action) = handle_menu_bar_key(&key_event, &mut state, &menus) {
+    match action {
+        MenuBarAction::ItemSelect(id) => println!("Selected: {}", id),
+        MenuBarAction::MenuOpen(idx) => println!("Menu {} opened", idx),
+        MenuBarAction::MenuClose => println!("Menu closed"),
+        _ => {}
+    }
+}
+
+// Handle mouse (click to open, hover to switch menus)
+handle_menu_bar_mouse(&mouse_event, &mut state, bar_area, dropdown_area, &click_regions, &menus);
+```
+
+Key bindings:
+- `Left/Right`: Navigate between menus
+- `Up/Down`: Navigate items in dropdown (opens menu if closed)
+- `Enter/Space`: Select item or toggle menu
+- `Right` (on submenu): Open submenu
+- `Left/Esc`: Close submenu or close menu
+- `Home/End`: Jump to first/last item
+
+Style presets:
+- `MenuBarStyle::default()` - Dark theme
+- `MenuBarStyle::light()` - Light theme
+- `MenuBarStyle::minimal()` - Simple style with reset background
+
+### Mouse Pointer
+
+```rust
+use ratatui_interact::components::{MousePointer, MousePointerState, MousePointerStyle};
+
+// Create state (disabled by default)
+let mut state = MousePointerState::default();
+
+// Enable and update position from mouse events
+state.set_enabled(true);
+state.update_position(mouse.column, mouse.row);
+
+// Create pointer with custom style
+let pointer = MousePointer::new(&state)
+    .style(MousePointerStyle::crosshair());
+
+// Render LAST to appear on top of other widgets
+pointer.render(frame.buffer_mut());
+
+// Toggle visibility
+state.toggle();
+```
+
+Style presets:
+- `MousePointerStyle::default()` - Yellow block (`█`)
+- `MousePointerStyle::crosshair()` - Cyan crosshair (`┼`)
+- `MousePointerStyle::arrow()` - White arrow (`▶`)
+- `MousePointerStyle::dot()` - Green dot (`●`)
+- `MousePointerStyle::plus()` - Magenta plus (`+`)
+- `MousePointerStyle::custom(symbol, color)` - User-defined
+
+Custom styling:
+```rust
+let style = MousePointerStyle::default()
+    .symbol("◆")
+    .fg(Color::Rgb(255, 128, 0))  // Orange
+    .bg(Color::DarkGray);
+```
 
 ### List Picker
 
@@ -835,11 +944,13 @@ cargo run --example textarea_demo       # Multi-line text input
 cargo run --example button_demo         # Button variants and styles
 cargo run --example select_demo         # Dropdown select boxes
 cargo run --example context_menu_demo   # Right-click context menus
+cargo run --example menu_bar_demo       # File/Edit/View/Help style menu bar
 cargo run --example dialog_demo         # Modal dialogs
 cargo run --example hotkey_dialog_demo  # Hotkey configuration dialog
 
 # Display & Viewer Components
-cargo run --example marquee_demo       # Scrolling text animation
+cargo run --example marquee_demo        # Scrolling text animation
+cargo run --example mouse_pointer_demo  # Mouse cursor indicator
 cargo run --example spinner_demo       # Animated loading indicators
 cargo run --example display_demo       # Progress, StepDisplay, ParagraphExt
 cargo run --example diff_viewer_demo   # Diff viewer with unified/side-by-side modes

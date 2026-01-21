@@ -170,14 +170,20 @@ pub mod prelude {
         Button, ButtonAction, ButtonState, ButtonStyle, ButtonVariant, CheckBox, CheckBoxAction,
         CheckBoxState, CheckBoxStyle, ContextMenu, ContextMenuAction, ContextMenuItem,
         ContextMenuState, ContextMenuStyle, DialogConfig, DialogFocusTarget, DialogState, Input,
-        InputAction, InputState, InputStyle, PopupDialog, calculate_menu_height,
-        handle_context_menu_key, handle_context_menu_mouse, is_context_menu_trigger,
+        InputAction, InputState, InputStyle, Menu, MenuBar, MenuBarAction, MenuBarClickTarget,
+        MenuBarItem, MenuBarState, MenuBarStyle, PopupDialog, calculate_menu_bar_height,
+        calculate_menu_height, handle_context_menu_key, handle_context_menu_mouse,
+        handle_menu_bar_key, handle_menu_bar_mouse, is_context_menu_trigger,
+        menu_bar_dropdown_height,
     };
 
     // Display Components
     pub use crate::components::{
         ParagraphExt, Progress, ProgressStyle, Toast, ToastState, ToastStyle,
     };
+
+    // Utility Components
+    pub use crate::components::{MousePointer, MousePointerState, MousePointerStyle};
 
     // Navigation Components
     pub use crate::components::{
@@ -229,8 +235,8 @@ pub mod prelude {
     pub use crate::events::{
         get_char, get_mouse_pos, get_scroll, has_alt, has_ctrl, has_shift, is_activate_key,
         is_backspace, is_backtab, is_close_key, is_ctrl_a, is_ctrl_e, is_ctrl_k, is_ctrl_u,
-        is_ctrl_w, is_delete, is_end, is_enter, is_home, is_left_click, is_navigation_key,
-        is_right_click, is_space, is_tab,
+        is_ctrl_w, is_delete, is_end, is_enter, is_home, is_left_click, is_mouse_drag,
+        is_mouse_move, is_navigation_key, is_right_click, is_space, is_tab,
     };
 }
 

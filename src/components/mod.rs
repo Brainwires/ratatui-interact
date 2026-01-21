@@ -11,6 +11,7 @@
 //! - [`Button`] - Various button styles
 //! - [`Select`] - Dropdown select box with popup options
 //! - [`ContextMenu`] - Right-click popup menu with actions and submenus
+//! - [`MenuBar`] - Horizontal menu bar with dropdown menus (File, Edit, View, Help style)
 //! - [`PopupDialog`] - Container for popup dialogs
 //!
 //! ## Display Components
@@ -30,6 +31,9 @@
 //! ## Layout Components
 //! - [`TabView`] - Tab bar with switchable content panes
 //! - [`SplitPane`] - Resizable split pane with drag-to-resize divider
+//!
+//! ## Utility Components
+//! - [`MousePointer`] - Visual indicator at mouse cursor position
 //!
 //! ## Dialog Components
 //! - [`HotkeyDialog`] - Hotkey configuration dialog with search and categories
@@ -52,6 +56,8 @@ pub mod input;
 pub mod list_picker;
 pub mod log_viewer;
 pub mod marquee;
+pub mod menu_bar;
+pub mod mouse_pointer;
 pub mod paragraph_ext;
 pub mod progress;
 pub mod select;
@@ -79,6 +85,11 @@ pub use context_menu::{
     calculate_menu_height, handle_context_menu_key, handle_context_menu_mouse,
     is_context_menu_trigger,
 };
+pub use menu_bar::{
+    Menu, MenuBar, MenuBarAction, MenuBarClickTarget, MenuBarItem, MenuBarState, MenuBarStyle,
+    calculate_dropdown_height as menu_bar_dropdown_height, calculate_menu_bar_height,
+    handle_menu_bar_key, handle_menu_bar_mouse,
+};
 pub use diff_viewer::{
     DiffData, DiffHunk, DiffLine, DiffLineType, DiffViewMode, DiffViewer, DiffViewerAction,
     DiffViewerState, DiffViewerStyle, handle_diff_viewer_key, handle_diff_viewer_mouse,
@@ -97,6 +108,7 @@ pub use marquee::{
     MarqueeMode, MarqueeState, MarqueeStyle, MarqueeText, ScrollDir, bounce_marquee,
     continuous_marquee,
 };
+pub use mouse_pointer::{MousePointer, MousePointerState, MousePointerStyle};
 pub use paragraph_ext::ParagraphExt;
 pub use progress::{Progress, ProgressStyle};
 pub use spinner::{LabelPosition, Spinner, SpinnerFrames, SpinnerState, SpinnerStyle};
