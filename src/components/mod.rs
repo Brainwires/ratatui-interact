@@ -32,6 +32,9 @@
 //! - [`TabView`] - Tab bar with switchable content panes
 //! - [`SplitPane`] - Resizable split pane with drag-to-resize divider
 //!
+//! ## Utility Components
+//! - [`MousePointer`] - Visual indicator at mouse cursor position
+//!
 //! ## Dialog Components
 //! - [`HotkeyDialog`] - Hotkey configuration dialog with search and categories
 //!
@@ -54,6 +57,7 @@ pub mod list_picker;
 pub mod log_viewer;
 pub mod marquee;
 pub mod menu_bar;
+pub mod mouse_pointer;
 pub mod paragraph_ext;
 pub mod progress;
 pub mod select;
@@ -104,6 +108,7 @@ pub use marquee::{
     MarqueeMode, MarqueeState, MarqueeStyle, MarqueeText, ScrollDir, bounce_marquee,
     continuous_marquee,
 };
+pub use mouse_pointer::{MousePointer, MousePointerState, MousePointerStyle};
 pub use paragraph_ext::ParagraphExt;
 pub use progress::{Progress, ProgressStyle};
 pub use spinner::{LabelPosition, Spinner, SpinnerFrames, SpinnerState, SpinnerStyle};

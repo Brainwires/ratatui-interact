@@ -121,6 +121,16 @@ pub fn get_mouse_pos(mouse: &MouseEvent) -> (u16, u16) {
     (mouse.column, mouse.row)
 }
 
+/// Check if a mouse event is a mouse move event.
+pub fn is_mouse_move(mouse: &MouseEvent) -> bool {
+    matches!(mouse.kind, MouseEventKind::Moved)
+}
+
+/// Check if a mouse event is a drag event.
+pub fn is_mouse_drag(mouse: &MouseEvent) -> bool {
+    matches!(mouse.kind, MouseEventKind::Drag(_))
+}
+
 /// Check if Ctrl modifier is pressed.
 pub fn has_ctrl(key: &KeyEvent) -> bool {
     key.modifiers.contains(KeyModifiers::CONTROL)
@@ -308,5 +318,47 @@ mod tests {
             modifiers: KeyModifiers::NONE,
         };
         assert_eq!(get_scroll(&scroll_down), Some(1));
+    }
+
+    #[test]
+    fn test_mouse_move() {
+        let mouse_move = MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 15,
+            row: 10,
+            modifiers: KeyModifiers::NONE,
+        };
+        assert!(is_mouse_move(&mouse_move));
+        assert!(!is_mouse_drag(&mouse_move));
+        assert_eq!(get_mouse_pos(&mouse_move), (15, 10));
+
+        let left_click = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 5,
+            row: 5,
+            modifiers: KeyModifiers::NONE,
+        };
+        assert!(!is_mouse_move(&left_click));
+    }
+
+    #[test]
+    fn test_mouse_drag() {
+        let left_drag = MouseEvent {
+            kind: MouseEventKind::Drag(MouseButton::Left),
+            column: 20,
+            row: 15,
+            modifiers: KeyModifiers::NONE,
+        };
+        assert!(is_mouse_drag(&left_drag));
+        assert!(!is_mouse_move(&left_drag));
+        assert_eq!(get_mouse_pos(&left_drag), (20, 15));
+
+        let right_drag = MouseEvent {
+            kind: MouseEventKind::Drag(MouseButton::Right),
+            column: 5,
+            row: 5,
+            modifiers: KeyModifiers::NONE,
+        };
+        assert!(is_mouse_drag(&right_drag));
     }
 }
