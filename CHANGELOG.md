@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-01-21
+
+### Added
+- **Interactive Components**
+  - `MenuBar` - Traditional desktop-style horizontal menu bar (File, Edit, View, Help)
+    - `Menu` struct for top-level menu definitions with labels and items
+    - `MenuBarItem` enum with `Action`, `Separator`, and `Submenu` variants
+    - Builder pattern: `action()`, `separator()`, `submenu()`, `.shortcut()`, `.enabled()`
+    - `MenuBarState` for tracking open state, active menu, highlight, scroll, and submenu state
+    - `MenuBarAction` enum for handling MenuOpen, MenuClose, ItemSelect, SubmenuOpen, SubmenuClose, HighlightChange events
+    - `MenuBarStyle` with customizable colors, sizing, and indicators (default, light, minimal presets)
+    - Smart dropdown positioning with scrolling for long menus
+    - Full keyboard support: Left/Right (menus), Up/Down (items), Enter/Space (select), Esc (close), Home/End
+    - Full mouse support: click to open/select, hover to switch menus and highlight items
+
+- **Display Components**
+  - `MousePointer` - Visual indicator that displays at the current mouse cursor position
+    - `MousePointerState` for tracking enabled status and position (disabled by default)
+    - `MousePointerStyle` with customizable symbol, foreground, and background colors
+    - Style presets: `default()` (█ Yellow), `crosshair()` (┼ Cyan), `arrow()` (▶ White), `dot()` (● Green), `plus()` (+ Magenta)
+    - `custom(symbol, color)` constructor for user-defined styles
+    - Builder methods: `.symbol()`, `.fg()`, `.bg()` for full customization
+    - `render()` and `render_in_area()` methods for flexible positioning
+    - Designed to render last (on top of other widgets) for overlay effect
+
+- **Event Helpers**
+  - `is_mouse_move()` - Detect mouse move events
+  - `is_mouse_drag()` - Detect mouse drag events
+
+- **Examples**
+  - `menu_bar_demo` - Interactive demonstration of menu bar with File/Edit/View/Help menus, submenus, shortcuts, disabled items, and style cycling
+  - `mouse_pointer_demo` - Interactive demonstration of mouse pointer with toggle, style cycling, and position display
+
+- **Tests**
+  - 28 unit tests for MenuBar covering item creation, state management, navigation, styles, keyboard handling, and mouse handling
+  - 16 unit tests for MousePointer covering state management, style presets, rendering, and bounds checking
+  - 2 unit tests for new mouse event helpers
+
+### Changed
+- Updated Rust edition from 2021 to 2024
+- Updated minimum Rust version to 1.85
+- Updated ratatui from 0.29 to 0.30
+- Updated crossterm from 0.28 to 0.29
+- Updated regex from 1.10 to 1.12
+- Updated termimad from 0.30 to 0.34
+
 ## [0.2.0] - 2026-01-19
 
 ### Added

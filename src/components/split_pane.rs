@@ -10,7 +10,7 @@
 //! use ratatui::prelude::*;
 //!
 //! let mut state = SplitPaneState::new(50); // 50% split
-//! let split_pane = SplitPane::new(&state)
+//! let split_pane = SplitPane::new()
 //!     .orientation(Orientation::Horizontal)
 //!     .min_size(10)
 //!     .divider_char("│");
@@ -19,6 +19,7 @@
 //! split_pane.render_with_content(
 //!     area,
 //!     buf,
+//!     &mut state,
 //!     |first_area, buf| { /* render first pane */ },
 //!     |second_area, buf| { /* render second pane */ },
 //!     &mut registry,
@@ -29,7 +30,6 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::{Color, Modifier, Style},
-    widgets::Widget,
 };
 
 use crate::traits::{ClickRegion, ClickRegionRegistry, FocusId, Focusable};
@@ -254,8 +254,7 @@ impl SplitPaneStyle {
 }
 
 /// A resizable split pane component
-pub struct SplitPane<'a> {
-    state: &'a SplitPaneState,
+pub struct SplitPane {
     orientation: Orientation,
     style: SplitPaneStyle,
     min_size: u16,
@@ -263,11 +262,10 @@ pub struct SplitPane<'a> {
     max_percent: u16,
 }
 
-impl<'a> SplitPane<'a> {
-    /// Create a new SplitPane with the given state
-    pub fn new(state: &'a SplitPaneState) -> Self {
+impl SplitPane {
+    /// Create a new SplitPane
+    pub fn new() -> Self {
         Self {
-            state,
             orientation: Orientation::default(),
             style: SplitPaneStyle::default(),
             min_size: 5,
@@ -313,7 +311,9 @@ impl<'a> SplitPane<'a> {
     }
 
     /// Calculate the layout areas for the split pane
-    pub fn calculate_areas(&self, area: Rect) -> (Rect, Rect, Rect) {
+    ///
+    /// Takes a split_percent (0-100) to determine the first pane size.
+    pub fn calculate_areas(&self, area: Rect, split_percent: u16) -> (Rect, Rect, Rect) {
         let total_size = match self.orientation {
             Orientation::Horizontal => area.width,
             Orientation::Vertical => area.height,
@@ -323,7 +323,7 @@ impl<'a> SplitPane<'a> {
         let available_size = total_size.saturating_sub(divider_size);
 
         // Calculate first pane size based on percentage
-        let first_size = ((available_size as u32) * (self.state.split_percent as u32) / 100) as u16;
+        let first_size = ((available_size as u32) * (split_percent as u32) / 100) as u16;
         let first_size = first_size.clamp(self.min_size, available_size.saturating_sub(self.min_size));
 
         // Second pane gets the rest
@@ -356,10 +356,10 @@ impl<'a> SplitPane<'a> {
     }
 
     /// Render the divider
-    fn render_divider(&self, divider_area: Rect, buf: &mut Buffer) {
-        let divider_style = if self.state.is_dragging {
+    fn render_divider(&self, state: &SplitPaneState, divider_area: Rect, buf: &mut Buffer) {
+        let divider_style = if state.is_dragging {
             self.style.divider_dragging_style
-        } else if self.state.divider_focused {
+        } else if state.divider_focused {
             self.style.divider_focused_style
         } else {
             self.style.divider_style
@@ -434,7 +434,7 @@ impl<'a> SplitPane<'a> {
         };
         state.set_total_size(total_size);
 
-        let (first_area, divider_area, second_area) = self.calculate_areas(area);
+        let (first_area, divider_area, second_area) = self.calculate_areas(area, state.split_percent);
 
         // Register click regions
         registry.register(first_area, SplitPaneAction::FirstPaneClick);
@@ -446,7 +446,7 @@ impl<'a> SplitPane<'a> {
         second_pane_renderer(second_area, buf);
 
         // Render divider on top
-        self.render_divider(divider_area, buf);
+        self.render_divider(state, divider_area, buf);
     }
 
     /// Render just the split pane divider (for cases where content is rendered separately)
@@ -463,23 +463,36 @@ impl<'a> SplitPane<'a> {
         };
         state.set_total_size(total_size);
 
-        let (first_area, divider_area, second_area) = self.calculate_areas(area);
-        self.render_divider(divider_area, buf);
+        let (first_area, divider_area, second_area) = self.calculate_areas(area, state.split_percent);
+        self.render_divider(state, divider_area, buf);
         (first_area, divider_area, second_area)
     }
 
     /// Get a simple click region for the divider
-    pub fn divider_click_region(&self, area: Rect) -> ClickRegion<SplitPaneAction> {
-        let (_, divider_area, _) = self.calculate_areas(area);
+    pub fn divider_click_region(&self, area: Rect, split_percent: u16) -> ClickRegion<SplitPaneAction> {
+        let (_, divider_area, _) = self.calculate_areas(area, split_percent);
         ClickRegion::new(divider_area, SplitPaneAction::DividerDrag)
+    }
+
+    /// Get the orientation
+    pub fn get_orientation(&self) -> Orientation {
+        self.orientation
+    }
+
+    /// Get min_percent
+    pub fn get_min_percent(&self) -> u16 {
+        self.min_percent
+    }
+
+    /// Get max_percent
+    pub fn get_max_percent(&self) -> u16 {
+        self.max_percent
     }
 }
 
-/// Empty widget implementation for basic rendering
-impl Widget for SplitPane<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let (_, divider_area, _) = self.calculate_areas(area);
-        self.render_divider(divider_area, buf);
+impl Default for SplitPane {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -641,11 +654,10 @@ mod tests {
 
     #[test]
     fn test_calculate_areas_horizontal() {
-        let state = SplitPaneState::new(50);
-        let split_pane = SplitPane::new(&state).orientation(Orientation::Horizontal);
+        let split_pane = SplitPane::new().orientation(Orientation::Horizontal);
 
         let area = Rect::new(0, 0, 100, 50);
-        let (first, divider, second) = split_pane.calculate_areas(area);
+        let (first, divider, second) = split_pane.calculate_areas(area, 50);
 
         assert_eq!(first.width + divider.width + second.width, area.width);
         assert_eq!(divider.width, 1);
@@ -653,11 +665,10 @@ mod tests {
 
     #[test]
     fn test_calculate_areas_vertical() {
-        let state = SplitPaneState::new(50);
-        let split_pane = SplitPane::new(&state).orientation(Orientation::Vertical);
+        let split_pane = SplitPane::new().orientation(Orientation::Vertical);
 
         let area = Rect::new(0, 0, 100, 50);
-        let (first, divider, second) = split_pane.calculate_areas(area);
+        let (first, divider, second) = split_pane.calculate_areas(area, 50);
 
         assert_eq!(first.height + divider.height + second.height, area.height);
         assert_eq!(divider.height, 1);
