@@ -99,6 +99,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 
 | Component | Description |
 |-----------|-------------|
+| **AnimatedText** | Animated text with color effects (pulse, wave, rainbow, gradient, sparkle) |
 | **ParagraphExt** | Extended paragraph with word-wrapping and scrolling |
 | **Toast** | Transient notification popup with auto-expiration and style variants |
 | **Progress** | Progress bar with label, percentage, and step counter |
@@ -233,6 +234,47 @@ Available frame styles:
 - And more: `Box`, `Bounce`, `Grow`, `Ascii`, `Toggle`
 
 Style presets: `SpinnerStyle::success()`, `warning()`, `error()`, `info()`, `minimal()`
+
+### Animated Text
+
+```rust
+use ratatui_interact::components::{AnimatedText, AnimatedTextState, AnimatedTextStyle, AnimatedTextEffect};
+
+// Create state (call tick() each frame to animate)
+let mut state = AnimatedTextState::new();
+
+// Pulse effect - entire text oscillates between two colors
+let text = AnimatedText::new("Loading...", &state)
+    .style(AnimatedTextStyle::pulse(Color::Cyan, Color::Blue));
+
+// Wave effect - highlight travels back and forth
+let text = AnimatedText::new("Processing data", &state)
+    .style(AnimatedTextStyle::wave(Color::White, Color::Yellow).wave_width(5));
+
+// Rainbow effect - colors cycle across characters
+let text = AnimatedText::new("Welcome!", &state)
+    .style(AnimatedTextStyle::rainbow());
+
+// Gradient shift - smooth color gradient that moves
+let text = AnimatedText::new("Smooth transition", &state)
+    .style(AnimatedTextStyle::gradient_shift(Color::Green, Color::Cyan));
+
+// Sparkle effect - random characters flash
+let text = AnimatedText::new("Sparkling!", &state)
+    .style(AnimatedTextStyle::sparkle(Color::White, Color::Yellow));
+
+// In your event loop, advance the animation
+state.tick_with_text_width(text_length);
+```
+
+Effects:
+- `Pulse` - Entire text oscillates between primary and secondary colors (default)
+- `Wave` - A highlighted region travels back and forth across the text
+- `Rainbow` - Colors cycle through a spectrum across each character
+- `GradientShift` - A smooth gradient that shifts over time
+- `Sparkle` - Random characters flash with the secondary color
+
+Style presets: `AnimatedTextStyle::success()`, `warning()`, `error()`, `info()`, `loading()`, `highlight()`
 
 ### Marquee Text
 
@@ -949,6 +991,7 @@ cargo run --example dialog_demo         # Modal dialogs
 cargo run --example hotkey_dialog_demo  # Hotkey configuration dialog
 
 # Display & Viewer Components
+cargo run --example animated_text_demo  # Animated text with color effects
 cargo run --example marquee_demo        # Scrolling text animation
 cargo run --example mouse_pointer_demo  # Mouse cursor indicator
 cargo run --example spinner_demo       # Animated loading indicators

@@ -179,7 +179,8 @@ pub mod prelude {
 
     // Display Components
     pub use crate::components::{
-        ParagraphExt, Progress, ProgressStyle, Toast, ToastState, ToastStyle,
+        AnimatedText, AnimatedTextEffect, AnimatedTextState, AnimatedTextStyle, ParagraphExt,
+        Progress, ProgressStyle, Toast, ToastState, ToastStyle, WaveDirection,
     };
 
     // Utility Components

@@ -15,6 +15,7 @@
 //! - [`PopupDialog`] - Container for popup dialogs
 //!
 //! ## Display Components
+//! - [`AnimatedText`] - Animated text with color effects (pulse, wave, rainbow)
 //! - [`ParagraphExt`] - Extended paragraph with word-wrapping and scrolling
 //! - [`Toast`] - Toast notifications with auto-dismiss
 //! - [`Progress`] - Progress bar with label and percentage
@@ -44,6 +45,7 @@
 //! - [`StepDisplay`] - Multi-step progress display
 
 pub mod accordion;
+pub mod animated_text;
 pub mod breadcrumb;
 pub mod button;
 pub mod checkbox;
@@ -72,6 +74,9 @@ pub mod tree_view;
 pub use accordion::{
     Accordion, AccordionMode, AccordionState, AccordionStyle, calculate_height as accordion_height,
     handle_accordion_key, handle_accordion_mouse,
+};
+pub use animated_text::{
+    AnimatedText, AnimatedTextEffect, AnimatedTextState, AnimatedTextStyle, WaveDirection,
 };
 pub use breadcrumb::{
     Breadcrumb, BreadcrumbAction, BreadcrumbItem, BreadcrumbState, BreadcrumbStyle,
