@@ -106,6 +106,17 @@ impl ScrollableContentState {
         &self.lines
     }
 
+    /// Push a line to the content
+    pub fn push_line(&mut self, line: impl Into<String>) {
+        self.lines.push(line.into());
+    }
+
+    /// Clear all content
+    pub fn clear(&mut self) {
+        self.lines.clear();
+        self.scroll_offset = 0;
+    }
+
     /// Get the number of lines
     pub fn line_count(&self) -> usize {
         self.lines.len()
