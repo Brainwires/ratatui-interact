@@ -1,32 +1,25 @@
-//! View/Copy mode utilities
+//! View/Copy mode and exit strategy utilities
 //!
-//! Provides functionality for entering a "View/Copy mode" that exits the alternate
-//! screen and prints content to the terminal's main buffer, allowing native text
-//! selection and copying.
+//! Provides functionality for:
+//! - "View/Copy mode" that exits the alternate screen for native text selection
+//! - Exit strategies: restore original console or print content
 //!
-//! # Example
+//! # View/Copy Mode Example
 //!
 //! ```rust,ignore
 //! use ratatui_interact::utils::{ViewCopyMode, ViewCopyConfig};
 //!
-//! // Create config
 //! let config = ViewCopyConfig::default()
 //!     .with_header("My Content")
 //!     .show_hints(true);
 //!
-//! // Enter view/copy mode
-//! let mut mode = ViewCopyMode::enter(&mut terminal, &config)?;
-//!
-//! // Print content
+//! let mode = ViewCopyMode::enter_with_config(&mut stdout, config)?;
 //! mode.print_lines(&content_lines)?;
 //!
-//! // Wait for exit (handles 'c', 'q', Esc)
-//! // Returns true if user pressed 'n' (toggle line numbers)
 //! loop {
 //!     match mode.wait_for_input()? {
 //!         ViewCopyAction::Exit => break,
 //!         ViewCopyAction::ToggleLineNumbers => {
-//!             // Regenerate content and reprint
 //!             mode.clear()?;
 //!             mode.print_lines(&new_content)?;
 //!         }
@@ -34,8 +27,19 @@
 //!     }
 //! }
 //!
-//! // Exit view/copy mode (re-enters alternate screen)
 //! mode.exit(&mut terminal)?;
+//! ```
+//!
+//! # Exit Strategy Example
+//!
+//! ```rust,ignore
+//! use ratatui_interact::utils::ExitStrategy;
+//!
+//! // At app exit, choose strategy:
+//! let strategy = ExitStrategy::PrintContent(content_lines);
+//! // or: let strategy = ExitStrategy::RestoreConsole;
+//!
+//! strategy.execute()?;
 //! ```
 
 use std::io::{self, Write};
@@ -264,6 +268,9 @@ impl ViewCopyMode {
 ///
 /// Call this at app startup to ensure View/Copy mode has a clean buffer.
 /// This prevents old terminal content from appearing when leaving alternate screen.
+///
+/// **Note:** If you want to support `ExitStrategy::RestoreConsole`, do NOT call this
+/// function at startup, as it will clear the original terminal content.
 pub fn clear_main_screen() -> io::Result<()> {
     let mut stdout = io::stdout();
     execute!(
@@ -274,4 +281,69 @@ pub fn clear_main_screen() -> io::Result<()> {
     )?;
     stdout.flush()?;
     Ok(())
+}
+
+/// Strategy for exiting the application
+#[derive(Debug, Clone)]
+pub enum ExitStrategy {
+    /// Restore the original terminal content
+    ///
+    /// Simply exits the alternate screen without printing anything.
+    /// The terminal will show whatever was displayed before the app started.
+    RestoreConsole,
+
+    /// Print content to stdout on exit
+    ///
+    /// Clears the screen and prints the provided lines.
+    PrintContent(Vec<String>),
+}
+
+impl ExitStrategy {
+    /// Execute the exit strategy
+    ///
+    /// This should be called after:
+    /// 1. Disabling raw mode
+    /// 2. Leaving alternate screen
+    /// 3. Disabling mouse capture
+    ///
+    /// It handles the final output based on the chosen strategy.
+    pub fn execute(&self) -> io::Result<()> {
+        match self {
+            ExitStrategy::RestoreConsole => {
+                // Nothing to do - the terminal already restored the original content
+                // when we left the alternate screen
+                Ok(())
+            }
+            ExitStrategy::PrintContent(lines) => {
+                let mut stdout = io::stdout();
+                // Clear screen and scrollback to remove any artifacts
+                execute!(
+                    stdout,
+                    Clear(ClearType::Purge),
+                    Clear(ClearType::All),
+                    MoveTo(0, 0)
+                )?;
+                // Print the content
+                for line in lines {
+                    println!("{}", line);
+                }
+                stdout.flush()?;
+                Ok(())
+            }
+        }
+    }
+
+    /// Create a PrintContent strategy from a slice of strings
+    pub fn print_content(lines: &[String]) -> Self {
+        ExitStrategy::PrintContent(lines.to_vec())
+    }
+
+    /// Create a PrintContent strategy from an iterator
+    pub fn print_content_iter<I, S>(lines: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        ExitStrategy::PrintContent(lines.into_iter().map(|s| s.into()).collect())
+    }
 }

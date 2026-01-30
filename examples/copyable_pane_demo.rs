@@ -1,10 +1,12 @@
 //! Scrollable Content Demo
 //!
-//! Demonstrates ScrollableContent with View/Copy mode:
+//! Demonstrates ScrollableContent with View/Copy mode and exit strategies:
 //! - Single scrollable content pane with keyboard/mouse navigation
 //! - Press 'c' to enter View/Copy mode (exits to terminal for native text selection)
 //! - Press 'n' to toggle line numbers
-//! - On quit, content is printed to stdout for easy copying
+//! - Press 'r' to toggle exit strategy:
+//!   - "print content": prints scrollable content to stdout on exit
+//!   - "restore console": restores terminal to pre-app state on exit
 //!
 //! Run with: cargo run --example copyable_pane_demo
 
@@ -30,7 +32,7 @@ use ratatui_interact::{
         handle_scrollable_content_key, handle_scrollable_content_mouse,
     },
     events::is_close_key,
-    utils::{ViewCopyAction, ViewCopyConfig, ViewCopyMode, clear_main_screen},
+    utils::{ExitStrategy, ViewCopyAction, ViewCopyConfig, ViewCopyMode},
 };
 
 /// Application state
@@ -45,6 +47,33 @@ struct App {
     should_quit: bool,
     /// Last rendered content area
     content_area: Rect,
+    /// Exit strategy (r to toggle)
+    exit_strategy: ExitStrategyChoice,
+}
+
+/// Exit strategy choice for the demo
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExitStrategyChoice {
+    /// Print content to stdout on exit
+    PrintContent,
+    /// Restore original console on exit
+    RestoreConsole,
+}
+
+impl ExitStrategyChoice {
+    fn toggle(self) -> Self {
+        match self {
+            Self::PrintContent => Self::RestoreConsole,
+            Self::RestoreConsole => Self::PrintContent,
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::PrintContent => "print content",
+            Self::RestoreConsole => "restore console",
+        }
+    }
 }
 
 impl App {
@@ -60,6 +89,7 @@ impl App {
             show_line_numbers: true,
             should_quit: false,
             content_area: Rect::default(),
+            exit_strategy: ExitStrategyChoice::PrintContent,
         }
     }
 
@@ -108,9 +138,8 @@ fn run_view_copy_mode(
 }
 
 fn main() -> io::Result<()> {
-    // Clear main screen buffer before entering alternate screen
-    // (ensures View/Copy mode has a clean buffer)
-    clear_main_screen()?;
+    // NOTE: We do NOT call clear_main_screen() here so that
+    // ExitStrategy::RestoreConsole can restore the original content
 
     // Setup terminal
     enable_raw_mode()?;
@@ -156,10 +185,12 @@ fn main() -> io::Result<()> {
     )?;
     terminal.show_cursor()?;
 
-    // Print raw content to stdout on exit (no line numbers)
-    for line in &app.raw_content {
-        println!("{}", line);
-    }
+    // Execute chosen exit strategy
+    let strategy = match app.exit_strategy {
+        ExitStrategyChoice::PrintContent => ExitStrategy::print_content(&app.raw_content),
+        ExitStrategyChoice::RestoreConsole => ExitStrategy::RestoreConsole,
+    };
+    strategy.execute()?;
 
     Ok(())
 }
@@ -178,6 +209,9 @@ fn handle_key(
         }
         KeyCode::Char('n') => {
             app.toggle_line_numbers();
+        }
+        KeyCode::Char('r') => {
+            app.exit_strategy = app.exit_strategy.toggle();
         }
         _ => {
             let _ = handle_scrollable_content_key(
@@ -209,12 +243,15 @@ fn ui(f: &mut Frame, app: &mut App) {
 
     // Title bar
     let line_hint = if app.show_line_numbers { "n: hide lines" } else { "n: show lines" };
+    let exit_hint = format!("r: exit → {}", app.exit_strategy.label());
     let title = Line::from(vec![
         Span::styled(" Scrollable Content ", Style::default().fg(Color::Cyan)),
         Span::raw(" | "),
         Span::styled("c: view/copy", Style::default().fg(Color::Yellow)),
         Span::raw(" | "),
         Span::styled(line_hint, Style::default().fg(Color::Yellow)),
+        Span::raw(" | "),
+        Span::styled(exit_hint, Style::default().fg(Color::Green)),
         Span::raw(" | "),
         Span::styled("q: quit", Style::default().fg(Color::Yellow)),
     ]);

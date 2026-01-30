@@ -24,4 +24,6 @@ pub use mouse_capture::{
     disable_mouse_capture, enable_mouse_capture, set_mouse_capture, toggle_mouse_capture,
     MouseCaptureState,
 };
-pub use view_copy::{ViewCopyAction, ViewCopyConfig, ViewCopyMode, clear_main_screen};
+pub use view_copy::{
+    ExitStrategy, ViewCopyAction, ViewCopyConfig, ViewCopyMode, clear_main_screen,
+};
