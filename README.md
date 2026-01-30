@@ -128,6 +128,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 
 | Component | Description |
 |-----------|-------------|
+| **ScrollableContent** | Scrollable text pane with focus support, keyboard/mouse navigation, and View/Copy mode for native terminal text selection |
 | **LogViewer** | Scrollable log viewer with line numbers, search, and log-level coloring |
 | **DiffViewer** | Diff viewer with unified and side-by-side modes, hunk navigation, search, and syntax highlighting |
 | **StepDisplay** | Multi-step progress display with sub-steps and output areas |
@@ -997,6 +998,7 @@ cargo run --example mouse_pointer_demo  # Mouse cursor indicator
 cargo run --example spinner_demo       # Animated loading indicators
 cargo run --example display_demo       # Progress, StepDisplay, ParagraphExt
 cargo run --example diff_viewer_demo   # Diff viewer with unified/side-by-side modes
+cargo run --example copyable_pane_demo  # ScrollableContent with View/Copy mode
 
 # Navigation & Layout Components
 cargo run --example accordion_demo     # Collapsible sections

@@ -49,4 +49,3 @@ required-features = ["filesystem"]
 
 [[example]]
 name = "copyable_pane_demo"
-required-features = ["clipboard"]
