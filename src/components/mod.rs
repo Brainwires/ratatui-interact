@@ -15,6 +15,7 @@
 //! - [`PopupDialog`] - Container for popup dialogs
 //!
 //! ## Display Components
+//! - [`AnimatedText`] - Animated text with color effects (pulse, wave, rainbow)
 //! - [`ParagraphExt`] - Extended paragraph with word-wrapping and scrolling
 //! - [`Toast`] - Toast notifications with auto-dismiss
 //! - [`Progress`] - Progress bar with label and percentage
@@ -44,6 +45,7 @@
 //! - [`StepDisplay`] - Multi-step progress display
 
 pub mod accordion;
+pub mod animated_text;
 pub mod breadcrumb;
 pub mod button;
 pub mod checkbox;
@@ -60,6 +62,7 @@ pub mod menu_bar;
 pub mod mouse_pointer;
 pub mod paragraph_ext;
 pub mod progress;
+pub mod scrollable_content;
 pub mod select;
 pub mod spinner;
 pub mod split_pane;
@@ -72,6 +75,9 @@ pub mod tree_view;
 pub use accordion::{
     Accordion, AccordionMode, AccordionState, AccordionStyle, calculate_height as accordion_height,
     handle_accordion_key, handle_accordion_mouse,
+};
+pub use animated_text::{
+    AnimatedText, AnimatedTextEffect, AnimatedTextState, AnimatedTextStyle, WaveDirection,
 };
 pub use breadcrumb::{
     Breadcrumb, BreadcrumbAction, BreadcrumbItem, BreadcrumbState, BreadcrumbStyle,
@@ -111,6 +117,10 @@ pub use marquee::{
 pub use mouse_pointer::{MousePointer, MousePointerState, MousePointerStyle};
 pub use paragraph_ext::ParagraphExt;
 pub use progress::{Progress, ProgressStyle};
+pub use scrollable_content::{
+    ScrollableContent, ScrollableContentAction, ScrollableContentState, ScrollableContentStyle,
+    handle_scrollable_content_key, handle_scrollable_content_mouse,
+};
 pub use spinner::{LabelPosition, Spinner, SpinnerFrames, SpinnerState, SpinnerStyle};
 pub use select::{
     Select, SelectAction, SelectState, SelectStyle, calculate_dropdown_height, handle_select_key,

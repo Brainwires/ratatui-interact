@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-30
+
+### Added
+- **Interactive Components**
+  - `ScrollableContent` - Scrollable text pane with focus support and keyboard/mouse navigation
+    - `ScrollableContentState` for tracking scroll position, focus, and fullscreen state
+    - `ScrollableContentStyle` with customizable colors and indicators (default, borderless presets)
+    - `ScrollableContentAction` enum for handling scroll, page, and fullscreen events
+    - Full keyboard support: Up/Down/j/k (scroll), PgUp/PgDown (page), Home/End (bounds), F10/Enter (fullscreen toggle)
+    - Mouse scroll wheel support with configurable scroll area
+    - Title and scroll position indicators
+
+- **Display Components**
+  - `AnimatedText` - Animated text labels with color effects
+    - `AnimatedTextState` for frame-based animation with tick timing
+    - `AnimatedTextStyle` with customizable colors and effects
+    - `AnimatedTextEffect` enum: Pulse, Wave, Rainbow, GradientShift, Sparkle
+    - `WaveDirection` enum for controlling wave animation direction
+    - Color interpolation for smooth RGB transitions
+    - Style presets: `default()`, `loading()`, `success()`, `warning()`, `error()`, `info()`, `rainbow()`
+    - Builder methods: `.style()`, `.alignment()`, `.modifier()`
+
+- **Utilities**
+  - `MouseCaptureState` - Toggle mouse capture at runtime for "copy mode"
+    - `enable_mouse_capture()`, `disable_mouse_capture()`, `toggle_mouse_capture()` functions
+    - Allows native terminal text selection when capture is disabled
+  - `ViewCopyMode` - Exits alternate screen for native text selection
+    - `ViewCopyConfig` for customizable header, hints, and exit keys
+    - `ViewCopyAction` enum for handling exit and toggle events
+    - Line number toggle support
+  - `ExitStrategy` - Application exit handling
+    - `RestoreConsole` - Restores original terminal state
+    - `PrintContent` - Prints content to stdout after exit
+  - Clipboard utilities (requires `clipboard` feature)
+    - `copy_to_clipboard()` - Copy text to system clipboard
+    - `get_from_clipboard()` - Paste text from system clipboard
+    - `ClipboardResult` enum for success/error/unavailable states
+
+- **Examples**
+  - `animated_text_demo` - Interactive demonstration of AnimatedText with all 5 effect modes, style cycling, and speed control
+  - `copyable_pane_demo` - Demonstration of ScrollableContent with View/Copy mode toggle
+
+- **Tests**
+  - 15 unit tests for AnimatedText covering state management, tick behavior, color interpolation, effects, and rendering
+  - 12 unit tests for ScrollableContent covering state, scrolling, keyboard handling, widget rendering, and styles
+
+### Changed
+- Moved component usage examples from README.md to examples/README.md for better organization
+
 ## [0.3.0] - 2026-01-21
 
 ### Added

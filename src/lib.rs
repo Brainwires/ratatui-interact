@@ -179,7 +179,10 @@ pub mod prelude {
 
     // Display Components
     pub use crate::components::{
-        ParagraphExt, Progress, ProgressStyle, Toast, ToastState, ToastStyle,
+        AnimatedText, AnimatedTextEffect, AnimatedTextState, AnimatedTextStyle, ParagraphExt,
+        Progress, ProgressStyle, ScrollableContent, ScrollableContentAction,
+        ScrollableContentState, ScrollableContentStyle, Toast, ToastState, ToastStyle,
+        WaveDirection, handle_scrollable_content_key, handle_scrollable_content_mouse,
     };
 
     // Utility Components
@@ -220,6 +223,18 @@ pub mod prelude {
     // Utilities
     pub use crate::utils::{
         clean_for_display, format_size, pad_to_width, parse_ansi_to_spans, truncate_to_width,
+    };
+
+    // Clipboard utilities
+    pub use crate::utils::{
+        ClipboardResult, copy_lines_to_clipboard, copy_to_clipboard, get_from_clipboard,
+        is_clipboard_available,
+    };
+
+    // Mouse capture utilities
+    pub use crate::utils::{
+        MouseCaptureState, disable_mouse_capture, enable_mouse_capture, set_mouse_capture,
+        toggle_mouse_capture,
     };
 
     // Traits

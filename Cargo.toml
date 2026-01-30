@@ -1,6 +1,6 @@
 [package]
 name = "ratatui-interact"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Interactive TUI components for ratatui with focus management and mouse support"
@@ -28,6 +28,9 @@ unicode-width = "0.2"
 # Optional: Markdown rendering
 termimad = { version = "0.34", optional = true }
 
+# Optional: Clipboard support
+arboard = { version = "3.4", optional = true }
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
 
@@ -37,7 +40,12 @@ default = []
 markdown = ["dep:termimad"]
 # Enable filesystem operations in file explorer
 filesystem = []
+# Enable clipboard copy/paste support
+clipboard = ["dep:arboard"]
 
 [[example]]
 name = "explorer_log_demo"
 required-features = ["filesystem"]
+
+[[example]]
+name = "copyable_pane_demo"
