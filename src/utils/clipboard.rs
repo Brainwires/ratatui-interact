@@ -29,7 +29,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! ratatui-interact = { version = "0.3", features = ["clipboard"] }
+//! ratatui-interact = { version = "0.4", features = ["clipboard"] }
 //! ```
 
 /// Result of a clipboard operation

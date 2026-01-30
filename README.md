@@ -26,7 +26,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ratatui-interact = "0.3"
+ratatui-interact = "0.4"
 ```
 
 Or from git:
