@@ -62,6 +62,7 @@ pub mod menu_bar;
 pub mod mouse_pointer;
 pub mod paragraph_ext;
 pub mod progress;
+pub mod scrollable_content;
 pub mod select;
 pub mod spinner;
 pub mod split_pane;
@@ -116,6 +117,10 @@ pub use marquee::{
 pub use mouse_pointer::{MousePointer, MousePointerState, MousePointerStyle};
 pub use paragraph_ext::ParagraphExt;
 pub use progress::{Progress, ProgressStyle};
+pub use scrollable_content::{
+    ScrollableContent, ScrollableContentAction, ScrollableContentState, ScrollableContentStyle,
+    handle_scrollable_content_key, handle_scrollable_content_mouse,
+};
 pub use spinner::{LabelPosition, Spinner, SpinnerFrames, SpinnerState, SpinnerStyle};
 pub use select::{
     Select, SelectAction, SelectState, SelectStyle, calculate_dropdown_height, handle_select_key,
