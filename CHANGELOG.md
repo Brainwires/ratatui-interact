@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-02-04
+
+### Fixed
+- `Button` click regions now use full allocated width instead of minimum text width, fixing issues where clicks on the right side of buttons were not registered
+- `Toast` text alignment now properly centered instead of left-aligned
+- `button_demo` event loop no longer reads events twice, fixing intermittent mouse click failures
+
+### Changed
+- `button_demo` now displays toast notifications when buttons are clicked to provide visual feedback
+
 ## [0.4.1] - 2026-01-30
 
 ### Added
