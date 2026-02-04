@@ -394,7 +394,7 @@ impl<'a> Button<'a> {
     pub fn render_stateful(self, area: Rect, buf: &mut Buffer) -> ClickRegion<ButtonAction> {
         let click_area = match self.style.variant {
             ButtonVariant::Block => area,
-            _ => Rect::new(area.x, area.y, self.min_width().min(area.width), 1),
+            _ => Rect::new(area.x, area.y, area.width, 1),
         };
 
         self.render(area, buf);

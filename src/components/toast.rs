@@ -247,7 +247,7 @@ impl<'a> Toast<'a> {
         let paragraph = Paragraph::new(self.message)
             .block(block)
             .wrap(Wrap { trim: true })
-            .alignment(Alignment::Left)
+            .alignment(Alignment::Center)
             .style(Style::default().fg(Color::White));
 
         paragraph.render(area, buf);

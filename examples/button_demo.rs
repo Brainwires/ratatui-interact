@@ -25,7 +25,7 @@ use ratatui::{
 };
 
 use ratatui_interact::{
-    components::{Button, ButtonState, ButtonStyle, ButtonVariant},
+    components::{Button, ButtonState, ButtonStyle, ButtonVariant, Toast, ToastState},
     events::{is_activate_key, is_backtab, is_close_key, is_left_click, is_tab},
     state::FocusManager,
     traits::ClickRegionRegistry,
@@ -50,6 +50,8 @@ struct App {
     click_regions: ClickRegionRegistry<usize>,
     /// Last clicked button
     last_clicked: Option<usize>,
+    /// Toast notification state
+    toast_state: ToastState,
     /// Should quit
     should_quit: bool,
 }
@@ -119,6 +121,7 @@ impl App {
             focus,
             click_regions: ClickRegionRegistry::new(),
             last_clicked: None,
+            toast_state: ToastState::new(),
             should_quit: false,
         }
     }
@@ -135,6 +138,16 @@ impl App {
         }
 
         self.last_clicked = Some(idx);
+
+        // Show toast notification
+        let button_label = self.buttons[idx].label;
+        let message = if self.buttons[idx].variant == ButtonVariant::Toggle {
+            let is_on = !self.buttons[idx].state.toggled;
+            format!("'{}' {}", button_label, if is_on { "ON" } else { "OFF" })
+        } else {
+            format!("'{}' clicked!", button_label)
+        };
+        self.toast_state.show(message, 1500);
 
         // Handle toggle buttons
         if self.buttons[idx].variant == ButtonVariant::Toggle {
@@ -165,21 +178,29 @@ fn main() -> io::Result<()> {
     loop {
         terminal.draw(|f| ui(f, &mut app))?;
 
-        if let Event::Key(key) = event::read()? {
-            if is_close_key(&key) || key.code == KeyCode::Char('q') {
-                app.should_quit = true;
-            } else if is_tab(&key) {
-                app.focus.next();
-            } else if is_backtab(&key) {
-                app.focus.prev();
-            } else if is_activate_key(&key) {
-                app.activate_current();
+        // Read event ONCE and match on it
+        match event::read()? {
+            Event::Key(key) => {
+                if is_close_key(&key) || key.code == KeyCode::Char('q') {
+                    app.should_quit = true;
+                } else if is_tab(&key) {
+                    app.focus.next();
+                } else if is_backtab(&key) {
+                    app.focus.prev();
+                } else if is_activate_key(&key) {
+                    app.activate_current();
+                }
             }
-        } else if let Event::Mouse(mouse) = event::read().unwrap_or(Event::FocusGained) {
-            if is_left_click(&mouse) {
-                app.handle_click(mouse.column, mouse.row);
+            Event::Mouse(mouse) => {
+                if is_left_click(&mouse) {
+                    app.handle_click(mouse.column, mouse.row);
+                }
             }
+            _ => {}
         }
+
+        // Clear expired toasts
+        app.toast_state.clear_if_expired();
 
         if app.should_quit {
             break;
@@ -314,6 +335,12 @@ fn ui(f: &mut Frame, app: &mut App) {
     ];
     let help = Paragraph::new(help_lines).block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
+
+    // Render toast notifications on top
+    if let Some(message) = app.toast_state.get_message() {
+        let toast = Toast::new(message).auto_style();
+        toast.render_with_clear(area, f.buffer_mut());
+    }
 }
 
 fn render_button(f: &mut Frame, app: &mut App, idx: usize, area: Rect) {
