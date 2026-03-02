@@ -125,6 +125,20 @@ impl Default for CheckBoxStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for CheckBoxStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            checked_symbol: "[x]",
+            unchecked_symbol: "[ ]",
+            focused_fg: p.primary,
+            unfocused_fg: p.text,
+            disabled_fg: p.text_disabled,
+            checked_fg: p.success,
+        }
+    }
+}
+
 impl CheckBoxStyle {
     /// ASCII style with brackets: `[x]` and `[ ]`
     pub fn ascii() -> Self {
@@ -214,6 +228,11 @@ impl<'a> CheckBox<'a> {
     pub fn style(mut self, style: CheckBoxStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to this checkbox.
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(CheckBoxStyle::from(theme))
     }
 
     /// Set the focus ID.

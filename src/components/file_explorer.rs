@@ -387,6 +387,37 @@ impl Default for FileExplorerStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for FileExplorerStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            border_style: Style::default().fg(p.border_accent),
+            cursor_style: Style::default()
+                .fg(p.highlight_fg)
+                .bg(p.secondary)
+                .add_modifier(Modifier::BOLD),
+            dir_style: Style::default()
+                .fg(Color::Blue)
+                .add_modifier(Modifier::BOLD),
+            file_colors: vec![
+                (vec!["rs"], Color::Yellow),
+                (vec!["toml", "json", "yaml", "yml"], Color::Green),
+                (vec!["md", "txt", "rst"], Color::White),
+                (vec!["py"], Color::Cyan),
+                (vec!["js", "ts", "tsx", "jsx"], Color::Magenta),
+                (vec!["sh", "bash", "zsh"], Color::Red),
+            ],
+            default_file_color: Color::Gray,
+            size_style: Style::default().fg(Color::DarkGray),
+            checkbox_checked: "[x]",
+            checkbox_unchecked: "[ ]",
+            dir_icon: "[DIR]",
+            parent_icon: " .. ",
+            symlink_icon: "[LNK]",
+        }
+    }
+}
+
 impl FileExplorerStyle {
     /// Get color for a file extension
     pub fn color_for_extension(&self, ext: Option<&str>) -> Color {
@@ -420,6 +451,11 @@ impl<'a> FileExplorer<'a> {
     pub fn style(mut self, style: FileExplorerStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(FileExplorerStyle::from(theme))
     }
 
     /// Build file list lines

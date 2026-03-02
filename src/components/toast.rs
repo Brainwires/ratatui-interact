@@ -56,6 +56,17 @@ impl ToastStyle {
         }
     }
 
+    /// Get the border color for this style, derived from a theme palette.
+    pub fn themed_border_color(&self, theme: &crate::theme::Theme) -> Color {
+        let p = &theme.palette;
+        match self {
+            ToastStyle::Info => p.info,
+            ToastStyle::Success => p.success,
+            ToastStyle::Warning => p.warning,
+            ToastStyle::Error => p.error,
+        }
+    }
+
     /// Auto-detect style from message content
     pub fn from_message(message: &str) -> Self {
         let lower = message.to_lowercase();

@@ -557,6 +557,32 @@ impl Default for MenuBarStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for MenuBarStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            bar_bg: p.surface_raised,
+            bar_fg: p.text,
+            bar_highlight_bg: Color::Rgb(70, 70, 70),
+            bar_highlight_fg: p.text,
+            dropdown_bg: p.surface,
+            dropdown_border: p.separator,
+            item_fg: p.text,
+            item_highlight_bg: p.menu_highlight_bg,
+            item_highlight_fg: p.menu_highlight_fg,
+            shortcut_fg: p.text_muted,
+            disabled_fg: p.text_disabled,
+            separator_fg: p.separator,
+            dropdown_min_width: 15,
+            dropdown_max_height: 15,
+            menu_padding: 2,
+            dropdown_padding: 1,
+            submenu_indicator: "▶",
+            separator_char: '─',
+        }
+    }
+}
+
 impl MenuBarStyle {
     /// Create a light theme style.
     pub fn light() -> Self {
@@ -678,6 +704,11 @@ impl<'a> MenuBar<'a> {
     pub fn style(mut self, style: MenuBarStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style.
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(MenuBarStyle::from(theme))
     }
 
     /// Calculate the required width for a dropdown.

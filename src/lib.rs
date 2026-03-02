@@ -154,6 +154,7 @@
 pub mod components;
 pub mod events;
 pub mod state;
+pub mod theme;
 pub mod traits;
 pub mod utils;
 
@@ -219,6 +220,9 @@ pub mod prelude {
         HotkeyDialogState, HotkeyDialogStyle, HotkeyEntryData, HotkeyFocus, HotkeyProvider,
         handle_hotkey_dialog_key, handle_hotkey_dialog_mouse, render_hotkey_dialog,
     };
+
+    // Theme
+    pub use crate::theme::{ColorPalette, Theme};
 
     // Utilities
     pub use crate::utils::{

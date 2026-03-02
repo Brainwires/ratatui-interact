@@ -772,6 +772,40 @@ impl Default for DiffViewerStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for DiffViewerStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            border_style: Style::default().fg(p.border_accent),
+            line_number_style: Style::default().fg(p.text_disabled),
+            context_style: Style::default().fg(p.text),
+            addition_style: Style::default().fg(p.diff_add_fg),
+            addition_bg: p.diff_add_bg,
+            deletion_style: Style::default().fg(p.diff_del_fg),
+            deletion_bg: p.diff_del_bg,
+            inline_addition_style: Style::default()
+                .fg(p.highlight_fg)
+                .bg(p.diff_add_fg)
+                .add_modifier(Modifier::BOLD),
+            inline_deletion_style: Style::default()
+                .fg(p.highlight_fg)
+                .bg(p.diff_del_fg)
+                .add_modifier(Modifier::BOLD),
+            hunk_header_style: Style::default()
+                .fg(p.secondary)
+                .add_modifier(Modifier::BOLD),
+            match_style: Style::default()
+                .bg(Color::Rgb(60, 60, 30))
+                .fg(p.primary),
+            current_match_style: Style::default()
+                .bg(p.highlight_bg)
+                .fg(p.highlight_fg),
+            gutter_separator: "│",
+            side_separator: "│",
+        }
+    }
+}
+
 impl DiffViewerStyle {
     /// Create a style with high contrast colors
     pub fn high_contrast() -> Self {
@@ -831,6 +865,11 @@ impl<'a> DiffViewer<'a> {
     pub fn style(mut self, style: DiffViewerStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(DiffViewerStyle::from(theme))
     }
 
     /// Enable or disable line numbers

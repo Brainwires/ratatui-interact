@@ -91,6 +91,39 @@ impl Default for HotkeyDialogStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for HotkeyDialogStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            title: " Hotkey Configuration ".to_string(),
+            border_focused: p.border_focused,
+            border_unfocused: p.border_disabled,
+            title_color: p.primary,
+            global_key_color: p.primary,
+            local_key_color: p.secondary,
+            selected_bg: p.highlight_bg,
+            selected_fg: p.highlight_fg,
+            locked_color: p.error,
+            cursor_color: p.primary,
+            placeholder_color: p.text_placeholder,
+            text_color: p.text,
+            dim_color: p.text_disabled,
+            width_percent: 85,
+            height_percent: 85,
+            max_width: 110,
+            max_height: 45,
+            min_width: 70,
+            min_height: 25,
+            category_width_percent: 28,
+            search_height: 3,
+            footer_height: 2,
+            global_indicator: "[G]".to_string(),
+            locked_indicator: "L".to_string(),
+            search_placeholder: "Type to filter hotkeys...".to_string(),
+        }
+    }
+}
+
 impl HotkeyDialogStyle {
     /// Create a new style with default values.
     pub fn new() -> Self {

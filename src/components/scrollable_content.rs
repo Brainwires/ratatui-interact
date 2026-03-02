@@ -271,6 +271,19 @@ impl Default for ScrollableContentStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for ScrollableContentStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            border_style: Style::default().fg(p.border_disabled),
+            focused_border_style: Style::default().fg(p.border_accent),
+            text_style: Style::default().fg(p.text),
+            show_borders: true,
+            show_scroll_indicators: true,
+        }
+    }
+}
+
 impl ScrollableContentStyle {
     /// Create a minimal style without borders
     pub fn borderless() -> Self {
@@ -317,6 +330,11 @@ impl<'a> ScrollableContent<'a> {
     pub fn style(mut self, style: ScrollableContentStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(ScrollableContentStyle::from(theme))
     }
 
     /// Set the title (overrides state title)

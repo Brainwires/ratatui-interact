@@ -807,6 +807,25 @@ impl Default for TextAreaStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for TextAreaStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            focused_border: p.border_focused,
+            unfocused_border: p.border,
+            disabled_border: p.border_disabled,
+            text_fg: p.text,
+            cursor_fg: p.primary,
+            placeholder_fg: p.text_placeholder,
+            line_number_fg: p.text_disabled,
+            current_line_bg: None,
+            show_line_numbers: false,
+            cursor_mode: CursorMode::default(),
+            scroll_mode: ScrollMode::default(),
+        }
+    }
+}
+
 impl TextAreaStyle {
     /// Set the focused border color.
     pub fn focused_border(mut self, color: Color) -> Self {
@@ -934,6 +953,11 @@ impl<'a> TextArea<'a> {
     pub fn style(mut self, style: TextAreaStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to this textarea.
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(TextAreaStyle::from(theme))
     }
 
     /// Set the focus ID.

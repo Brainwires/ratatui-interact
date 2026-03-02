@@ -246,6 +246,14 @@ impl DialogConfig {
         self
     }
 
+    /// Apply a theme to update colors from the palette.
+    pub fn theme(mut self, theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        self.border_color = p.border;
+        self.focused_border_color = p.border_accent;
+        self
+    }
+
     /// Add a single button.
     pub fn add_button(mut self, label: impl Into<String>, action: ContainerAction) -> Self {
         self.buttons.push((label.into(), action));

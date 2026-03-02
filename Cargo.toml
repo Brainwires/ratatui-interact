@@ -31,6 +31,9 @@ termimad = { version = "0.34", optional = true }
 # Optional: Clipboard support
 arboard = { version = "3.4", optional = true }
 
+# Optional: Serialization support for themes
+serde = { version = "1", features = ["derive"], optional = true }
+
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
 
@@ -42,6 +45,8 @@ markdown = ["dep:termimad"]
 filesystem = []
 # Enable clipboard copy/paste support
 clipboard = ["dep:arboard"]
+# Enable serde serialization/deserialization for themes
+theme-serde = ["dep:serde", "ratatui/serde"]
 
 [[example]]
 name = "explorer_log_demo"

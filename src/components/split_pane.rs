@@ -213,6 +213,21 @@ impl Default for SplitPaneStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for SplitPaneStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            divider_style: Style::default().bg(Color::DarkGray),
+            divider_focused_style: Style::default().bg(p.primary).fg(p.highlight_fg),
+            divider_dragging_style: Style::default().bg(p.secondary).fg(p.highlight_fg),
+            divider_hover_style: Style::default().bg(p.text_dim),
+            divider_char: None,
+            divider_size: 1,
+            show_grab_indicator: true,
+        }
+    }
+}
+
 impl SplitPaneStyle {
     /// Create a minimal style with thin divider
     pub fn minimal() -> Self {
@@ -284,6 +299,11 @@ impl SplitPane {
     pub fn style(mut self, style: SplitPaneStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(SplitPaneStyle::from(theme))
     }
 
     /// Set the minimum size for each pane in cells

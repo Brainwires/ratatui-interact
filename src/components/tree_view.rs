@@ -194,6 +194,28 @@ impl Default for TreeStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for TreeStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            selected_style: Style::default()
+                .fg(p.primary)
+                .add_modifier(Modifier::BOLD),
+            normal_style: Style::default().fg(p.text),
+            connector_style: Style::default().fg(p.text_disabled),
+            icon_style: Style::default().fg(p.secondary),
+            collapsed_icon: "▶ ",
+            expanded_icon: "▼ ",
+            connector_branch: "├── ",
+            connector_last: "└── ",
+            connector_vertical: "│   ",
+            connector_space: "    ",
+            cursor_selected: "> ",
+            cursor_normal: "  ",
+        }
+    }
+}
+
 impl TreeStyle {
     /// Create a minimal style without tree connectors
     pub fn minimal() -> Self {
@@ -267,6 +289,11 @@ where
     pub fn style(mut self, style: TreeStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(TreeStyle::from(theme))
     }
 
     /// Flatten the tree into a list of visible nodes

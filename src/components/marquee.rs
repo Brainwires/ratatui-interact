@@ -168,6 +168,20 @@ impl Default for MarqueeStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for MarqueeStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            text_style: Style::default().fg(p.text),
+            scroll_speed: 1,
+            pause_at_edge: 3,
+            mode: MarqueeMode::default(),
+            separator: "   ",
+            ellipsis: "...",
+        }
+    }
+}
+
 impl MarqueeStyle {
     /// Create a new style with default values
     pub fn new() -> Self {
@@ -272,6 +286,11 @@ impl<'a> MarqueeText<'a> {
     pub fn style(mut self, style: MarqueeStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(MarqueeStyle::from(theme))
     }
 
     /// Set the text style directly (shorthand)

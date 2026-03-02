@@ -108,6 +108,17 @@ impl Default for MousePointerStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for MousePointerStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            symbol: "█",
+            fg: p.primary,
+            bg: None,
+        }
+    }
+}
+
 impl MousePointerStyle {
     /// Create a crosshair style pointer.
     pub fn crosshair() -> Self {
@@ -198,6 +209,11 @@ impl<'a> MousePointer<'a> {
     pub fn style(mut self, style: MousePointerStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style.
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(MousePointerStyle::from(theme))
     }
 
     /// Render the pointer to the buffer at the stored position.

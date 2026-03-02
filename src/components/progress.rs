@@ -58,6 +58,20 @@ impl Default for ProgressStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for ProgressStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            filled_color: p.success,
+            unfilled_color: p.text_disabled,
+            label_style: Style::default()
+                .fg(p.text)
+                .add_modifier(Modifier::BOLD),
+            bordered: true,
+        }
+    }
+}
+
 impl ProgressStyle {
     /// Create a new progress style with custom colors
     pub fn new(filled: Color, unfilled: Color) -> Self {
@@ -156,6 +170,11 @@ impl<'a> Progress<'a> {
     pub fn style(mut self, style: ProgressStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(ProgressStyle::from(theme))
     }
 
     /// Build the label string

@@ -242,6 +242,24 @@ impl ButtonStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for ButtonStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            variant: ButtonVariant::SingleLine,
+            focused_fg: p.highlight_fg,
+            focused_bg: p.highlight_bg,
+            unfocused_fg: p.text,
+            unfocused_bg: Color::DarkGray,
+            disabled_fg: p.text_disabled,
+            pressed_fg: p.pressed_fg,
+            pressed_bg: p.pressed_bg,
+            toggled_fg: p.highlight_fg,
+            toggled_bg: p.success,
+        }
+    }
+}
+
 /// Button widget.
 ///
 /// A clickable button with various display styles.
@@ -282,6 +300,11 @@ impl<'a> Button<'a> {
     pub fn style(mut self, style: ButtonStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to this button.
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(ButtonStyle::from(theme))
     }
 
     /// Set the button variant.
