@@ -30,7 +30,7 @@ use ratatui::{
 
 use ratatui_interact::{
     components::{
-        FileExplorer, FileExplorerState, LogViewer, LogViewerState, Toast, ToastState,
+        FileExplorer, FileExplorerState, LogViewer, LogViewerState, ToastStack, ToastStackState,
         file_explorer::{FileExplorerMode, draw_search_bar},
     },
     events::{is_backtab, is_close_key, is_left_click, is_tab},
@@ -52,7 +52,7 @@ struct App {
     /// Log viewer state
     log: LogViewerState,
     /// Toast notification state
-    toast: ToastState,
+    toast: ToastStackState,
     /// Focus manager
     focus: FocusManager<FocusTarget>,
     /// Click regions
@@ -90,7 +90,7 @@ impl App {
         let log = LogViewerState::new(log_content);
 
         // Initialize toast
-        let mut toast = ToastState::new();
+        let mut toast = ToastStackState::new();
         toast.show("Welcome to File Inspector!", 3000);
 
         // Initialize focus manager
@@ -161,7 +161,7 @@ impl App {
                         let name = entry.name.clone();
                         self.explorer.enter_directory(path);
                         self.log_action(&format!("[INFO] Entered: {}", name));
-                        self.toast.show(format!("Entering: {}", name), 2000);
+                        self.toast.push_auto(format!("Entering: {}", name), 2000);
                     }
                 }
             }
@@ -177,16 +177,16 @@ impl App {
 
                     if was_selected {
                         self.log_action(&format!("[INFO] Deselected: {}", name));
-                        self.toast.show(format!("Deselected: {}", name), 1500);
+                        self.toast.push_auto(format!("Deselected: {}", name), 1500);
                     } else {
                         self.log_action(&format!("[INFO] Selected: {}", name));
-                        self.toast.show(format!("Selected: {}", name), 1500);
+                        self.toast.push_auto(format!("Selected: {}", name), 1500);
                     }
                 }
             }
             KeyCode::Char('/') => {
                 self.explorer.start_search();
-                self.toast.show("Search mode", 1500);
+                self.toast.push_auto("Search mode", 1500);
             }
             KeyCode::Char('.') => {
                 self.explorer.toggle_hidden();
@@ -196,18 +196,18 @@ impl App {
                     "OFF"
                 };
                 self.log_action(&format!("[INFO] Hidden files: {}", status));
-                self.toast.show(format!("Hidden files: {}", status), 1500);
+                self.toast.push_auto(format!("Hidden files: {}", status), 1500);
             }
             KeyCode::Char('a') => {
                 self.explorer.select_all();
                 let count = self.explorer.selected_files.len();
                 self.log_action(&format!("[INFO] Selected all ({} files)", count));
-                self.toast.show(format!("Selected {} files", count), 1500);
+                self.toast.push_auto(format!("Selected {} files", count), 1500);
             }
             KeyCode::Char('n') => {
                 self.explorer.select_none();
                 self.log_action("[INFO] Cleared selection");
-                self.toast.show("Selection cleared", 1500);
+                self.toast.push_auto("Selection cleared", 1500);
             }
             KeyCode::Char('g') => {
                 self.explorer.cursor_index = 0;
@@ -340,7 +340,7 @@ fn main() -> io::Result<()> {
         terminal.draw(|f| ui(f, &mut app))?;
 
         // Clear expired toasts
-        app.toast.clear_if_expired();
+        app.toast.clear_expired();
 
         if event::poll(std::time::Duration::from_millis(100))? {
             match event::read()? {
@@ -474,8 +474,7 @@ fn ui(f: &mut Frame, app: &mut App) {
     f.render_widget(help, main_chunks[2]);
 
     // Toast notification (rendered last, on top)
-    if let Some(message) = app.toast.get_message() {
-        let toast = Toast::new(message).auto_style();
-        toast.render_with_clear(area, f.buffer_mut());
-    }
+    // Render stacked toasts on top
+    let toast_stack = ToastStack::new(&app.toast);
+    toast_stack.render_with_clear(area, f.buffer_mut());
 }

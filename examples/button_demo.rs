@@ -25,7 +25,7 @@ use ratatui::{
 };
 
 use ratatui_interact::{
-    components::{Button, ButtonState, ButtonStyle, ButtonVariant},
+    components::{Button, ButtonState, ButtonStyle, ButtonVariant, Toast, ToastStack, ToastStackState},
     events::{is_activate_key, is_backtab, is_close_key, is_left_click, is_tab},
     state::FocusManager,
     traits::ClickRegionRegistry,
@@ -50,6 +50,8 @@ struct App {
     click_regions: ClickRegionRegistry<usize>,
     /// Last clicked button
     last_clicked: Option<usize>,
+    /// Toast notification state
+    toast_state: ToastStackState,
     /// Should quit
     should_quit: bool,
 }
@@ -119,6 +121,7 @@ impl App {
             focus,
             click_regions: ClickRegionRegistry::new(),
             last_clicked: None,
+            toast_state: ToastStackState::new(),
             should_quit: false,
         }
     }
@@ -135,6 +138,16 @@ impl App {
         }
 
         self.last_clicked = Some(idx);
+
+        // Show toast notification
+        let button_label = self.buttons[idx].label;
+        let message = if self.buttons[idx].variant == ButtonVariant::Toggle {
+            let is_on = !self.buttons[idx].state.toggled;
+            format!("'{}' {}", button_label, if is_on { "ON" } else { "OFF" })
+        } else {
+            format!("'{}' clicked!", button_label)
+        };
+        self.toast_state.push_auto(message, 1500);
 
         // Handle toggle buttons
         if self.buttons[idx].variant == ButtonVariant::Toggle {

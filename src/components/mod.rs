@@ -70,6 +70,7 @@ pub mod step_display;
 pub mod tab_view;
 pub mod textarea;
 pub mod toast;
+pub mod toast_stack;
 pub mod tree_view;
 
 pub use accordion::{
@@ -140,4 +141,8 @@ pub use tab_view::{
 };
 pub use textarea::{TabConfig, TextArea, TextAreaAction, TextAreaState, TextAreaStyle, WrapMode};
 pub use toast::{Toast, ToastState, ToastStyle};
+pub use toast_stack::{
+    ToastDismissPolicy, ToastId, ToastItem, ToastOrder, ToastPlacement, ToastStack,
+    ToastStackLayout, ToastStackState,
+};
 pub use tree_view::{FlatNode, TreeNode, TreeStyle, TreeView, TreeViewState, get_selected_id};
