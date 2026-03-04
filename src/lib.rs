@@ -182,8 +182,10 @@ pub mod prelude {
     pub use crate::components::{
         AnimatedText, AnimatedTextEffect, AnimatedTextState, AnimatedTextStyle, ParagraphExt,
         Progress, ProgressStyle, ScrollableContent, ScrollableContentAction,
-        ScrollableContentState, ScrollableContentStyle, Toast, ToastState, ToastStyle,
-        WaveDirection, handle_scrollable_content_key, handle_scrollable_content_mouse,
+        ScrollableContentState, ScrollableContentStyle, Toast, ToastDismissPolicy, ToastId,
+        ToastItem, ToastOrder, ToastPlacement, ToastStack, ToastStackLayout, ToastStackState,
+        ToastState, ToastStyle, WaveDirection, handle_scrollable_content_key,
+        handle_scrollable_content_mouse,
     };
 
     // Utility Components
