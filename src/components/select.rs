@@ -261,6 +261,29 @@ impl Default for SelectStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for SelectStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            focused_border: p.border_focused,
+            unfocused_border: p.border,
+            disabled_border: p.border_disabled,
+            text_fg: p.text,
+            placeholder_fg: p.text_placeholder,
+            dropdown_indicator: "▼",
+            highlight_style: Style::default()
+                .fg(p.highlight_fg)
+                .bg(p.highlight_bg)
+                .add_modifier(Modifier::BOLD),
+            option_style: Style::default().fg(p.text),
+            selected_indicator: "✓ ",
+            unselected_indicator: "  ",
+            dropdown_border: p.border_accent,
+            max_visible_options: 8,
+        }
+    }
+}
+
 impl SelectStyle {
     /// Minimal style without heavy highlighting.
     pub fn minimal() -> Self {
@@ -392,6 +415,11 @@ where
     pub fn style(mut self, style: SelectStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to this select.
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(SelectStyle::from(theme))
     }
 
     /// Set the focus ID.

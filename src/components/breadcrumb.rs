@@ -325,6 +325,42 @@ impl Default for BreadcrumbStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for BreadcrumbStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            separator: " > ",
+            separator_style: Style::default().fg(p.text_disabled),
+
+            ellipsis: "...",
+            ellipsis_style: Style::default()
+                .fg(p.secondary)
+                .add_modifier(Modifier::BOLD),
+            collapse_threshold: 4,
+            visible_start: 1,
+            visible_end: 2,
+
+            item_style: Style::default().fg(Color::Blue),
+            focused_item_style: Style::default()
+                .fg(p.primary)
+                .add_modifier(Modifier::BOLD),
+            selected_item_style: Style::default().fg(p.highlight_fg).bg(p.highlight_bg),
+            hovered_item_style: Style::default()
+                .fg(p.secondary)
+                .add_modifier(Modifier::UNDERLINED),
+            disabled_item_style: Style::default().fg(p.text_disabled),
+            last_item_style: Style::default()
+                .fg(p.text)
+                .add_modifier(Modifier::BOLD),
+
+            icon_style: Style::default(),
+            icon_separator: " ",
+
+            padding: (1, 1),
+        }
+    }
+}
+
 impl BreadcrumbStyle {
     /// Style with slash separator (Unix path style).
     pub fn slash() -> Self {
@@ -452,6 +488,11 @@ impl<'a> Breadcrumb<'a> {
     pub fn style(mut self, style: BreadcrumbStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style.
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(BreadcrumbStyle::from(theme))
     }
 
     /// Set the hovered item index (for mouse hover effects).

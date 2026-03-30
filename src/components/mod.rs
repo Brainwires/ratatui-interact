@@ -139,7 +139,10 @@ pub use tab_view::{
     Tab, TabPosition, TabView, TabViewAction, TabViewState, TabViewStyle, handle_tab_view_key,
     handle_tab_view_mouse,
 };
-pub use textarea::{TabConfig, TextArea, TextAreaAction, TextAreaState, TextAreaStyle, WrapMode};
+pub use textarea::{
+    CursorMode, ScrollMode, TabConfig, TextArea, TextAreaAction, TextAreaRender, TextAreaState,
+    TextAreaStyle, WrapMode,
+};
 pub use toast::{Toast, ToastState, ToastStyle};
 pub use toast_stack::{
     ToastDismissPolicy, ToastId, ToastItem, ToastOrder, ToastPlacement, ToastStack,

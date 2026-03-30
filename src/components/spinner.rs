@@ -256,6 +256,21 @@ impl Default for SpinnerStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for SpinnerStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            frames: SpinnerFrames::Dots,
+            spinner_style: Style::default()
+                .fg(p.secondary)
+                .add_modifier(Modifier::BOLD),
+            label_style: Style::default().fg(p.text),
+            label_position: LabelPosition::After,
+            separator: " ",
+        }
+    }
+}
+
 impl SpinnerStyle {
     /// Create a new spinner style with specific frames
     pub fn new(frames: SpinnerFrames) -> Self {
@@ -384,6 +399,11 @@ impl<'a> Spinner<'a> {
     pub fn style(mut self, style: SpinnerStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(SpinnerStyle::from(theme))
     }
 
     /// Set the spinner color

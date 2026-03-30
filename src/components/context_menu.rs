@@ -409,6 +409,28 @@ impl Default for ContextMenuStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for ContextMenuStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            background: p.surface,
+            border: p.separator,
+            normal_fg: p.text,
+            highlight_bg: p.menu_highlight_bg,
+            highlight_fg: p.menu_highlight_fg,
+            disabled_fg: p.text_disabled,
+            shortcut_fg: p.text_muted,
+            separator_fg: p.separator,
+            min_width: 15,
+            max_width: 50,
+            max_visible_items: 15,
+            padding: 1,
+            submenu_indicator: "▶",
+            separator_char: '─',
+        }
+    }
+}
+
 impl ContextMenuStyle {
     /// Create a light theme style.
     pub fn light() -> Self {
@@ -496,6 +518,11 @@ impl<'a> ContextMenu<'a> {
     pub fn style(mut self, style: ContextMenuStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style.
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(ContextMenuStyle::from(theme))
     }
 
     /// Calculate the required width for the menu.

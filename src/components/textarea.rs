@@ -80,6 +80,34 @@ pub enum WrapMode {
     Soft,
 }
 
+/// Cursor rendering mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CursorMode {
+    /// Render block cursor via inverted spans (no blinking).
+    #[default]
+    Block,
+    /// Return screen coordinates for `Frame::set_cursor_position()` (blinking).
+    Terminal,
+}
+
+/// Scroll tracking mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScrollMode {
+    /// Minimal scroll — only scroll when cursor goes out of view.
+    #[default]
+    Minimal,
+    /// Center-tracking — keep cursor near the vertical midpoint.
+    CenterTracking,
+}
+
+/// Result of rendering a textarea.
+pub struct TextAreaRender {
+    /// Click region for focus handling.
+    pub click_region: ClickRegion<TextAreaAction>,
+    /// Screen position for terminal cursor (only set when `CursorMode::Terminal` + focused).
+    pub cursor_position: Option<(u16, u16)>,
+}
+
 /// State for a multi-line text area.
 #[derive(Debug, Clone)]
 pub struct TextAreaState {
@@ -332,6 +360,55 @@ impl TextAreaState {
         }
 
         start_col != self.cursor_col
+    }
+
+    /// Delete word after cursor.
+    ///
+    /// Returns `true` if any characters were deleted.
+    pub fn delete_word_forward(&mut self) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        let line_len = self.lines[self.cursor_line].chars().count();
+
+        // If at end of line, just merge with next line
+        if self.cursor_col >= line_len {
+            if self.cursor_line + 1 < self.lines.len() {
+                return self.delete_char_forward();
+            }
+            return false;
+        }
+
+        let start_col = self.cursor_col;
+
+        // Skip word characters forward
+        while self.cursor_col < self.lines[self.cursor_line].chars().count() {
+            if let Some(c) = char_at(&self.lines[self.cursor_line], self.cursor_col) {
+                if !c.is_whitespace() {
+                    self.delete_char_forward();
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Skip whitespace forward
+        while self.cursor_col < self.lines[self.cursor_line].chars().count() {
+            if let Some(c) = char_at(&self.lines[self.cursor_line], self.cursor_col) {
+                if c.is_whitespace() {
+                    self.delete_char_forward();
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        start_col != self.cursor_col || self.lines[self.cursor_line].chars().count() < line_len
     }
 
     /// Delete entire current line.
@@ -706,6 +783,10 @@ pub struct TextAreaStyle {
     pub current_line_bg: Option<Color>,
     /// Whether to show line numbers.
     pub show_line_numbers: bool,
+    /// Cursor rendering mode.
+    pub cursor_mode: CursorMode,
+    /// Scroll tracking mode.
+    pub scroll_mode: ScrollMode,
 }
 
 impl Default for TextAreaStyle {
@@ -720,6 +801,27 @@ impl Default for TextAreaStyle {
             line_number_fg: Color::DarkGray,
             current_line_bg: None,
             show_line_numbers: false,
+            cursor_mode: CursorMode::default(),
+            scroll_mode: ScrollMode::default(),
+        }
+    }
+}
+
+impl From<&crate::theme::Theme> for TextAreaStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            focused_border: p.border_focused,
+            unfocused_border: p.border,
+            disabled_border: p.border_disabled,
+            text_fg: p.text,
+            cursor_fg: p.primary,
+            placeholder_fg: p.text_placeholder,
+            line_number_fg: p.text_disabled,
+            current_line_bg: None,
+            show_line_numbers: false,
+            cursor_mode: CursorMode::default(),
+            scroll_mode: ScrollMode::default(),
         }
     }
 }
@@ -778,6 +880,18 @@ impl TextAreaStyle {
         self.show_line_numbers = show;
         self
     }
+
+    /// Set the cursor rendering mode.
+    pub fn cursor_mode(mut self, mode: CursorMode) -> Self {
+        self.cursor_mode = mode;
+        self
+    }
+
+    /// Set the scroll tracking mode.
+    pub fn scroll_mode(mut self, mode: ScrollMode) -> Self {
+        self.scroll_mode = mode;
+        self
+    }
 }
 
 /// TextArea widget.
@@ -790,6 +904,12 @@ pub struct TextArea<'a> {
     focus_id: FocusId,
     with_border: bool,
     wrap_mode: WrapMode,
+    /// Rich title (takes precedence over `label`).
+    title: Option<Line<'a>>,
+    /// Pre-styled content lines (for custom highlighting).
+    content_lines: Option<Vec<Line<'a>>>,
+    /// Border color override (bypasses focus-based color logic).
+    border_color_override: Option<Color>,
 }
 
 impl TextArea<'_> {
@@ -802,6 +922,9 @@ impl TextArea<'_> {
             focus_id: FocusId::default(),
             with_border: true,
             wrap_mode: WrapMode::default(),
+            title: None,
+            content_lines: None,
+            border_color_override: None,
         }
     }
 }
@@ -832,6 +955,11 @@ impl<'a> TextArea<'a> {
         self
     }
 
+    /// Apply a theme to this textarea.
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(TextAreaStyle::from(theme))
+    }
+
     /// Set the focus ID.
     pub fn focus_id(mut self, id: FocusId) -> Self {
         self.focus_id = id;
@@ -850,14 +978,37 @@ impl<'a> TextArea<'a> {
         self
     }
 
-    /// Render the textarea and return the click region.
+    /// Set a rich title (takes precedence over `label`).
+    pub fn title(mut self, title: Line<'a>) -> Self {
+        self.title = Some(title);
+        self
+    }
+
+    /// Set pre-styled content lines for custom highlighting.
+    ///
+    /// When set, these lines are used instead of building lines from state.
+    /// The caller is responsible for providing lines that match `state.lines` in count.
+    pub fn content_lines(mut self, lines: Vec<Line<'a>>) -> Self {
+        self.content_lines = Some(lines);
+        self
+    }
+
+    /// Override the border color (bypasses focus-based color logic).
+    pub fn border_color(mut self, color: Color) -> Self {
+        self.border_color_override = Some(color);
+        self
+    }
+
+    /// Render the textarea and return render result with click region and optional cursor position.
     pub fn render_stateful(
         self,
         frame: &mut Frame,
         area: Rect,
         state: &mut TextAreaState,
-    ) -> ClickRegion<TextAreaAction> {
-        let border_color = if !state.enabled {
+    ) -> TextAreaRender {
+        let border_color = if let Some(override_color) = self.border_color_override {
+            override_color
+        } else if !state.enabled {
             self.style.disabled_border
         } else if state.focused {
             self.style.focused_border
@@ -869,7 +1020,9 @@ impl<'a> TextArea<'a> {
             let mut block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(border_color));
-            if let Some(label) = self.label {
+            if let Some(title) = self.title {
+                block = block.title(title);
+            } else if let Some(label) = self.label {
                 block = block.title(format!(" {} ", label));
             }
             Some(block)
@@ -898,7 +1051,9 @@ impl<'a> TextArea<'a> {
         // Calculate content width
         let content_width = (inner_area.width as usize).saturating_sub(line_num_width);
 
-        // Handle empty state
+        let use_terminal_cursor = self.style.cursor_mode == CursorMode::Terminal;
+
+        // Handle empty state with placeholder
         if state.is_empty() && !state.focused {
             if let Some(placeholder) = self.placeholder {
                 let display_line = Line::from(Span::styled(
@@ -911,19 +1066,79 @@ impl<'a> TextArea<'a> {
                     frame.render_widget(block, area);
                 }
                 frame.render_widget(paragraph, inner_area);
-                return ClickRegion::new(area, TextAreaAction::Focus);
+                return TextAreaRender {
+                    click_region: ClickRegion::new(area, TextAreaAction::Focus),
+                    cursor_position: None,
+                };
             }
         }
 
+        // Calculate effective scroll offset
+        let effective_scroll_y = if self.style.scroll_mode == ScrollMode::CenterTracking
+            && state.visible_height > 0
+        {
+            // Center-tracking: keep cursor near vertical midpoint
+            let total_lines = state.lines.len();
+            let half_height = state.visible_height / 2;
+            if total_lines <= state.visible_height || state.cursor_line <= half_height {
+                0
+            } else if state.cursor_line + half_height >= total_lines {
+                total_lines.saturating_sub(state.visible_height)
+            } else {
+                state.cursor_line.saturating_sub(half_height)
+            }
+        } else {
+            state.scroll_y
+        };
+
         // Build visible lines
-        let start_line = state.scroll_y;
+        let start_line = effective_scroll_y;
         let end_line = (start_line + state.visible_height).min(state.lines.len());
 
         let mut display_lines: Vec<Line> = Vec::new();
+        let mut cursor_screen_pos: Option<(u16, u16)> = None;
 
         for line_idx in start_line..end_line {
-            let line = &state.lines[line_idx];
             let is_cursor_line = line_idx == state.cursor_line;
+            let display_row = (line_idx - start_line) as u16;
+
+            // Check if we have pre-styled content lines
+            if let Some(ref content) = self.content_lines {
+                if line_idx < content.len() {
+                    let mut spans = Vec::new();
+
+                    // Line number
+                    if self.style.show_line_numbers {
+                        let line_num = format!(
+                            "{:>width$} ",
+                            line_idx + 1,
+                            width = line_num_width.saturating_sub(2)
+                        );
+                        spans.push(Span::styled(
+                            line_num,
+                            Style::default().fg(self.style.line_number_fg),
+                        ));
+                    }
+
+                    // Use pre-styled content
+                    spans.extend(content[line_idx].spans.iter().cloned());
+                    display_lines.push(Line::from(spans));
+
+                    // Calculate cursor position for terminal mode
+                    if is_cursor_line && state.focused && use_terminal_cursor {
+                        let cursor_visible_col =
+                            state.cursor_col.saturating_sub(state.scroll_x);
+                        let cx = inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
+                        let cy = inner_area.y + display_row;
+                        if cx < inner_area.x + inner_area.width && cy < inner_area.y + inner_area.height {
+                            cursor_screen_pos = Some((cx, cy));
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            let line = &state.lines[line_idx];
 
             // Apply horizontal scroll
             let chars: Vec<char> = line.chars().collect();
@@ -961,13 +1176,20 @@ impl<'a> TextArea<'a> {
 
             // Build content with cursor
             if is_cursor_line && state.focused {
-                // Calculate visible cursor position
                 let cursor_visible_col =
                     state.cursor_col.saturating_sub(state.scroll_x);
-
                 let visible_char_count = visible_chars.chars().count();
 
-                if cursor_visible_col <= visible_char_count {
+                if use_terminal_cursor {
+                    // Terminal cursor mode: just render text, return screen position
+                    spans.push(Span::styled(visible_chars, line_style));
+                    let cx = inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
+                    let cy = inner_area.y + display_row;
+                    if cx < inner_area.x + inner_area.width && cy < inner_area.y + inner_area.height {
+                        cursor_screen_pos = Some((cx, cy));
+                    }
+                } else if cursor_visible_col <= visible_char_count {
+                    // Block cursor mode: render inverted span
                     let before: String = visible_chars.chars().take(cursor_visible_col).collect();
                     let cursor_char: String = visible_chars
                         .chars()
@@ -980,7 +1202,6 @@ impl<'a> TextArea<'a> {
                         spans.push(Span::styled(before, line_style));
                     }
 
-                    // Cursor with inverted colors (block cursor)
                     let cursor_style = Style::default()
                         .fg(self.style.cursor_fg)
                         .bg(self.style.text_fg);
@@ -991,7 +1212,6 @@ impl<'a> TextArea<'a> {
                         spans.push(Span::styled(after, line_style));
                     }
                 } else {
-                    // Cursor is scrolled off to the right
                     spans.push(Span::styled(visible_chars, line_style));
                 }
             } else {
@@ -1011,11 +1231,17 @@ impl<'a> TextArea<'a> {
                     Style::default().fg(self.style.line_number_fg),
                 ));
             }
-            // Block cursor (inverted colors)
-            let cursor_style = Style::default()
-                .fg(self.style.cursor_fg)
-                .bg(self.style.text_fg);
-            spans.push(Span::styled(" ", cursor_style));
+            if use_terminal_cursor {
+                spans.push(Span::styled(" ", Style::default().fg(self.style.text_fg)));
+                let cx = inner_area.x + line_num_width as u16;
+                let cy = inner_area.y;
+                cursor_screen_pos = Some((cx, cy));
+            } else {
+                let cursor_style = Style::default()
+                    .fg(self.style.cursor_fg)
+                    .bg(self.style.text_fg);
+                spans.push(Span::styled(" ", cursor_style));
+            }
             display_lines.push(Line::from(spans));
         }
 
@@ -1026,7 +1252,10 @@ impl<'a> TextArea<'a> {
         }
         frame.render_widget(paragraph, inner_area);
 
-        ClickRegion::new(area, TextAreaAction::Focus)
+        TextAreaRender {
+            click_region: ClickRegion::new(area, TextAreaAction::Focus),
+            cursor_position: cursor_screen_pos,
+        }
     }
 }
 
@@ -1634,5 +1863,84 @@ mod tests {
     fn test_with_tab_config() {
         let state = TextAreaState::empty().with_tab_config(TabConfig::Spaces(2));
         assert_eq!(state.tab_config, TabConfig::Spaces(2));
+    }
+
+    // ========================================================================
+    // New feature tests
+    // ========================================================================
+
+    #[test]
+    fn test_delete_word_forward() {
+        let mut state = TextAreaState::new("Hello World Test");
+        state.cursor_col = 0;
+        assert!(state.delete_word_forward());
+        assert_eq!(state.lines[0], "World Test");
+        assert_eq!(state.cursor_col, 0);
+    }
+
+    #[test]
+    fn test_delete_word_forward_mid_word() {
+        let mut state = TextAreaState::new("Hello World");
+        state.cursor_col = 3; // mid "Hello"
+        assert!(state.delete_word_forward());
+        assert_eq!(state.lines[0], "HelWorld");
+    }
+
+    #[test]
+    fn test_delete_word_forward_at_end() {
+        let mut state = TextAreaState::new("Hello");
+        state.move_to_end();
+        assert!(!state.delete_word_forward());
+        assert_eq!(state.lines[0], "Hello");
+    }
+
+    #[test]
+    fn test_delete_word_forward_merges_lines() {
+        let mut state = TextAreaState::new("Hello\nWorld");
+        state.cursor_col = 5; // end of "Hello"
+        assert!(state.delete_word_forward());
+        assert_eq!(state.lines.len(), 1);
+        assert_eq!(state.lines[0], "HelloWorld");
+    }
+
+    #[test]
+    fn test_cursor_mode_default() {
+        assert_eq!(CursorMode::default(), CursorMode::Block);
+    }
+
+    #[test]
+    fn test_scroll_mode_default() {
+        assert_eq!(ScrollMode::default(), ScrollMode::Minimal);
+    }
+
+    #[test]
+    fn test_style_cursor_mode() {
+        let style = TextAreaStyle::default().cursor_mode(CursorMode::Terminal);
+        assert_eq!(style.cursor_mode, CursorMode::Terminal);
+    }
+
+    #[test]
+    fn test_style_scroll_mode() {
+        let style = TextAreaStyle::default().scroll_mode(ScrollMode::CenterTracking);
+        assert_eq!(style.scroll_mode, ScrollMode::CenterTracking);
+    }
+
+    #[test]
+    fn test_textarea_title_builder() {
+        let textarea = TextArea::new().title(Line::from("My Title"));
+        assert!(textarea.title.is_some());
+    }
+
+    #[test]
+    fn test_textarea_border_color_builder() {
+        let textarea = TextArea::new().border_color(Color::Red);
+        assert_eq!(textarea.border_color_override, Some(Color::Red));
+    }
+
+    #[test]
+    fn test_textarea_content_lines_builder() {
+        let lines = vec![Line::from("test")];
+        let textarea = TextArea::new().content_lines(lines);
+        assert!(textarea.content_lines.is_some());
     }
 }

@@ -322,6 +322,39 @@ impl Default for TabViewStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for TabViewStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            position: TabPosition::Top,
+            selected_style: Style::default()
+                .fg(p.primary)
+                .add_modifier(Modifier::BOLD),
+            normal_style: Style::default().fg(p.text),
+            focused_style: Style::default()
+                .fg(p.primary)
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+            disabled_style: Style::default().fg(p.text_disabled),
+            badge_style: Style::default()
+                .fg(p.highlight_fg)
+                .bg(p.error)
+                .add_modifier(Modifier::BOLD),
+            content_border_style: Style::default().fg(p.border_accent),
+            divider: " │ ",
+            tab_width: None,
+            tab_height: 1,
+            bordered_content: true,
+            show_indicator: true,
+            indicator: "▸",
+            scroll_left: "◀",
+            scroll_right: "▶",
+            scroll_up: "▲",
+            scroll_down: "▼",
+        }
+    }
+}
+
 impl TabViewStyle {
     /// Create a style with tabs on top
     pub fn top() -> Self {
@@ -456,6 +489,11 @@ where
     pub fn style(mut self, style: TabViewStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(TabViewStyle::from(theme))
     }
 
     /// Set the content renderer

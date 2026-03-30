@@ -248,6 +248,20 @@ impl Default for LogLevelColors {
     }
 }
 
+impl From<&crate::theme::Theme> for LogLevelColors {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            error: p.error,
+            warn: p.warning,
+            info: p.text,
+            debug: p.text_disabled,
+            trace: p.text_disabled,
+            success: p.success,
+        }
+    }
+}
+
 impl Default for LogViewerStyle {
     fn default() -> Self {
         Self {
@@ -259,6 +273,24 @@ impl Default for LogViewerStyle {
                 .bg(Color::Rgb(60, 60, 30))
                 .fg(Color::Yellow),
             level_colors: LogLevelColors::default(),
+            show_line_numbers: true,
+            line_number_width: 6,
+        }
+    }
+}
+
+impl From<&crate::theme::Theme> for LogViewerStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            border_style: Style::default().fg(p.border_accent),
+            line_number_style: Style::default().fg(p.text_disabled),
+            content_style: Style::default().fg(p.text),
+            current_match_style: Style::default().bg(p.highlight_bg).fg(p.highlight_fg),
+            match_style: Style::default()
+                .bg(Color::Rgb(60, 60, 30))
+                .fg(p.primary),
+            level_colors: LogLevelColors::from(theme),
             show_line_numbers: true,
             line_number_width: 6,
         }
@@ -322,6 +354,11 @@ impl<'a> LogViewer<'a> {
     pub fn style(mut self, style: LogViewerStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(LogViewerStyle::from(theme))
     }
 
     /// Enable or disable line numbers

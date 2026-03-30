@@ -147,6 +147,23 @@ impl Default for ListPickerStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for ListPickerStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            selected_style: Style::default()
+                .fg(p.primary)
+                .add_modifier(Modifier::BOLD),
+            normal_style: Style::default().fg(p.text),
+            indicator_style: Style::default().fg(p.primary),
+            border_style: Style::default().fg(p.border_accent),
+            indicator: "▶ ",
+            indicator_empty: "  ",
+            bordered: true,
+        }
+    }
+}
+
 impl ListPickerStyle {
     /// Style with arrow indicator
     pub fn arrow() -> Self {
@@ -247,6 +264,11 @@ where
     pub fn style(mut self, style: ListPickerStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to this list picker.
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(ListPickerStyle::from(theme))
     }
 
     /// Build the lines for rendering

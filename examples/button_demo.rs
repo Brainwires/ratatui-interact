@@ -25,7 +25,7 @@ use ratatui::{
 };
 
 use ratatui_interact::{
-    components::{Button, ButtonState, ButtonStyle, ButtonVariant, Toast, ToastStack, ToastStackState},
+    components::{Button, ButtonState, ButtonStyle, ButtonVariant, ToastStack, ToastStackState},
     events::{is_activate_key, is_backtab, is_close_key, is_left_click, is_tab},
     state::FocusManager,
     traits::ClickRegionRegistry,
@@ -327,6 +327,12 @@ fn ui(f: &mut Frame, app: &mut App) {
     ];
     let help = Paragraph::new(help_lines).block(Block::default().borders(Borders::TOP));
     f.render_widget(help, chunks[2]);
+
+    // Render toasts on top of everything
+    app.toast_state.clear_expired();
+    if !app.toast_state.is_empty() {
+        ToastStack::new(&app.toast_state).render_with_clear(area, f.buffer_mut());
+    }
 }
 
 fn render_button(f: &mut Frame, app: &mut App, idx: usize, area: Rect) {

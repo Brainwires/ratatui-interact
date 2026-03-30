@@ -154,6 +154,7 @@
 pub mod components;
 pub mod events;
 pub mod state;
+pub mod theme;
 pub mod traits;
 pub mod utils;
 
@@ -181,8 +182,10 @@ pub mod prelude {
     pub use crate::components::{
         AnimatedText, AnimatedTextEffect, AnimatedTextState, AnimatedTextStyle, ParagraphExt,
         Progress, ProgressStyle, ScrollableContent, ScrollableContentAction,
-        ScrollableContentState, ScrollableContentStyle, Toast, ToastState, ToastStyle,
-        WaveDirection, handle_scrollable_content_key, handle_scrollable_content_mouse,
+        ScrollableContentState, ScrollableContentStyle, Toast, ToastDismissPolicy, ToastId,
+        ToastItem, ToastOrder, ToastPlacement, ToastStack, ToastStackLayout, ToastStackState,
+        ToastState, ToastStyle, WaveDirection, handle_scrollable_content_key,
+        handle_scrollable_content_mouse,
     };
 
     // Utility Components
@@ -219,6 +222,9 @@ pub mod prelude {
         HotkeyDialogState, HotkeyDialogStyle, HotkeyEntryData, HotkeyFocus, HotkeyProvider,
         handle_hotkey_dialog_key, handle_hotkey_dialog_mouse, render_hotkey_dialog,
     };
+
+    // Theme
+    pub use crate::theme::{ColorPalette, Theme};
 
     // Utilities
     pub use crate::utils::{

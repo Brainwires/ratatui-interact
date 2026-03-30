@@ -244,6 +244,28 @@ impl Default for AnimatedTextStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for AnimatedTextStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            effect: AnimatedTextEffect::Pulse,
+            primary_color: p.text,
+            secondary_color: p.secondary,
+            modifiers: Modifier::empty(),
+            wave_width: 3,
+            background: None,
+            rainbow_colors: vec![
+                Color::Red,
+                Color::Yellow,
+                Color::Green,
+                Color::Cyan,
+                Color::Blue,
+                Color::Magenta,
+            ],
+        }
+    }
+}
+
 impl AnimatedTextStyle {
     /// Create a new style with default values
     pub fn new() -> Self {
@@ -422,6 +444,11 @@ impl<'a> AnimatedText<'a> {
     pub fn style(mut self, style: AnimatedTextStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(AnimatedTextStyle::from(theme))
     }
 
     /// Set the effect directly

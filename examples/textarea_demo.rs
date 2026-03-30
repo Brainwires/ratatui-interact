@@ -233,8 +233,8 @@ fn ui(f: &mut Frame, app: &mut App) {
         .placeholder("Start typing...")
         .style(style);
 
-    let region = textarea.render_stateful(f, textarea_area, &mut app.textarea);
-    app.click_regions.register(region.area, ());
+    let render_result = textarea.render_stateful(f, textarea_area, &mut app.textarea);
+    app.click_regions.register(render_result.click_region.area, ());
 
     // Status bar
     let status_text = format!(

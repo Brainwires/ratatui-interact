@@ -286,6 +286,25 @@ impl Default for AccordionStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for AccordionStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            header_style: Style::default().fg(p.text),
+            header_focused_style: Style::default()
+                .fg(p.primary)
+                .add_modifier(Modifier::BOLD),
+            content_style: Style::default().fg(p.text_dim),
+            expanded_icon: "▼ ",
+            collapsed_icon: "▶ ",
+            border_style: Style::default().fg(p.border_disabled),
+            show_borders: false,
+            content_indent: 2,
+            icon_style: Style::default().fg(p.secondary),
+        }
+    }
+}
+
 impl AccordionStyle {
     /// Create a minimal style without icons
     pub fn minimal() -> Self {
@@ -463,6 +482,11 @@ where
     pub fn style(mut self, style: AccordionStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(AccordionStyle::from(theme))
     }
 
     /// Set content heights for proper scrolling

@@ -301,6 +301,17 @@ impl Default for StepDisplayStyle {
     }
 }
 
+impl From<&crate::theme::Theme> for StepDisplayStyle {
+    fn from(theme: &crate::theme::Theme) -> Self {
+        let p = &theme.palette;
+        Self {
+            focused_border: p.border_accent,
+            unfocused_border: p.border_disabled,
+            max_output_lines: 5,
+        }
+    }
+}
+
 /// Step display widget
 pub struct StepDisplay<'a> {
     state: &'a StepDisplayState,
@@ -320,6 +331,11 @@ impl<'a> StepDisplay<'a> {
     pub fn style(mut self, style: StepDisplayStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Apply a theme to derive the style
+    pub fn theme(self, theme: &crate::theme::Theme) -> Self {
+        self.style(StepDisplayStyle::from(theme))
     }
 
     /// Build content lines
