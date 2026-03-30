@@ -209,9 +209,17 @@ fn render_content_area(f: &mut Frame, area: Rect) {
 
 fn render_info_panel(f: &mut Frame, app: &App, area: Rect) {
     let status = if app.pointer_state.enabled {
-        Span::styled("ON", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))
+        Span::styled(
+            "ON",
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        )
     } else {
-        Span::styled("OFF", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+        Span::styled(
+            "OFF",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        )
     };
 
     let position_text = match app.last_position {
@@ -242,12 +250,10 @@ fn render_info_panel(f: &mut Frame, app: &App, area: Rect) {
             Span::raw(": Quit"),
         ]),
         Line::from(""),
-        Line::from(vec![
-            Span::styled(
-                "Move mouse around to see the pointer follow the cursor",
-                Style::default().fg(Color::DarkGray),
-            ),
-        ]),
+        Line::from(vec![Span::styled(
+            "Move mouse around to see the pointer follow the cursor",
+            Style::default().fg(Color::DarkGray),
+        )]),
     ];
 
     let info = Paragraph::new(info_lines).block(Block::default().borders(Borders::TOP));

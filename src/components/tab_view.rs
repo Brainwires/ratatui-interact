@@ -327,9 +327,7 @@ impl From<&crate::theme::Theme> for TabViewStyle {
         let p = &theme.palette;
         Self {
             position: TabPosition::Top,
-            selected_style: Style::default()
-                .fg(p.primary)
-                .add_modifier(Modifier::BOLD),
+            selected_style: Style::default().fg(p.primary).add_modifier(Modifier::BOLD),
             normal_style: Style::default().fg(p.text),
             focused_style: Style::default()
                 .fg(p.primary)

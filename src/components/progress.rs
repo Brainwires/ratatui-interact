@@ -64,9 +64,7 @@ impl From<&crate::theme::Theme> for ProgressStyle {
         Self {
             filled_color: p.success,
             unfilled_color: p.text_disabled,
-            label_style: Style::default()
-                .fg(p.text)
-                .add_modifier(Modifier::BOLD),
+            label_style: Style::default().fg(p.text).add_modifier(Modifier::BOLD),
             bordered: true,
         }
     }

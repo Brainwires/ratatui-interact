@@ -170,7 +170,7 @@ fn ui(f: &mut Frame, app: &mut App) {
             Constraint::Length(3), // Input
             Constraint::Length(3), // Progress
             Constraint::Length(3), // Theme info
-            Constraint::Min(0),   // Spacer
+            Constraint::Min(0),    // Spacer
             Constraint::Length(3), // Help
         ])
         .split(area);
@@ -228,8 +228,10 @@ fn ui(f: &mut Frame, app: &mut App) {
         ])
         .split(chunks[2]);
 
-    app.checkbox1_state.set_focused(app.focus.is_focused(&Focus::CheckBox1));
-    app.checkbox2_state.set_focused(app.focus.is_focused(&Focus::CheckBox2));
+    app.checkbox1_state
+        .set_focused(app.focus.is_focused(&Focus::CheckBox1));
+    app.checkbox2_state
+        .set_focused(app.focus.is_focused(&Focus::CheckBox2));
 
     let cb1 = CheckBox::new("Dark mode", &app.checkbox1_state).theme(theme);
     let _region1 = cb1.render_stateful(cb_row[0], f.buffer_mut());

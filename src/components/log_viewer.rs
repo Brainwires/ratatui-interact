@@ -287,9 +287,7 @@ impl From<&crate::theme::Theme> for LogViewerStyle {
             line_number_style: Style::default().fg(p.text_disabled),
             content_style: Style::default().fg(p.text),
             current_match_style: Style::default().bg(p.highlight_bg).fg(p.highlight_fg),
-            match_style: Style::default()
-                .bg(Color::Rgb(60, 60, 30))
-                .fg(p.primary),
+            match_style: Style::default().bg(Color::Rgb(60, 60, 30)).fg(p.primary),
             level_colors: LogLevelColors::from(theme),
             show_line_numbers: true,
             line_number_width: 6,

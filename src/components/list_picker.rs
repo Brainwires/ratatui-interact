@@ -151,9 +151,7 @@ impl From<&crate::theme::Theme> for ListPickerStyle {
     fn from(theme: &crate::theme::Theme) -> Self {
         let p = &theme.palette;
         Self {
-            selected_style: Style::default()
-                .fg(p.primary)
-                .add_modifier(Modifier::BOLD),
+            selected_style: Style::default().fg(p.primary).add_modifier(Modifier::BOLD),
             normal_style: Style::default().fg(p.text),
             indicator_style: Style::default().fg(p.primary),
             border_style: Style::default().fg(p.border_accent),

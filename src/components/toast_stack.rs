@@ -277,8 +277,12 @@ impl<'a> ToastStack<'a> {
     pub fn hit_test(&self, area: Rect, x: u16, y: u16) -> Option<ToastId> {
         self.compute_rects(area)
             .into_iter()
-            .find(|(_, r)| x >= r.x && x < r.x.saturating_add(r.width) && y >= r.y
-                && y < r.y.saturating_add(r.height))
+            .find(|(_, r)| {
+                x >= r.x
+                    && x < r.x.saturating_add(r.width)
+                    && y >= r.y
+                    && y < r.y.saturating_add(r.height)
+            })
             .map(|(id, _)| id)
     }
 
@@ -312,7 +316,11 @@ impl Widget for ToastStack<'_> {
     }
 }
 
-fn compute_toast_rects(area: Rect, state: &ToastStackState, layout: ToastStackLayout) -> Vec<(ToastId, Rect)> {
+fn compute_toast_rects(
+    area: Rect,
+    state: &ToastStackState,
+    layout: ToastStackLayout,
+) -> Vec<(ToastId, Rect)> {
     if area.width == 0 || area.height == 0 {
         return vec![];
     }
@@ -360,7 +368,10 @@ fn compute_toast_rects(area: Rect, state: &ToastStackState, layout: ToastStackLa
     let mut rects: Vec<(ToastId, Rect)> = Vec::with_capacity(sizes.len());
 
     if is_top {
-        let mut y = area.y.saturating_add(my).saturating_add(layout.edge_offset_y);
+        let mut y = area
+            .y
+            .saturating_add(my)
+            .saturating_add(layout.edge_offset_y);
         for (id, w, h) in sizes {
             if y.saturating_add(h) > area.y.saturating_add(area.height) {
                 break;
@@ -370,10 +381,7 @@ fn compute_toast_rects(area: Rect, state: &ToastStackState, layout: ToastStackLa
             y = y.saturating_add(h).saturating_add(layout.gap_y);
         }
     } else {
-        let mut y_bottom = area
-            .y
-            .saturating_add(area.height)
-            .saturating_sub(my);
+        let mut y_bottom = area.y.saturating_add(area.height).saturating_sub(my);
         for (id, w, h) in sizes {
             if y_bottom < area.y.saturating_add(h) {
                 break;
@@ -463,7 +471,10 @@ mod tests {
         assert_eq!(rects[0].0, id);
 
         assert_eq!(stack.hit_test(area, r.x, r.y), Some(id));
-        assert_eq!(stack.hit_test(area, r.x + r.width - 1, r.y + r.height - 1), Some(id));
+        assert_eq!(
+            stack.hit_test(area, r.x + r.width - 1, r.y + r.height - 1),
+            Some(id)
+        );
         assert_eq!(stack.hit_test(area, r.x.saturating_sub(1), r.y), None);
     }
 }

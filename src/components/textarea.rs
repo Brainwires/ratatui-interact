@@ -272,8 +272,7 @@ impl TextAreaState {
             self.cursor_col -= 1;
             let byte_pos = char_to_byte_index(&self.lines[self.cursor_line], self.cursor_col);
             if let Some(c) = self.lines[self.cursor_line][byte_pos..].chars().next() {
-                self.lines[self.cursor_line]
-                    .replace_range(byte_pos..byte_pos + c.len_utf8(), "");
+                self.lines[self.cursor_line].replace_range(byte_pos..byte_pos + c.len_utf8(), "");
                 return true;
             }
         } else if self.cursor_line > 0 {
@@ -303,8 +302,7 @@ impl TextAreaState {
             // Delete character within line
             let byte_pos = char_to_byte_index(&self.lines[self.cursor_line], self.cursor_col);
             if let Some(c) = self.lines[self.cursor_line][byte_pos..].chars().next() {
-                self.lines[self.cursor_line]
-                    .replace_range(byte_pos..byte_pos + c.len_utf8(), "");
+                self.lines[self.cursor_line].replace_range(byte_pos..byte_pos + c.len_utf8(), "");
                 return true;
             }
         } else if self.cursor_line + 1 < self.lines.len() {
@@ -347,8 +345,7 @@ impl TextAreaState {
 
         // Delete word characters
         while self.cursor_col > 0 {
-            if let Some(c) = char_at(&self.lines[self.cursor_line], self.cursor_col - 1)
-            {
+            if let Some(c) = char_at(&self.lines[self.cursor_line], self.cursor_col - 1) {
                 if !c.is_whitespace() {
                     self.delete_char_backward();
                 } else {
@@ -936,7 +933,6 @@ impl Default for TextArea<'_> {
 }
 
 impl<'a> TextArea<'a> {
-
     /// Set the label (displayed in the border title).
     pub fn label(mut self, label: &'a str) -> Self {
         self.label = Some(label);
@@ -1074,22 +1070,21 @@ impl<'a> TextArea<'a> {
         }
 
         // Calculate effective scroll offset
-        let effective_scroll_y = if self.style.scroll_mode == ScrollMode::CenterTracking
-            && state.visible_height > 0
-        {
-            // Center-tracking: keep cursor near vertical midpoint
-            let total_lines = state.lines.len();
-            let half_height = state.visible_height / 2;
-            if total_lines <= state.visible_height || state.cursor_line <= half_height {
-                0
-            } else if state.cursor_line + half_height >= total_lines {
-                total_lines.saturating_sub(state.visible_height)
+        let effective_scroll_y =
+            if self.style.scroll_mode == ScrollMode::CenterTracking && state.visible_height > 0 {
+                // Center-tracking: keep cursor near vertical midpoint
+                let total_lines = state.lines.len();
+                let half_height = state.visible_height / 2;
+                if total_lines <= state.visible_height || state.cursor_line <= half_height {
+                    0
+                } else if state.cursor_line + half_height >= total_lines {
+                    total_lines.saturating_sub(state.visible_height)
+                } else {
+                    state.cursor_line.saturating_sub(half_height)
+                }
             } else {
-                state.cursor_line.saturating_sub(half_height)
-            }
-        } else {
-            state.scroll_y
-        };
+                state.scroll_y
+            };
 
         // Build visible lines
         let start_line = effective_scroll_y;
@@ -1126,11 +1121,12 @@ impl<'a> TextArea<'a> {
 
                     // Calculate cursor position for terminal mode
                     if is_cursor_line && state.focused && use_terminal_cursor {
-                        let cursor_visible_col =
-                            state.cursor_col.saturating_sub(state.scroll_x);
+                        let cursor_visible_col = state.cursor_col.saturating_sub(state.scroll_x);
                         let cx = inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
                         let cy = inner_area.y + display_row;
-                        if cx < inner_area.x + inner_area.width && cy < inner_area.y + inner_area.height {
+                        if cx < inner_area.x + inner_area.width
+                            && cy < inner_area.y + inner_area.height
+                        {
                             cursor_screen_pos = Some((cx, cy));
                         }
                     }
@@ -1176,8 +1172,7 @@ impl<'a> TextArea<'a> {
 
             // Build content with cursor
             if is_cursor_line && state.focused {
-                let cursor_visible_col =
-                    state.cursor_col.saturating_sub(state.scroll_x);
+                let cursor_visible_col = state.cursor_col.saturating_sub(state.scroll_x);
                 let visible_char_count = visible_chars.chars().count();
 
                 if use_terminal_cursor {
@@ -1185,7 +1180,8 @@ impl<'a> TextArea<'a> {
                     spans.push(Span::styled(visible_chars, line_style));
                     let cx = inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
                     let cy = inner_area.y + display_row;
-                    if cx < inner_area.x + inner_area.width && cy < inner_area.y + inner_area.height {
+                    if cx < inner_area.x + inner_area.width && cy < inner_area.y + inner_area.height
+                    {
                         cursor_screen_pos = Some((cx, cy));
                     }
                 } else if cursor_visible_col <= visible_char_count {
@@ -1196,7 +1192,8 @@ impl<'a> TextArea<'a> {
                         .skip(cursor_visible_col)
                         .take(1)
                         .collect();
-                    let after: String = visible_chars.chars().skip(cursor_visible_col + 1).collect();
+                    let after: String =
+                        visible_chars.chars().skip(cursor_visible_col + 1).collect();
 
                     if !before.is_empty() {
                         spans.push(Span::styled(before, line_style));
@@ -1205,7 +1202,11 @@ impl<'a> TextArea<'a> {
                     let cursor_style = Style::default()
                         .fg(self.style.cursor_fg)
                         .bg(self.style.text_fg);
-                    let cursor_display = if cursor_char.is_empty() { " " } else { &cursor_char };
+                    let cursor_display = if cursor_char.is_empty() {
+                        " "
+                    } else {
+                        &cursor_char
+                    };
                     spans.push(Span::styled(cursor_display.to_string(), cursor_style));
 
                     if !after.is_empty() {

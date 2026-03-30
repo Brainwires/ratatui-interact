@@ -165,7 +165,11 @@ fn main() -> io::Result<()> {
             }
             Event::Mouse(mouse) => {
                 if is_left_click(&mouse) {
-                    if app.click_regions.handle_click(mouse.column, mouse.row).is_some() {
+                    if app
+                        .click_regions
+                        .handle_click(mouse.column, mouse.row)
+                        .is_some()
+                    {
                         app.textarea.focused = true;
                     }
                 }
@@ -234,7 +238,8 @@ fn ui(f: &mut Frame, app: &mut App) {
         .style(style);
 
     let render_result = textarea.render_stateful(f, textarea_area, &mut app.textarea);
-    app.click_regions.register(render_result.click_region.area, ());
+    app.click_regions
+        .register(render_result.click_region.area, ());
 
     // Status bar
     let status_text = format!(

@@ -198,9 +198,7 @@ impl From<&crate::theme::Theme> for TreeStyle {
     fn from(theme: &crate::theme::Theme) -> Self {
         let p = &theme.palette;
         Self {
-            selected_style: Style::default()
-                .fg(p.primary)
-                .add_modifier(Modifier::BOLD),
+            selected_style: Style::default().fg(p.primary).add_modifier(Modifier::BOLD),
             normal_style: Style::default().fg(p.text),
             connector_style: Style::default().fg(p.text_disabled),
             icon_style: Style::default().fg(p.secondary),

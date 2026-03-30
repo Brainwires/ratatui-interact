@@ -291,9 +291,7 @@ impl From<&crate::theme::Theme> for AccordionStyle {
         let p = &theme.palette;
         Self {
             header_style: Style::default().fg(p.text),
-            header_focused_style: Style::default()
-                .fg(p.primary)
-                .add_modifier(Modifier::BOLD),
+            header_focused_style: Style::default().fg(p.primary).add_modifier(Modifier::BOLD),
             content_style: Style::default().fg(p.text_dim),
             expanded_icon: "▼ ",
             collapsed_icon: "▶ ",

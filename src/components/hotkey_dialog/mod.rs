@@ -87,10 +87,10 @@ mod traits;
 mod widget;
 
 pub use handlers::{
-    handle_hotkey_dialog_key, handle_hotkey_dialog_mouse, is_close_key, is_navigation_key,
-    HotkeyDialogAction,
+    HotkeyDialogAction, handle_hotkey_dialog_key, handle_hotkey_dialog_mouse, is_close_key,
+    is_navigation_key,
 };
 pub use state::{CategoryClickRegion, HotkeyClickRegion, HotkeyDialogState, HotkeyFocus};
 pub use style::HotkeyDialogStyle;
 pub use traits::{HotkeyCategory, HotkeyEntryData, HotkeyProvider};
-pub use widget::{render_hotkey_dialog, HotkeyDialog};
+pub use widget::{HotkeyDialog, render_hotkey_dialog};

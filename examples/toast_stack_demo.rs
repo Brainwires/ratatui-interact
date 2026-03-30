@@ -105,7 +105,10 @@ impl App {
 
     fn push_manual(&mut self) {
         self.manual_count += 1;
-        let msg = format!("Persistent toast #{} (click or Esc to dismiss)", self.manual_count);
+        let msg = format!(
+            "Persistent toast #{} (click or Esc to dismiss)",
+            self.manual_count
+        );
         let id = self.toast_state.push_manual(&msg);
         if let Some(item) = self.toast_state.items_mut().find(|t| t.id == id) {
             item.style = ToastStyle::Warning;
@@ -159,7 +162,10 @@ fn main() -> io::Result<()> {
                     }
                 }
                 Event::Mouse(mouse) => {
-                    if matches!(mouse.kind, MouseEventKind::Down(crossterm::event::MouseButton::Left)) {
+                    if matches!(
+                        mouse.kind,
+                        MouseEventKind::Down(crossterm::event::MouseButton::Left)
+                    ) {
                         let area = terminal.get_frame().area();
                         let stack = ToastStack::new(&app.toast_state).layout(app.layout());
                         if let Some(id) = stack.hit_test(area, mouse.column, mouse.row) {
@@ -198,7 +204,7 @@ fn ui(f: &mut Frame, app: &mut App) {
         .margin(1)
         .constraints([
             Constraint::Length(3), // Title
-            Constraint::Min(1),   // Content area
+            Constraint::Min(1),    // Content area
             Constraint::Length(5), // Help
         ])
         .split(area);
@@ -223,19 +229,25 @@ fn ui(f: &mut Frame, app: &mut App) {
             Span::styled("Placement: ", Style::default().fg(Color::Gray)),
             Span::styled(
                 placement_name(app.placement()),
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::raw("    "),
             Span::styled("Order: ", Style::default().fg(Color::Gray)),
             Span::styled(
                 order_name,
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::raw("    "),
             Span::styled("Active: ", Style::default().fg(Color::Gray)),
             Span::styled(
                 format!("{}", app.toast_state.len()),
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(""),

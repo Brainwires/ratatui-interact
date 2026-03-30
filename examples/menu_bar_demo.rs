@@ -27,15 +27,14 @@ use ratatui::{
 };
 
 use ratatui_interact::components::{
-    Menu, MenuBar, MenuBarAction, MenuBarItem, MenuBarState, MenuBarStyle,
-    Orientation, SplitPaneAction, SplitPaneState,
-    calculate_menu_bar_height, handle_menu_bar_key, handle_menu_bar_mouse,
-    handle_split_pane_mouse,
+    Menu, MenuBar, MenuBarAction, MenuBarItem, MenuBarState, MenuBarStyle, Orientation,
+    SplitPaneAction, SplitPaneState, calculate_menu_bar_height, handle_menu_bar_key,
+    handle_menu_bar_mouse, handle_split_pane_mouse,
 };
 use ratatui_interact::events::is_close_key;
 
-use ratatui_interact::traits::{ClickRegion, ClickRegionRegistry};
 use ratatui_interact::components::MenuBarClickTarget;
+use ratatui_interact::traits::{ClickRegion, ClickRegionRegistry};
 
 /// Application state
 struct App {
@@ -111,38 +110,36 @@ impl App {
 
     fn handle_action(&mut self, action: MenuBarAction) {
         match action {
-            MenuBarAction::ItemSelect(id) => {
-                match id.as_str() {
-                    "quit" => self.should_quit = true,
-                    "new" => self.add_action("Action: New File".to_string()),
-                    "open" => self.add_action("Action: Open File".to_string()),
-                    "save" => self.add_action("Action: Save File".to_string()),
-                    "save_as" => self.add_action("Action: Save As...".to_string()),
-                    "close" => self.add_action("Action: Close File".to_string()),
-                    "undo" => self.add_action("Action: Undo".to_string()),
-                    "redo" => self.add_action("Action: Redo".to_string()),
-                    "cut" => self.add_action("Action: Cut".to_string()),
-                    "copy" => self.add_action("Action: Copy".to_string()),
-                    "paste" => self.add_action("Action: Paste".to_string()),
-                    "select_all" => self.add_action("Action: Select All".to_string()),
-                    "find" => self.add_action("Action: Find".to_string()),
-                    "replace" => self.add_action("Action: Replace".to_string()),
-                    "zoom_in" => self.add_action("Action: Zoom In".to_string()),
-                    "zoom_out" => self.add_action("Action: Zoom Out".to_string()),
-                    "zoom_reset" => self.add_action("Action: Reset Zoom".to_string()),
-                    "fullscreen" => self.add_action("Action: Toggle Fullscreen".to_string()),
-                    "sidebar" => self.add_action("Action: Toggle Sidebar".to_string()),
-                    "terminal" => self.add_action("Action: Toggle Terminal".to_string()),
-                    "about" => self.add_action("Action: About - ratatui-interact v0.3.0".to_string()),
-                    "docs" => self.add_action("Action: Open Documentation".to_string()),
-                    "shortcuts" => self.add_action("Action: Keyboard Shortcuts".to_string()),
-                    "check_updates" => self.add_action("Action: Check for Updates".to_string()),
-                    "export_pdf" => self.add_action("Action: Export as PDF".to_string()),
-                    "export_html" => self.add_action("Action: Export as HTML".to_string()),
-                    "export_md" => self.add_action("Action: Export as Markdown".to_string()),
-                    _ => self.add_action(format!("Action: {}", id)),
-                }
-            }
+            MenuBarAction::ItemSelect(id) => match id.as_str() {
+                "quit" => self.should_quit = true,
+                "new" => self.add_action("Action: New File".to_string()),
+                "open" => self.add_action("Action: Open File".to_string()),
+                "save" => self.add_action("Action: Save File".to_string()),
+                "save_as" => self.add_action("Action: Save As...".to_string()),
+                "close" => self.add_action("Action: Close File".to_string()),
+                "undo" => self.add_action("Action: Undo".to_string()),
+                "redo" => self.add_action("Action: Redo".to_string()),
+                "cut" => self.add_action("Action: Cut".to_string()),
+                "copy" => self.add_action("Action: Copy".to_string()),
+                "paste" => self.add_action("Action: Paste".to_string()),
+                "select_all" => self.add_action("Action: Select All".to_string()),
+                "find" => self.add_action("Action: Find".to_string()),
+                "replace" => self.add_action("Action: Replace".to_string()),
+                "zoom_in" => self.add_action("Action: Zoom In".to_string()),
+                "zoom_out" => self.add_action("Action: Zoom Out".to_string()),
+                "zoom_reset" => self.add_action("Action: Reset Zoom".to_string()),
+                "fullscreen" => self.add_action("Action: Toggle Fullscreen".to_string()),
+                "sidebar" => self.add_action("Action: Toggle Sidebar".to_string()),
+                "terminal" => self.add_action("Action: Toggle Terminal".to_string()),
+                "about" => self.add_action("Action: About - ratatui-interact v0.3.0".to_string()),
+                "docs" => self.add_action("Action: Open Documentation".to_string()),
+                "shortcuts" => self.add_action("Action: Keyboard Shortcuts".to_string()),
+                "check_updates" => self.add_action("Action: Check for Updates".to_string()),
+                "export_pdf" => self.add_action("Action: Export as PDF".to_string()),
+                "export_html" => self.add_action("Action: Export as HTML".to_string()),
+                "export_md" => self.add_action("Action: Export as Markdown".to_string()),
+                _ => self.add_action(format!("Action: {}", id)),
+            },
             MenuBarAction::MenuOpen(idx) => {
                 self.add_action(format!("Menu opened: {}", get_menu_name(idx)));
             }
@@ -150,7 +147,10 @@ impl App {
                 self.add_action("Menu closed".to_string());
             }
             MenuBarAction::SubmenuOpen(menu_idx, item_idx) => {
-                self.add_action(format!("Submenu opened in menu {} at item {}", menu_idx, item_idx));
+                self.add_action(format!(
+                    "Submenu opened in menu {} at item {}",
+                    menu_idx, item_idx
+                ));
             }
             MenuBarAction::SubmenuClose => {
                 self.add_action("Submenu closed".to_string());
@@ -201,7 +201,9 @@ fn create_menus() -> Vec<Menu> {
             MenuBarItem::separator(),
             MenuBarItem::action("cut", "Cut").shortcut("Ctrl+X"),
             MenuBarItem::action("copy", "Copy").shortcut("Ctrl+C"),
-            MenuBarItem::action("paste", "Paste").shortcut("Ctrl+V").enabled(false), // Disabled example
+            MenuBarItem::action("paste", "Paste")
+                .shortcut("Ctrl+V")
+                .enabled(false), // Disabled example
             MenuBarItem::separator(),
             MenuBarItem::action("select_all", "Select All").shortcut("Ctrl+A"),
             MenuBarItem::separator(),
@@ -331,8 +333,18 @@ fn ui(f: &mut Frame, app: &mut App, menus: &[Menu]) {
     let left_width = left_width.clamp(5, available_width.saturating_sub(5));
     let right_width = available_width.saturating_sub(left_width);
 
-    let left_area = Rect::new(content_area.x, content_area.y, left_width, content_area.height);
-    let divider_area = Rect::new(content_area.x + left_width, content_area.y, 1, content_area.height);
+    let left_area = Rect::new(
+        content_area.x,
+        content_area.y,
+        left_width,
+        content_area.height,
+    );
+    let divider_area = Rect::new(
+        content_area.x + left_width,
+        content_area.y,
+        1,
+        content_area.height,
+    );
     let right_area = Rect::new(
         content_area.x + left_width + 1,
         content_area.y,
@@ -344,9 +356,12 @@ fn ui(f: &mut Frame, app: &mut App, menus: &[Menu]) {
     app.split_state.set_total_size(content_area.width);
 
     // Register click regions for split pane
-    app.split_regions.register(left_area, SplitPaneAction::FirstPaneClick);
-    app.split_regions.register(divider_area, SplitPaneAction::DividerDrag);
-    app.split_regions.register(right_area, SplitPaneAction::SecondPaneClick);
+    app.split_regions
+        .register(left_area, SplitPaneAction::FirstPaneClick);
+    app.split_regions
+        .register(divider_area, SplitPaneAction::DividerDrag);
+    app.split_regions
+        .register(right_area, SplitPaneAction::SecondPaneClick);
 
     // Render content into left pane (this is where menus will overlay)
     render_content_area(f, app, left_area);
@@ -354,7 +369,8 @@ fn ui(f: &mut Frame, app: &mut App, menus: &[Menu]) {
     // Render divider
     let divider_style = Style::default().fg(Color::DarkGray);
     for y in divider_area.y..divider_area.y + divider_area.height {
-        f.buffer_mut().set_string(divider_area.x, y, "│", divider_style);
+        f.buffer_mut()
+            .set_string(divider_area.x, y, "│", divider_style);
     }
 
     // Render status panel in right pane
@@ -384,29 +400,43 @@ fn render_content_area(f: &mut Frame, app: &App, area: Rect) {
     // Show action history
     let mut lines: Vec<Line> = vec![
         Line::from(vec![
-            Span::styled(
-                "Last Action: ",
-                Style::default().fg(Color::Gray),
-            ),
+            Span::styled("Last Action: ", Style::default().fg(Color::Gray)),
             Span::styled(
                 &app.last_action,
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(""),
-        Line::styled("Action History:", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Line::styled(
+            "Action History:",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
     ];
 
     for (i, action) in app.action_history.iter().rev().take(6).enumerate() {
-        let color = if i == 0 { Color::White } else { Color::DarkGray };
+        let color = if i == 0 {
+            Color::White
+        } else {
+            Color::DarkGray
+        };
         lines.push(Line::from(vec![
-            Span::styled(format!("  {}. ", app.action_history.len() - i), Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!("  {}. ", app.action_history.len() - i),
+                Style::default().fg(Color::DarkGray),
+            ),
             Span::styled(action, Style::default().fg(color)),
         ]));
     }
 
     if app.action_history.is_empty() {
-        lines.push(Line::styled("  (no actions yet)", Style::default().fg(Color::DarkGray)));
+        lines.push(Line::styled(
+            "  (no actions yet)",
+            Style::default().fg(Color::DarkGray),
+        ));
     }
 
     let content = Paragraph::new(lines);
@@ -446,18 +476,14 @@ fn render_info_panel(f: &mut Frame, app: &App, area: Rect) {
             Span::raw(": Cycle themes"),
         ]),
         Line::from(""),
-        Line::from(vec![
-            Span::styled(
-                "Click menu labels to open, hover to switch between open menus",
-                Style::default().fg(Color::DarkGray),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled(
-                "Press Esc (when menu closed) or select File > Quit to exit",
-                Style::default().fg(Color::DarkGray),
-            ),
-        ]),
+        Line::from(vec![Span::styled(
+            "Click menu labels to open, hover to switch between open menus",
+            Style::default().fg(Color::DarkGray),
+        )]),
+        Line::from(vec![Span::styled(
+            "Press Esc (when menu closed) or select File > Quit to exit",
+            Style::default().fg(Color::DarkGray),
+        )]),
     ];
 
     let info = Paragraph::new(info_lines).block(Block::default().borders(Borders::TOP));

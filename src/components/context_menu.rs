@@ -688,10 +688,7 @@ impl<'a> ContextMenu<'a> {
                     let mut spans = Vec::new();
 
                     // Padding
-                    spans.push(Span::styled(
-                        " ".repeat(self.style.padding as usize),
-                        style,
-                    ));
+                    spans.push(Span::styled(" ".repeat(self.style.padding as usize), style));
 
                     // Icon
                     if let Some(ic) = icon {
@@ -719,10 +716,7 @@ impl<'a> ContextMenu<'a> {
                     }
 
                     // Right padding
-                    spans.push(Span::styled(
-                        " ".repeat(self.style.padding as usize),
-                        style,
-                    ));
+                    spans.push(Span::styled(" ".repeat(self.style.padding as usize), style));
 
                     let para = Paragraph::new(Line::from(spans));
                     frame.render_widget(para, item_area);
@@ -754,10 +748,7 @@ impl<'a> ContextMenu<'a> {
                     let mut spans = Vec::new();
 
                     // Padding
-                    spans.push(Span::styled(
-                        " ".repeat(self.style.padding as usize),
-                        style,
-                    ));
+                    spans.push(Span::styled(" ".repeat(self.style.padding as usize), style));
 
                     // Icon
                     if let Some(ic) = icon {
@@ -782,10 +773,7 @@ impl<'a> ContextMenu<'a> {
                     spans.push(Span::styled(self.style.submenu_indicator, style));
 
                     // Right padding
-                    spans.push(Span::styled(
-                        " ".repeat(self.style.padding as usize),
-                        style,
-                    ));
+                    spans.push(Span::styled(" ".repeat(self.style.padding as usize), style));
 
                     let para = Paragraph::new(Line::from(spans));
                     frame.render_widget(para, item_area);
@@ -853,7 +841,10 @@ pub fn handle_context_menu_key(
     if let (Some(submenu_idx), Some(submenu_state)) =
         (state.active_submenu, &mut state.submenu_state)
     {
-        if let Some(ContextMenuItem::Submenu { items: sub_items, .. }) = items.get(submenu_idx) {
+        if let Some(ContextMenuItem::Submenu {
+            items: sub_items, ..
+        }) = items.get(submenu_idx)
+        {
             match key.code {
                 KeyCode::Left | KeyCode::Esc => {
                     state.close_submenu();
@@ -992,7 +983,8 @@ pub fn handle_context_menu_mouse(
                         // The item_regions index may not match the items index due to separators
                         // We need to find the corresponding item
                         let inner_start_y = menu_area.y + 1; // +1 for border
-                        let item_idx = (row - inner_start_y) as usize + state.scroll_offset as usize;
+                        let item_idx =
+                            (row - inner_start_y) as usize + state.scroll_offset as usize;
 
                         if item_idx < item_regions.len() + state.scroll_offset as usize
                             && state.highlighted_index != item_idx
@@ -1320,10 +1312,10 @@ mod tests {
         state.open_at(0, 0);
 
         let items = vec![
-            ContextMenuItem::separator(), // index 0 - not selectable
+            ContextMenuItem::separator(),      // index 0 - not selectable
             ContextMenuItem::action("a", "A"), // index 1
             ContextMenuItem::action("b", "B"), // index 2
-            ContextMenuItem::separator(), // index 3 - not selectable
+            ContextMenuItem::separator(),      // index 3 - not selectable
             ContextMenuItem::action("c", "C"), // index 4
         ];
 
@@ -1400,8 +1392,7 @@ mod tests {
 
     #[test]
     fn test_context_menu_style_highlight() {
-        let style = ContextMenuStyle::default()
-            .highlight(Color::Red, Color::Blue);
+        let style = ContextMenuStyle::default().highlight(Color::Red, Color::Blue);
 
         assert_eq!(style.highlight_fg, Color::Red);
         assert_eq!(style.highlight_bg, Color::Blue);
@@ -1567,8 +1558,7 @@ mod tests {
             modifiers: KeyModifiers::NONE,
         };
 
-        let action =
-            handle_context_menu_mouse(&mouse, &mut state, Rect::default(), &[]);
+        let action = handle_context_menu_mouse(&mouse, &mut state, Rect::default(), &[]);
 
         assert!(action.is_none());
     }
@@ -1598,8 +1588,8 @@ mod tests {
 
     #[test]
     fn test_handle_mouse_click_item() {
-        use crossterm::event::KeyModifiers;
         use crate::traits::ClickRegion;
+        use crossterm::event::KeyModifiers;
 
         let mut state = ContextMenuState::new();
         state.open_at(10, 10);
@@ -1627,8 +1617,8 @@ mod tests {
 
     #[test]
     fn test_handle_mouse_click_submenu_item() {
-        use crossterm::event::KeyModifiers;
         use crate::traits::ClickRegion;
+        use crossterm::event::KeyModifiers;
 
         let mut state = ContextMenuState::new();
         state.open_at(10, 10);
@@ -1670,7 +1660,10 @@ mod tests {
             ContextMenuAction::SubmenuOpen(1),
             ContextMenuAction::SubmenuOpen(1)
         );
-        assert_eq!(ContextMenuAction::SubmenuClose, ContextMenuAction::SubmenuClose);
+        assert_eq!(
+            ContextMenuAction::SubmenuClose,
+            ContextMenuAction::SubmenuClose
+        );
         assert_eq!(
             ContextMenuAction::HighlightChange(5),
             ContextMenuAction::HighlightChange(5)
@@ -1701,7 +1694,7 @@ mod tests {
     fn test_context_menu_widget_new() {
         let items = vec![ContextMenuItem::action("test", "Test")];
         let state = ContextMenuState::new();
-        let menu = ContextMenu::new(&items, &state);
+        let _menu = ContextMenu::new(&items, &state);
 
         // Verify menu is created (we can't easily test rendering without Frame)
         assert!(!state.is_open);
@@ -1761,11 +1754,10 @@ mod tests {
         let mut state = ContextMenuState::new();
         state.open_at(0, 0);
 
-        let items = vec![ContextMenuItem::submenu(
-            "More",
-            vec![ContextMenuItem::action("sub", "Sub")],
-        )
-        .enabled(false)];
+        let items = vec![
+            ContextMenuItem::submenu("More", vec![ContextMenuItem::action("sub", "Sub")])
+                .enabled(false),
+        ];
 
         // Right arrow on disabled submenu should not open it
         let key = KeyEvent::from(KeyCode::Right);

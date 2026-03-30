@@ -263,7 +263,8 @@ fn ui(f: &mut Frame, app: &mut App) {
         .min_percent(10)
         .max_percent(90);
 
-    let (first_area, divider_area, second_area) = split_pane.calculate_areas(chunks[1], app.split_state.split_percent());
+    let (first_area, divider_area, second_area) =
+        split_pane.calculate_areas(chunks[1], app.split_state.split_percent());
 
     // Update total size for drag calculations
     let total_size = match app.orientation {
@@ -273,9 +274,12 @@ fn ui(f: &mut Frame, app: &mut App) {
     app.split_state.set_total_size(total_size);
 
     // Register main click regions
-    app.main_registry.register(first_area, SplitPaneAction::FirstPaneClick);
-    app.main_registry.register(divider_area, SplitPaneAction::DividerDrag);
-    app.main_registry.register(second_area, SplitPaneAction::SecondPaneClick);
+    app.main_registry
+        .register(first_area, SplitPaneAction::FirstPaneClick);
+    app.main_registry
+        .register(divider_area, SplitPaneAction::DividerDrag);
+    app.main_registry
+        .register(second_area, SplitPaneAction::SecondPaneClick);
 
     // Render first pane with nested split
     let block1 = Block::default()
@@ -293,8 +297,14 @@ fn ui(f: &mut Frame, app: &mut App) {
     render_nested_split(f, app, inner1);
 
     // Render main divider
-    render_divider(f.buffer_mut(), divider_area, app.orientation, &main_style,
-                   app.split_state.is_dragging(), app.split_state.divider_focused);
+    render_divider(
+        f.buffer_mut(),
+        divider_area,
+        app.orientation,
+        &main_style,
+        app.split_state.is_dragging(),
+        app.split_state.divider_focused,
+    );
 
     // Render second pane
     let block2 = Block::default()
@@ -324,7 +334,8 @@ fn render_nested_split(f: &mut Frame, app: &mut App, area: Rect) {
         .min_percent(10)
         .max_percent(90);
 
-    let (nested_first, nested_divider, nested_second) = nested_split.calculate_areas(area, app.nested_split_state.split_percent());
+    let (nested_first, nested_divider, nested_second) =
+        nested_split.calculate_areas(area, app.nested_split_state.split_percent());
 
     // Update total size for nested drag calculations
     let nested_total_size = match app.nested_orientation {
@@ -334,17 +345,36 @@ fn render_nested_split(f: &mut Frame, app: &mut App, area: Rect) {
     app.nested_split_state.set_total_size(nested_total_size);
 
     // Register nested click regions
-    app.nested_registry.register(nested_first, SplitPaneAction::FirstPaneClick);
-    app.nested_registry.register(nested_divider, SplitPaneAction::DividerDrag);
-    app.nested_registry.register(nested_second, SplitPaneAction::SecondPaneClick);
+    app.nested_registry
+        .register(nested_first, SplitPaneAction::FirstPaneClick);
+    app.nested_registry
+        .register(nested_divider, SplitPaneAction::DividerDrag);
+    app.nested_registry
+        .register(nested_second, SplitPaneAction::SecondPaneClick);
 
     // Render nested content
-    render_pane_content("Nested 1", app.nested_split_state.split_percent(), nested_first, f.buffer_mut());
-    render_pane_content("Nested 2", 100 - app.nested_split_state.split_percent(), nested_second, f.buffer_mut());
+    render_pane_content(
+        "Nested 1",
+        app.nested_split_state.split_percent(),
+        nested_first,
+        f.buffer_mut(),
+    );
+    render_pane_content(
+        "Nested 2",
+        100 - app.nested_split_state.split_percent(),
+        nested_second,
+        f.buffer_mut(),
+    );
 
     // Render nested divider
-    render_divider(f.buffer_mut(), nested_divider, app.nested_orientation, &nested_style,
-                   app.nested_split_state.is_dragging(), app.nested_split_state.divider_focused);
+    render_divider(
+        f.buffer_mut(),
+        nested_divider,
+        app.nested_orientation,
+        &nested_style,
+        app.nested_split_state.is_dragging(),
+        app.nested_split_state.divider_focused,
+    );
 }
 
 fn render_divider(
@@ -440,16 +470,23 @@ fn render_pane_content(name: &str, percent: u16, area: Rect, buf: &mut ratatui::
         ]),
         Line::from(vec![
             Span::styled("Height: ", Style::default().fg(Color::Gray)),
-            Span::styled(format!("{}", area.height), Style::default().fg(Color::White)),
+            Span::styled(
+                format!("{}", area.height),
+                Style::default().fg(Color::White),
+            ),
         ]),
         Line::from(""),
         Line::from(Span::styled(
             "Drag the divider to resize",
-            Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::ITALIC),
         )),
         Line::from(Span::styled(
             "or use arrow keys",
-            Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::ITALIC),
         )),
     ];
     let paragraph = Paragraph::new(text)

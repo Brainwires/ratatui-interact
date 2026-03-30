@@ -193,8 +193,7 @@ impl App {
         Self {
             dialog_state: None,
             provider: DemoHotkeyProvider,
-            style: HotkeyDialogStyle::default()
-                .title(" Demo Hotkey Configuration "),
+            style: HotkeyDialogStyle::default().title(" Demo Hotkey Configuration "),
             message: String::new(),
             should_quit: false,
         }

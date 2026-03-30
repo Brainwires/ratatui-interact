@@ -120,7 +120,8 @@ impl<C: HotkeyCategory> HotkeyDialogState<C> {
     /// Move to next hotkey in list.
     pub fn next_hotkey(&mut self) {
         if self.cached_entry_count > 0 {
-            self.selected_hotkey_idx = (self.selected_hotkey_idx + 1).min(self.cached_entry_count - 1);
+            self.selected_hotkey_idx =
+                (self.selected_hotkey_idx + 1).min(self.cached_entry_count - 1);
         }
     }
 

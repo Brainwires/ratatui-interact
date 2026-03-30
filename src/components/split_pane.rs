@@ -111,8 +111,8 @@ impl SplitPaneState {
 
         let delta = (pos as i32) - (self.drag_start_pos as i32);
         let percent_delta = (delta * 100) / (self.total_size as i32);
-        let new_percent =
-            ((self.drag_start_percent as i32) + percent_delta).clamp(min_percent as i32, max_percent as i32) as u16;
+        let new_percent = ((self.drag_start_percent as i32) + percent_delta)
+            .clamp(min_percent as i32, max_percent as i32) as u16;
 
         self.split_percent = new_percent;
     }
@@ -124,7 +124,8 @@ impl SplitPaneState {
 
     /// Adjust split percentage by delta (for keyboard control)
     pub fn adjust_split(&mut self, delta: i16, min_percent: u16, max_percent: u16) {
-        let new_percent = ((self.split_percent as i16) + delta).clamp(min_percent as i16, max_percent as i16) as u16;
+        let new_percent = ((self.split_percent as i16) + delta)
+            .clamp(min_percent as i16, max_percent as i16) as u16;
         self.split_percent = new_percent;
     }
 
@@ -172,7 +173,9 @@ impl Focusable for SplitPaneState {
     }
 
     fn focused_style(&self) -> Style {
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
     }
 
     fn unfocused_style(&self) -> Style {
@@ -344,7 +347,8 @@ impl SplitPane {
 
         // Calculate first pane size based on percentage
         let first_size = ((available_size as u32) * (split_percent as u32) / 100) as u16;
-        let first_size = first_size.clamp(self.min_size, available_size.saturating_sub(self.min_size));
+        let first_size =
+            first_size.clamp(self.min_size, available_size.saturating_sub(self.min_size));
 
         // Second pane gets the rest
         let second_size = available_size.saturating_sub(first_size);
@@ -352,7 +356,8 @@ impl SplitPane {
         match self.orientation {
             Orientation::Horizontal => {
                 let first_area = Rect::new(area.x, area.y, first_size, area.height);
-                let divider_area = Rect::new(area.x + first_size, area.y, divider_size, area.height);
+                let divider_area =
+                    Rect::new(area.x + first_size, area.y, divider_size, area.height);
                 let second_area = Rect::new(
                     area.x + first_size + divider_size,
                     area.y,
@@ -454,7 +459,8 @@ impl SplitPane {
         };
         state.set_total_size(total_size);
 
-        let (first_area, divider_area, second_area) = self.calculate_areas(area, state.split_percent);
+        let (first_area, divider_area, second_area) =
+            self.calculate_areas(area, state.split_percent);
 
         // Register click regions
         registry.register(first_area, SplitPaneAction::FirstPaneClick);
@@ -483,13 +489,18 @@ impl SplitPane {
         };
         state.set_total_size(total_size);
 
-        let (first_area, divider_area, second_area) = self.calculate_areas(area, state.split_percent);
+        let (first_area, divider_area, second_area) =
+            self.calculate_areas(area, state.split_percent);
         self.render_divider(state, divider_area, buf);
         (first_area, divider_area, second_area)
     }
 
     /// Get a simple click region for the divider
-    pub fn divider_click_region(&self, area: Rect, split_percent: u16) -> ClickRegion<SplitPaneAction> {
+    pub fn divider_click_region(
+        &self,
+        area: Rect,
+        split_percent: u16,
+    ) -> ClickRegion<SplitPaneAction> {
         let (_, divider_area, _) = self.calculate_areas(area, split_percent);
         ClickRegion::new(divider_area, SplitPaneAction::DividerDrag)
     }

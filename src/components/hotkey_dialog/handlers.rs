@@ -341,8 +341,14 @@ mod tests {
         let mut state: HotkeyDialogState<TestCategory> = HotkeyDialogState::new();
         state.focus = HotkeyFocus::SearchInput;
 
-        handle_hotkey_dialog_key(&mut state, KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty()));
-        handle_hotkey_dialog_key(&mut state, KeyEvent::new(KeyCode::Char('b'), KeyModifiers::empty()));
+        handle_hotkey_dialog_key(
+            &mut state,
+            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::empty()),
+        );
+        handle_hotkey_dialog_key(
+            &mut state,
+            KeyEvent::new(KeyCode::Char('b'), KeyModifiers::empty()),
+        );
         assert_eq!(state.search_query, "ab");
 
         handle_hotkey_dialog_key(&mut state, key_event(KeyCode::Backspace));

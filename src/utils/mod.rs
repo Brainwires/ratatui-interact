@@ -16,13 +16,13 @@ pub mod view_copy;
 
 pub use ansi::{parse_ansi_to_spans, render_markdown_to_lines};
 pub use clipboard::{
-    copy_lines_to_clipboard, copy_to_clipboard, get_from_clipboard, is_clipboard_available,
-    ClipboardResult,
+    ClipboardResult, copy_lines_to_clipboard, copy_to_clipboard, get_from_clipboard,
+    is_clipboard_available,
 };
 pub use display::{clean_for_display, format_size, pad_to_width, truncate_to_width};
 pub use mouse_capture::{
-    disable_mouse_capture, enable_mouse_capture, set_mouse_capture, toggle_mouse_capture,
-    MouseCaptureState,
+    MouseCaptureState, disable_mouse_capture, enable_mouse_capture, set_mouse_capture,
+    toggle_mouse_capture,
 };
 pub use view_copy::{
     ExitStrategy, ViewCopyAction, ViewCopyConfig, ViewCopyMode, clear_main_screen,

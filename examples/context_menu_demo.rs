@@ -108,7 +108,9 @@ impl App {
         let selected_file = &self.files[selected_idx];
 
         let mut items = vec![
-            ContextMenuItem::action("open", "Open").icon("📂").shortcut("Enter"),
+            ContextMenuItem::action("open", "Open")
+                .icon("📂")
+                .shortcut("Enter"),
         ];
 
         if selected_file.is_dir {
@@ -127,8 +129,16 @@ impl App {
 
         items.push(ContextMenuItem::separator());
 
-        items.push(ContextMenuItem::action("copy", "Copy").icon("📋").shortcut("Ctrl+C"));
-        items.push(ContextMenuItem::action("cut", "Cut").icon("✂️").shortcut("Ctrl+X"));
+        items.push(
+            ContextMenuItem::action("copy", "Copy")
+                .icon("📋")
+                .shortcut("Ctrl+C"),
+        );
+        items.push(
+            ContextMenuItem::action("cut", "Cut")
+                .icon("✂️")
+                .shortcut("Ctrl+X"),
+        );
         items.push(
             ContextMenuItem::action("paste", "Paste")
                 .icon("📄")
@@ -138,7 +148,11 @@ impl App {
 
         items.push(ContextMenuItem::separator());
 
-        items.push(ContextMenuItem::action("rename", "Rename").icon("📝").shortcut("F2"));
+        items.push(
+            ContextMenuItem::action("rename", "Rename")
+                .icon("📝")
+                .shortcut("F2"),
+        );
         items.push(
             ContextMenuItem::action("delete", "Delete")
                 .icon("🗑️")
@@ -192,13 +206,10 @@ impl App {
         if len == 0 {
             return;
         }
-        let i = self.list_state.selected().map_or(0, |i| {
-            if i >= len - 1 {
-                0
-            } else {
-                i + 1
-            }
-        });
+        let i = self
+            .list_state
+            .selected()
+            .map_or(0, |i| if i >= len - 1 { 0 } else { i + 1 });
         self.list_state.select(Some(i));
     }
 
@@ -207,13 +218,10 @@ impl App {
         if len == 0 {
             return;
         }
-        let i = self.list_state.selected().map_or(0, |i| {
-            if i == 0 {
-                len - 1
-            } else {
-                i - 1
-            }
-        });
+        let i = self
+            .list_state
+            .selected()
+            .map_or(0, |i| if i == 0 { len - 1 } else { i - 1 });
         self.list_state.select(Some(i));
     }
 }

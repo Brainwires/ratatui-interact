@@ -246,7 +246,11 @@ impl HotkeyDialogStyle {
     }
 
     /// Calculate the modal area dimensions.
-    pub fn calculate_modal_area(&self, screen_width: u16, screen_height: u16) -> (u16, u16, u16, u16) {
+    pub fn calculate_modal_area(
+        &self,
+        screen_width: u16,
+        screen_height: u16,
+    ) -> (u16, u16, u16, u16) {
         let modal_width = (screen_width * self.width_percent / 100)
             .min(self.max_width)
             .max(self.min_width)
@@ -291,7 +295,7 @@ mod tests {
     #[test]
     fn test_calculate_modal_area() {
         let style = HotkeyDialogStyle::default();
-        let (x, y, w, h) = style.calculate_modal_area(120, 40);
+        let (x, _y, w, _h) = style.calculate_modal_area(120, 40);
 
         // 85% of 120 = 102, capped at max_width 110, so 102
         assert!(w <= 110);

@@ -178,11 +178,7 @@ fn main() -> io::Result<()> {
 
     // Restore terminal
     disable_raw_mode()?;
-    execute!(
-        io::stdout(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
+    execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
     terminal.show_cursor()?;
 
     // Execute chosen exit strategy
@@ -242,7 +238,11 @@ fn ui(f: &mut Frame, app: &mut App) {
         .split(area);
 
     // Title bar
-    let line_hint = if app.show_line_numbers { "n: hide lines" } else { "n: show lines" };
+    let line_hint = if app.show_line_numbers {
+        "n: hide lines"
+    } else {
+        "n: show lines"
+    };
     let exit_hint = format!("r: exit → {}", app.exit_strategy.label());
     let title = Line::from(vec![
         Span::styled(" Scrollable Content ", Style::default().fg(Color::Cyan)),

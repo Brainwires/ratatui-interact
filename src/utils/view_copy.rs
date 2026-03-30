@@ -49,8 +49,8 @@ use crossterm::{
     event::{self, Event, KeyCode},
     execute,
     terminal::{
-        Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen,
-        disable_raw_mode, enable_raw_mode, DisableLineWrap, EnableLineWrap,
+        Clear, ClearType, DisableLineWrap, EnableLineWrap, EnterAlternateScreen,
+        LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
     },
 };
 
@@ -135,10 +135,7 @@ impl ViewCopyMode {
     }
 
     /// Enter View/Copy mode with custom configuration
-    pub fn enter_with_config<W: Write>(
-        stdout: &mut W,
-        config: ViewCopyConfig,
-    ) -> io::Result<Self> {
+    pub fn enter_with_config<W: Write>(stdout: &mut W, config: ViewCopyConfig) -> io::Result<Self> {
         use crossterm::event::DisableMouseCapture;
 
         // Leave alternate screen and disable mouse capture
@@ -255,7 +252,12 @@ impl ViewCopyMode {
         enable_raw_mode()?;
 
         // Re-enter alternate screen and enable mouse capture
-        execute!(stdout, EnableLineWrap, EnterAlternateScreen, EnableMouseCapture)?;
+        execute!(
+            stdout,
+            EnableLineWrap,
+            EnterAlternateScreen,
+            EnableMouseCapture
+        )?;
 
         // Clear terminal to force full redraw
         terminal.clear()?;

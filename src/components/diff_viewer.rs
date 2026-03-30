@@ -183,7 +183,13 @@ pub struct DiffHunk {
 
 impl DiffHunk {
     /// Create a new hunk
-    pub fn new(header: String, old_start: usize, old_count: usize, new_start: usize, new_count: usize) -> Self {
+    pub fn new(
+        header: String,
+        old_start: usize,
+        old_count: usize,
+        new_start: usize,
+        new_count: usize,
+    ) -> Self {
         Self {
             header,
             old_start,
@@ -201,12 +207,18 @@ impl DiffHunk {
 
     /// Get the number of additions in this hunk
     pub fn addition_count(&self) -> usize {
-        self.lines.iter().filter(|l| l.line_type == DiffLineType::Addition).count()
+        self.lines
+            .iter()
+            .filter(|l| l.line_type == DiffLineType::Addition)
+            .count()
     }
 
     /// Get the number of deletions in this hunk
     pub fn deletion_count(&self) -> usize {
-        self.lines.iter().filter(|l| l.line_type == DiffLineType::Deletion).count()
+        self.lines
+            .iter()
+            .filter(|l| l.line_type == DiffLineType::Deletion)
+            .count()
     }
 }
 
@@ -262,7 +274,8 @@ impl DiffData {
                 }
 
                 // Parse @@ -old_start,old_count +new_start,new_count @@
-                if let Some((old_start, old_count, new_start, new_count)) = parse_hunk_header(line) {
+                if let Some((old_start, old_count, new_start, new_count)) = parse_hunk_header(line)
+                {
                     current_hunk = Some(DiffHunk::new(
                         line.to_string(),
                         old_start,
@@ -288,7 +301,11 @@ impl DiffData {
                     old_line_num += 1;
                 } else if let Some(content) = line.strip_prefix(' ') {
                     // Context
-                    hunk.add_line(DiffLine::context(content.to_string(), old_line_num, new_line_num));
+                    hunk.add_line(DiffLine::context(
+                        content.to_string(),
+                        old_line_num,
+                        new_line_num,
+                    ));
                     old_line_num += 1;
                     new_line_num += 1;
                 } else if line.is_empty() || line == "\\ No newline at end of file" {
@@ -423,13 +440,21 @@ impl DiffViewerState {
         self.diff = diff;
         self.scroll_y = 0;
         self.scroll_x = 0;
-        self.selected_hunk = if self.diff.hunks.is_empty() { None } else { Some(0) };
+        self.selected_hunk = if self.diff.hunks.is_empty() {
+            None
+        } else {
+            Some(0)
+        };
         self.search.matches.clear();
     }
 
     /// Get total line count for scrolling
     fn total_lines(&self) -> usize {
-        self.diff.hunks.iter().map(|h| h.lines.len() + 1).sum::<usize>() // +1 for hunk header
+        self.diff
+            .hunks
+            .iter()
+            .map(|h| h.lines.len() + 1)
+            .sum::<usize>() // +1 for hunk header
     }
 
     // Navigation methods
@@ -472,14 +497,22 @@ impl DiffViewerState {
     /// Go to top
     pub fn go_to_top(&mut self) {
         self.scroll_y = 0;
-        self.selected_hunk = if self.diff.hunks.is_empty() { None } else { Some(0) };
+        self.selected_hunk = if self.diff.hunks.is_empty() {
+            None
+        } else {
+            Some(0)
+        };
     }
 
     /// Go to bottom
     pub fn go_to_bottom(&mut self) {
         let total = self.total_lines();
         self.scroll_y = total.saturating_sub(self.visible_height);
-        self.selected_hunk = if self.diff.hunks.is_empty() { None } else { Some(self.diff.hunks.len() - 1) };
+        self.selected_hunk = if self.diff.hunks.is_empty() {
+            None
+        } else {
+            Some(self.diff.hunks.len() - 1)
+        };
     }
 
     /// Go to a specific line (0-indexed)
@@ -543,7 +576,12 @@ impl DiffViewerState {
             running_line += 1;
             if running_line > line_idx {
                 // Check if this is a change line
-                if hunk.lines.first().map(|l| l.line_type != DiffLineType::Context).unwrap_or(false) {
+                if hunk
+                    .lines
+                    .first()
+                    .map(|l| l.line_type != DiffLineType::Context)
+                    .unwrap_or(false)
+                {
                     self.scroll_y = running_line - 1;
                     return;
                 }
@@ -569,7 +607,9 @@ impl DiffViewerState {
             for hunk in &self.diff.hunks {
                 running_line += 1; // hunk header
                 for line in &hunk.lines {
-                    if line.line_type == DiffLineType::Addition || line.line_type == DiffLineType::Deletion {
+                    if line.line_type == DiffLineType::Addition
+                        || line.line_type == DiffLineType::Deletion
+                    {
                         self.scroll_y = running_line - 1;
                         return;
                     }
@@ -594,7 +634,9 @@ impl DiffViewerState {
         for hunk in &self.diff.hunks {
             running_line += 1; // hunk header
             for line in &hunk.lines {
-                if line.line_type == DiffLineType::Addition || line.line_type == DiffLineType::Deletion {
+                if line.line_type == DiffLineType::Addition
+                    || line.line_type == DiffLineType::Deletion
+                {
                     changes.push(running_line - 1);
                 }
                 running_line += 1;
@@ -763,9 +805,7 @@ impl Default for DiffViewerStyle {
             match_style: Style::default()
                 .bg(Color::Rgb(60, 60, 30))
                 .fg(Color::Yellow),
-            current_match_style: Style::default()
-                .bg(Color::Yellow)
-                .fg(Color::Black),
+            current_match_style: Style::default().bg(Color::Yellow).fg(Color::Black),
             gutter_separator: "│",
             side_separator: "│",
         }
@@ -794,12 +834,8 @@ impl From<&crate::theme::Theme> for DiffViewerStyle {
             hunk_header_style: Style::default()
                 .fg(p.secondary)
                 .add_modifier(Modifier::BOLD),
-            match_style: Style::default()
-                .bg(Color::Rgb(60, 60, 30))
-                .fg(p.primary),
-            current_match_style: Style::default()
-                .bg(p.highlight_bg)
-                .fg(p.highlight_fg),
+            match_style: Style::default().bg(Color::Rgb(60, 60, 30)).fg(p.primary),
+            current_match_style: Style::default().bg(p.highlight_bg).fg(p.highlight_fg),
             gutter_separator: "│",
             side_separator: "│",
         }
@@ -825,8 +861,10 @@ impl DiffViewerStyle {
             addition_bg: Color::Reset,
             deletion_style: Style::default().add_modifier(Modifier::DIM),
             deletion_bg: Color::Reset,
-            inline_addition_style: Style::default().add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
-            inline_deletion_style: Style::default().add_modifier(Modifier::DIM | Modifier::CROSSED_OUT),
+            inline_addition_style: Style::default()
+                .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+            inline_deletion_style: Style::default()
+                .add_modifier(Modifier::DIM | Modifier::CROSSED_OUT),
             ..Default::default()
         }
     }
@@ -891,7 +929,11 @@ impl<'a> DiffViewer<'a> {
             return 0;
         }
         // Calculate max line number across all hunks
-        let max_line = self.state.diff.hunks.iter()
+        let max_line = self
+            .state
+            .diff
+            .hunks
+            .iter()
             .map(|h| h.old_start + h.old_count.max(h.new_count))
             .max()
             .unwrap_or(1);
@@ -917,7 +959,12 @@ impl<'a> DiffViewer<'a> {
             // Hunk header
             if current_line >= start_line && current_line < end_line {
                 let is_match = self.state.search.matches.contains(&current_line);
-                let is_current_match = self.state.search.matches.get(self.state.search.current_match) == Some(&current_line);
+                let is_current_match = self
+                    .state
+                    .search
+                    .matches
+                    .get(self.state.search.current_match)
+                    == Some(&current_line);
 
                 let header_style = if is_current_match {
                     self.style.current_match_style
@@ -927,7 +974,9 @@ impl<'a> DiffViewer<'a> {
                     self.style.hunk_header_style
                 };
 
-                let header_content: String = hunk.header.chars()
+                let header_content: String = hunk
+                    .header
+                    .chars()
                     .skip(self.state.scroll_x)
                     .take(inner.width as usize)
                     .collect();
@@ -939,9 +988,20 @@ impl<'a> DiffViewer<'a> {
             for line in &hunk.lines {
                 if current_line >= start_line && current_line < end_line {
                     let is_match = self.state.search.matches.contains(&current_line);
-                    let is_current_match = self.state.search.matches.get(self.state.search.current_match) == Some(&current_line);
+                    let is_current_match = self
+                        .state
+                        .search
+                        .matches
+                        .get(self.state.search.current_match)
+                        == Some(&current_line);
 
-                    lines.push(self.build_unified_line(line, line_num_width, visible_width, is_match, is_current_match));
+                    lines.push(self.build_unified_line(
+                        line,
+                        line_num_width,
+                        visible_width,
+                        is_match,
+                        is_current_match,
+                    ));
                 }
                 current_line += 1;
 
@@ -959,29 +1019,49 @@ impl<'a> DiffViewer<'a> {
     }
 
     /// Build a single unified diff line
-    fn build_unified_line(&self, line: &DiffLine, line_num_width: usize, visible_width: usize, is_match: bool, is_current_match: bool) -> Line<'static> {
+    fn build_unified_line(
+        &self,
+        line: &DiffLine,
+        line_num_width: usize,
+        visible_width: usize,
+        is_match: bool,
+        is_current_match: bool,
+    ) -> Line<'static> {
         let mut spans = Vec::new();
 
         // Line numbers
         if self.state.show_line_numbers {
-            let old_num = line.old_line_num
+            let old_num = line
+                .old_line_num
                 .map(|n| format!("{:>width$}", n, width = line_num_width))
                 .unwrap_or_else(|| " ".repeat(line_num_width));
-            let new_num = line.new_line_num
+            let new_num = line
+                .new_line_num
                 .map(|n| format!("{:>width$}", n, width = line_num_width))
                 .unwrap_or_else(|| " ".repeat(line_num_width));
 
             spans.push(Span::styled(old_num, self.style.line_number_style));
             spans.push(Span::styled(" ", self.style.line_number_style));
             spans.push(Span::styled(new_num, self.style.line_number_style));
-            spans.push(Span::styled(format!(" {} ", self.style.gutter_separator), self.style.line_number_style));
+            spans.push(Span::styled(
+                format!(" {} ", self.style.gutter_separator),
+                self.style.line_number_style,
+            ));
         }
 
         // Prefix and content
         let (prefix, content_style, bg_style) = match line.line_type {
             DiffLineType::Context => (" ", self.style.context_style, Style::default()),
-            DiffLineType::Addition => ("+", self.style.addition_style, Style::default().bg(self.style.addition_bg)),
-            DiffLineType::Deletion => ("-", self.style.deletion_style, Style::default().bg(self.style.deletion_bg)),
+            DiffLineType::Addition => (
+                "+",
+                self.style.addition_style,
+                Style::default().bg(self.style.addition_bg),
+            ),
+            DiffLineType::Deletion => (
+                "-",
+                self.style.deletion_style,
+                Style::default().bg(self.style.deletion_bg),
+            ),
             DiffLineType::HunkHeader => ("@", self.style.hunk_header_style, Style::default()),
         };
 
@@ -997,7 +1077,9 @@ impl<'a> DiffViewer<'a> {
         spans.push(Span::styled(prefix.to_string(), final_style));
 
         // Content with horizontal scroll
-        let content: String = line.content.chars()
+        let content: String = line
+            .content
+            .chars()
             .skip(self.state.scroll_x)
             .take(visible_width)
             .collect();
@@ -1027,7 +1109,9 @@ impl<'a> DiffViewer<'a> {
             // Hunk header (spans both sides)
             if current_line >= start_line && current_line < end_line {
                 let header_style = self.style.hunk_header_style;
-                let header_content: String = hunk.header.chars()
+                let header_content: String = hunk
+                    .header
+                    .chars()
                     .skip(self.state.scroll_x)
                     .take(inner.width as usize)
                     .collect();
@@ -1064,7 +1148,10 @@ impl<'a> DiffViewer<'a> {
     }
 
     /// Pair deletion/addition lines for side-by-side display
-    fn pair_lines_for_side_by_side<'b>(&self, lines: &'b [DiffLine]) -> Vec<(Option<&'b DiffLine>, Option<&'b DiffLine>)> {
+    fn pair_lines_for_side_by_side<'b>(
+        &self,
+        lines: &'b [DiffLine],
+    ) -> Vec<(Option<&'b DiffLine>, Option<&'b DiffLine>)> {
         let mut pairs = Vec::new();
         let mut deletions: Vec<&DiffLine> = Vec::new();
         let mut additions: Vec<&DiffLine> = Vec::new();
@@ -1131,7 +1218,10 @@ impl<'a> DiffViewer<'a> {
         }
 
         // Separator
-        spans.push(Span::styled(self.style.side_separator, Style::default().fg(Color::DarkGray)));
+        spans.push(Span::styled(
+            self.style.side_separator,
+            Style::default().fg(Color::DarkGray),
+        ));
 
         // Right side (new)
         spans.extend(self.build_half_line(new_line, line_num_width, content_width, false));
@@ -1140,14 +1230,24 @@ impl<'a> DiffViewer<'a> {
     }
 
     /// Build one half of a side-by-side line
-    fn build_half_line(&self, line: Option<&DiffLine>, line_num_width: usize, content_width: usize, is_old: bool) -> Vec<Span<'static>> {
+    fn build_half_line(
+        &self,
+        line: Option<&DiffLine>,
+        line_num_width: usize,
+        content_width: usize,
+        is_old: bool,
+    ) -> Vec<Span<'static>> {
         let mut spans = Vec::new();
 
         match line {
             Some(l) => {
                 // Line number
                 if self.state.show_line_numbers {
-                    let num = if is_old { l.old_line_num } else { l.new_line_num };
+                    let num = if is_old {
+                        l.old_line_num
+                    } else {
+                        l.new_line_num
+                    };
                     let num_str = num
                         .map(|n| format!("{:>width$}", n, width = line_num_width))
                         .unwrap_or_else(|| " ".repeat(line_num_width));
@@ -1158,9 +1258,19 @@ impl<'a> DiffViewer<'a> {
                 // Determine style based on line type and side
                 let (prefix, style, bg) = match l.line_type {
                     DiffLineType::Context => (" ", self.style.context_style, Style::default()),
-                    DiffLineType::Addition => ("+", self.style.addition_style, Style::default().bg(self.style.addition_bg)),
-                    DiffLineType::Deletion => ("-", self.style.deletion_style, Style::default().bg(self.style.deletion_bg)),
-                    DiffLineType::HunkHeader => ("@", self.style.hunk_header_style, Style::default()),
+                    DiffLineType::Addition => (
+                        "+",
+                        self.style.addition_style,
+                        Style::default().bg(self.style.addition_bg),
+                    ),
+                    DiffLineType::Deletion => (
+                        "-",
+                        self.style.deletion_style,
+                        Style::default().bg(self.style.deletion_bg),
+                    ),
+                    DiffLineType::HunkHeader => {
+                        ("@", self.style.hunk_header_style, Style::default())
+                    }
                 };
 
                 let final_style = style.patch(bg);
@@ -1168,7 +1278,9 @@ impl<'a> DiffViewer<'a> {
                 spans.push(Span::styled(prefix.to_string(), final_style));
 
                 // Content with scroll
-                let content: String = l.content.chars()
+                let content: String = l
+                    .content
+                    .chars()
                     .skip(self.state.scroll_x)
                     .take(content_width)
                     .collect();
@@ -1243,7 +1355,8 @@ impl Widget for DiffViewer<'_> {
         let total_lines = self.state.total_lines();
         if total_lines > inner.height as usize {
             let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-            let mut scrollbar_state = ScrollbarState::new(total_lines).position(self.state.scroll_y);
+            let mut scrollbar_state =
+                ScrollbarState::new(total_lines).position(self.state.scroll_y);
             scrollbar.render(inner, buf, &mut scrollbar_state);
         }
 
@@ -1258,7 +1371,12 @@ impl Widget for DiffViewer<'_> {
 }
 
 /// Render the status bar
-fn render_diff_status_bar(state: &DiffViewerState, _style: &DiffViewerStyle, area: Rect, buf: &mut Buffer) {
+fn render_diff_status_bar(
+    state: &DiffViewerState,
+    _style: &DiffViewerStyle,
+    area: Rect,
+    buf: &mut Buffer,
+) {
     let total_lines = state.total_lines();
     let current_line = state.scroll_y + 1;
     let percent = if total_lines > 0 {
@@ -1466,7 +1584,10 @@ pub fn handle_diff_viewer_key(state: &mut DiffViewerState, key: &KeyEvent) -> bo
 /// Handle mouse input for diff viewer
 ///
 /// Returns an action if one was triggered
-pub fn handle_diff_viewer_mouse(state: &mut DiffViewerState, mouse: &MouseEvent) -> Option<DiffViewerAction> {
+pub fn handle_diff_viewer_mouse(
+    state: &mut DiffViewerState,
+    mouse: &MouseEvent,
+) -> Option<DiffViewerAction> {
     match mouse.kind {
         MouseEventKind::ScrollDown => {
             state.scroll_down();

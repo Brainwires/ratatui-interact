@@ -94,7 +94,10 @@ impl App {
     }
 
     fn select_prev(&mut self) {
-        self.selected = self.selected.checked_sub(1).unwrap_or(SPINNER_TYPES.len() - 1);
+        self.selected = self
+            .selected
+            .checked_sub(1)
+            .unwrap_or(SPINNER_TYPES.len() - 1);
     }
 }
 
@@ -164,13 +167,17 @@ fn ui(f: &mut Frame, app: &mut App) {
 
     // Title
     let status = if app.running { "Running" } else { "Paused" };
-    let title = Paragraph::new(format!("Spinner Demo - {} Styles | Status: {}", SPINNER_TYPES.len(), status))
-        .style(
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        )
-        .block(Block::default().borders(Borders::BOTTOM));
+    let title = Paragraph::new(format!(
+        "Spinner Demo - {} Styles | Status: {}",
+        SPINNER_TYPES.len(),
+        status
+    ))
+    .style(
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
+    )
+    .block(Block::default().borders(Borders::BOTTOM));
     f.render_widget(title, chunks[0]);
 
     // Spinners grid
@@ -182,7 +189,12 @@ fn ui(f: &mut Frame, app: &mut App) {
     let help_lines = vec![
         Line::from(vec![
             Span::styled("Selected: ", Style::default().fg(Color::Gray)),
-            Span::styled(selected_name, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                selected_name,
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::raw(selected_num),
         ]),
         Line::from(""),
@@ -260,11 +272,12 @@ fn render_single_spinner(f: &mut Frame, app: &App, area: Rect, idx: usize) {
         SpinnerStyle::new(frames)
     };
 
-    let spinner = Spinner::new(state)
-        .style(spinner_style)
-        .label(name);
+    let spinner = Spinner::new(state).style(spinner_style).label(name);
 
-    f.render_widget(spinner, Rect::new(inner.x + 1, inner.y, inner.width.saturating_sub(2), 1));
+    f.render_widget(
+        spinner,
+        Rect::new(inner.x + 1, inner.y, inner.width.saturating_sub(2), 1),
+    );
 }
 
 fn spinner_name(frames: SpinnerFrames) -> &'static str {

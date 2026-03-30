@@ -81,7 +81,9 @@ impl SpinnerFrames {
             SpinnerFrames::Arrow => &["←", "↖", "↑", "↗", "→", "↘", "↓", "↙"],
             SpinnerFrames::Bounce => &["⠁", "⠂", "⠄", "⠂"],
             SpinnerFrames::Grow => &["▁", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃"],
-            SpinnerFrames::Clock => &["🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚", "🕛"],
+            SpinnerFrames::Clock => &[
+                "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚", "🕛",
+            ],
             SpinnerFrames::Moon => &["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"],
             SpinnerFrames::Ascii => &[".", "o", "O", "@", "*"],
             SpinnerFrames::Toggle => &["⊶", "⊷"],
@@ -333,9 +335,7 @@ impl SpinnerStyle {
     /// Error style (red spinner)
     pub fn error() -> Self {
         Self {
-            spinner_style: Style::default()
-                .fg(Color::Red)
-                .add_modifier(Modifier::BOLD),
+            spinner_style: Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             ..Default::default()
         }
     }

@@ -256,7 +256,11 @@ fn ui(f: &mut Frame, app: &mut App) {
 fn render_header(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .title(" Diff Viewer Demo ")
-        .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .title_style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
 
@@ -283,7 +287,11 @@ fn render_header(f: &mut Frame, app: &App, area: Rect) {
     let tabs_widget = Tabs::new(tabs)
         .select(app.selected_tab)
         .divider(" | ")
-        .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+        .highlight_style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        );
 
     f.render_widget(tabs_widget, inner);
 }

@@ -755,7 +755,13 @@ impl<'a> MenuBar<'a> {
     }
 
     /// Calculate dropdown area based on menu position and screen bounds.
-    fn calculate_dropdown_area(&self, menu_x: u16, bar_bottom: u16, items: &[MenuBarItem], screen: Rect) -> Rect {
+    fn calculate_dropdown_area(
+        &self,
+        menu_x: u16,
+        bar_bottom: u16,
+        items: &[MenuBarItem],
+        screen: Rect,
+    ) -> Rect {
         let width = self.calculate_dropdown_width(items);
         let height = self.calculate_dropdown_height(items.len());
 
@@ -828,7 +834,10 @@ impl<'a> MenuBar<'a> {
 
             // Register click region for menu label
             if menu.enabled {
-                regions.push(ClickRegion::new(label_area, MenuBarClickTarget::MenuLabel(idx)));
+                regions.push(ClickRegion::new(
+                    label_area,
+                    MenuBarClickTarget::MenuLabel(idx),
+                ));
             }
 
             x += label_width + self.style.menu_padding;
@@ -839,12 +848,8 @@ impl<'a> MenuBar<'a> {
             if let Some(menu) = self.menus.get(self.state.active_menu) {
                 if let Some(&(menu_x, _)) = menu_positions.get(self.state.active_menu) {
                     let screen = frame.area();
-                    let dropdown_area = self.calculate_dropdown_area(
-                        menu_x,
-                        bar_area.y + 1,
-                        &menu.items,
-                        screen,
-                    );
+                    let dropdown_area =
+                        self.calculate_dropdown_area(menu_x, bar_area.y + 1, &menu.items, screen);
 
                     // Clear background (overlay)
                     frame.render_widget(Clear, dropdown_area);
@@ -888,9 +893,13 @@ impl<'a> MenuBar<'a> {
 
                     // Render submenu if open
                     if let Some(submenu_idx) = self.state.active_submenu {
-                        if let Some(MenuBarItem::Submenu { items, .. }) = menu.items.get(submenu_idx) {
+                        if let Some(MenuBarItem::Submenu { items, .. }) =
+                            menu.items.get(submenu_idx)
+                        {
                             let submenu_x = dropdown_area.x + dropdown_area.width;
-                            let submenu_y = dropdown_area.y + 1 + (submenu_idx as u16).saturating_sub(self.state.scroll_offset);
+                            let submenu_y = dropdown_area.y
+                                + 1
+                                + (submenu_idx as u16).saturating_sub(self.state.scroll_offset);
 
                             let submenu_width = self.calculate_dropdown_width(items);
                             let submenu_height = self.calculate_dropdown_height(items.len());
@@ -935,7 +944,8 @@ impl<'a> MenuBar<'a> {
                                 let y = sub_inner.y + display_idx as u16;
                                 let item_area = Rect::new(sub_inner.x, y, sub_inner.width, 1);
 
-                                let is_highlighted = self.state.submenu_highlighted == Some(item_idx);
+                                let is_highlighted =
+                                    self.state.submenu_highlighted == Some(item_idx);
 
                                 self.render_menu_item(
                                     frame,
@@ -979,10 +989,13 @@ impl<'a> MenuBar<'a> {
         match item {
             MenuBarItem::Separator => {
                 let sep_line: String =
-                    std::iter::repeat_n(self.style.separator_char, item_area.width as usize).collect();
+                    std::iter::repeat_n(self.style.separator_char, item_area.width as usize)
+                        .collect();
                 let para = Paragraph::new(Span::styled(
                     sep_line,
-                    Style::default().fg(self.style.separator_fg).bg(self.style.dropdown_bg),
+                    Style::default()
+                        .fg(self.style.separator_fg)
+                        .bg(self.style.dropdown_bg),
                 ));
                 frame.render_widget(para, item_area);
             }
@@ -1106,7 +1119,10 @@ impl<'a> MenuBar<'a> {
 
                 // Register click region (only for parent dropdown, not for nested submenus)
                 if *enabled && !is_submenu {
-                    regions.push(ClickRegion::new(item_area, MenuBarClickTarget::DropdownItem(item_idx)));
+                    regions.push(ClickRegion::new(
+                        item_area,
+                        MenuBarClickTarget::DropdownItem(item_idx),
+                    ));
                 }
             }
         }
@@ -1251,7 +1267,10 @@ pub fn handle_menu_bar_key(
                                 }
                                 MenuBarItem::Submenu { enabled, .. } if *enabled => {
                                     state.open_submenu();
-                                    return Some(MenuBarAction::SubmenuOpen(state.active_menu, idx));
+                                    return Some(MenuBarAction::SubmenuOpen(
+                                        state.active_menu,
+                                        idx,
+                                    ));
                                 }
                                 _ => {}
                             }
@@ -1365,7 +1384,10 @@ pub fn handle_menu_bar_mouse(
                                         MenuBarItem::Submenu { enabled, .. } if *enabled => {
                                             state.highlighted_item = Some(*idx);
                                             state.open_submenu();
-                                            return Some(MenuBarAction::SubmenuOpen(state.active_menu, *idx));
+                                            return Some(MenuBarAction::SubmenuOpen(
+                                                state.active_menu,
+                                                *idx,
+                                            ));
                                         }
                                         _ => {}
                                     }
@@ -1375,13 +1397,17 @@ pub fn handle_menu_bar_mouse(
                         MenuBarClickTarget::SubmenuItem(idx) => {
                             if let Some(menu) = menus.get(state.active_menu) {
                                 if let Some(submenu_idx) = state.active_submenu {
-                                    if let Some(MenuBarItem::Submenu { items, .. }) = menu.items.get(submenu_idx) {
+                                    if let Some(MenuBarItem::Submenu { items, .. }) =
+                                        menu.items.get(submenu_idx)
+                                    {
                                         if let Some(item) = items.get(*idx) {
                                             if let MenuBarItem::Action { id, enabled, .. } = item {
                                                 if *enabled {
                                                     let action_id = id.clone();
                                                     state.close_menu();
-                                                    return Some(MenuBarAction::ItemSelect(action_id));
+                                                    return Some(MenuBarAction::ItemSelect(
+                                                        action_id,
+                                                    ));
                                                 }
                                             }
                                         }
@@ -1425,7 +1451,9 @@ pub fn handle_menu_bar_mouse(
                             if state.highlighted_item != Some(*idx) {
                                 state.highlighted_item = Some(*idx);
                                 // Close submenu when moving to different item
-                                if state.active_submenu.is_some() && state.active_submenu != Some(*idx) {
+                                if state.active_submenu.is_some()
+                                    && state.active_submenu != Some(*idx)
+                                {
                                     state.close_submenu();
                                 }
                                 return Some(MenuBarAction::HighlightChange(
@@ -1691,9 +1719,7 @@ mod tests {
         let mut state = MenuBarState::new();
         state.focused = true;
 
-        let menus = vec![Menu::new("File").items(vec![
-            MenuBarItem::action("new", "New"),
-        ])];
+        let menus = vec![Menu::new("File").items(vec![MenuBarItem::action("new", "New")])];
 
         let key = KeyEvent::from(KeyCode::Down);
         let action = handle_menu_bar_key(&key, &mut state, &menus);
@@ -1722,9 +1748,7 @@ mod tests {
         state.open_menu(0);
         state.highlighted_item = Some(0);
 
-        let menus = vec![Menu::new("File").items(vec![
-            MenuBarItem::action("new", "New"),
-        ])];
+        let menus = vec![Menu::new("File").items(vec![MenuBarItem::action("new", "New")])];
 
         let key = KeyEvent::from(KeyCode::Enter);
         let action = handle_menu_bar_key(&key, &mut state, &menus);
@@ -1739,11 +1763,10 @@ mod tests {
         state.open_menu(0);
         state.highlighted_item = Some(0);
 
-        let menus = vec![Menu::new("File").items(vec![
-            MenuBarItem::submenu("Recent", vec![
-                MenuBarItem::action("file1", "File 1"),
-            ]),
-        ])];
+        let menus = vec![Menu::new("File").items(vec![MenuBarItem::submenu(
+            "Recent",
+            vec![MenuBarItem::action("file1", "File 1")],
+        )])];
 
         let key = KeyEvent::from(KeyCode::Enter);
         let action = handle_menu_bar_key(&key, &mut state, &menus);

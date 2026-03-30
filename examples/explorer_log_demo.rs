@@ -91,7 +91,7 @@ impl App {
 
         // Initialize toast
         let mut toast = ToastStackState::new();
-        toast.show("Welcome to File Inspector!", 3000);
+        toast.push_auto("Welcome to File Inspector!", 3000);
 
         // Initialize focus manager
         let mut focus = FocusManager::new();
@@ -196,13 +196,15 @@ impl App {
                     "OFF"
                 };
                 self.log_action(&format!("[INFO] Hidden files: {}", status));
-                self.toast.push_auto(format!("Hidden files: {}", status), 1500);
+                self.toast
+                    .push_auto(format!("Hidden files: {}", status), 1500);
             }
             KeyCode::Char('a') => {
                 self.explorer.select_all();
                 let count = self.explorer.selected_files.len();
                 self.log_action(&format!("[INFO] Selected all ({} files)", count));
-                self.toast.push_auto(format!("Selected {} files", count), 1500);
+                self.toast
+                    .push_auto(format!("Selected {} files", count), 1500);
             }
             KeyCode::Char('n') => {
                 self.explorer.select_none();

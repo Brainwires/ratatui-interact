@@ -240,10 +240,7 @@ impl<'a> MousePointer<'a> {
         let (col, row) = self.state.position.unwrap();
 
         // Check if position is within the area
-        if col >= area.x
-            && col < area.x + area.width
-            && row >= area.y
-            && row < area.y + area.height
+        if col >= area.x && col < area.x + area.width && row >= area.y && row < area.y + area.height
         {
             self.render_at(buf, col, row);
         }
@@ -265,7 +262,9 @@ impl<'a> MousePointer<'a> {
         }
 
         // Set the cell
-        buf[(col, row)].set_symbol(self.style.symbol).set_style(cell_style);
+        buf[(col, row)]
+            .set_symbol(self.style.symbol)
+            .set_style(cell_style);
     }
 }
 

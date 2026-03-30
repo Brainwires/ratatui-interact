@@ -341,17 +341,13 @@ impl From<&crate::theme::Theme> for BreadcrumbStyle {
             visible_end: 2,
 
             item_style: Style::default().fg(Color::Blue),
-            focused_item_style: Style::default()
-                .fg(p.primary)
-                .add_modifier(Modifier::BOLD),
+            focused_item_style: Style::default().fg(p.primary).add_modifier(Modifier::BOLD),
             selected_item_style: Style::default().fg(p.highlight_fg).bg(p.highlight_bg),
             hovered_item_style: Style::default()
                 .fg(p.secondary)
                 .add_modifier(Modifier::UNDERLINED),
             disabled_item_style: Style::default().fg(p.text_disabled),
-            last_item_style: Style::default()
-                .fg(p.text)
-                .add_modifier(Modifier::BOLD),
+            last_item_style: Style::default().fg(p.text).add_modifier(Modifier::BOLD),
 
             icon_style: Style::default(),
             icon_separator: " ",

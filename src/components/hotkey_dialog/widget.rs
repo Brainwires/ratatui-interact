@@ -3,11 +3,11 @@
 //! This module provides the rendering logic for the hotkey dialog component.
 
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
-    Frame,
 };
 
 use super::state::{HotkeyDialogState, HotkeyFocus};
@@ -173,7 +173,8 @@ impl<'a, C: HotkeyCategory, P: HotkeyProvider<Category = C>> HotkeyDialog<'a, C,
         let mut lines = Vec::new();
 
         for (idx, category) in categories.iter().enumerate() {
-            let is_selected = *category == self.state.selected_category && !self.state.is_searching();
+            let is_selected =
+                *category == self.state.selected_category && !self.state.is_searching();
 
             let prefix = if is_selected { "> " } else { "  " };
             let icon = category.icon();
@@ -279,10 +280,14 @@ impl<'a, C: HotkeyCategory, P: HotkeyProvider<Category = C>> HotkeyDialog<'a, C,
         self.state.ensure_hotkey_visible(visible_height);
 
         // Build lines with proper formatting
-        let lines = self.build_hotkey_lines(&entries, max_key_len, is_focused, inner, visible_height);
+        let lines =
+            self.build_hotkey_lines(&entries, max_key_len, is_focused, inner, visible_height);
 
         // Apply scroll
-        let scroll = self.state.hotkey_scroll.min(total_entries.saturating_sub(1));
+        let scroll = self
+            .state
+            .hotkey_scroll
+            .min(total_entries.saturating_sub(1));
 
         let paragraph = Paragraph::new(lines).scroll((scroll as u16, 0));
         frame.render_widget(paragraph, inner);
@@ -375,10 +380,8 @@ impl<'a, C: HotkeyCategory, P: HotkeyProvider<Category = C>> HotkeyDialog<'a, C,
             let row_offset = idx.saturating_sub(self.state.hotkey_scroll);
             if idx >= self.state.hotkey_scroll && row_offset < visible_height {
                 let row_y = inner.y + row_offset as u16;
-                self.state.add_hotkey_click_region(
-                    Rect::new(inner.x, row_y, inner.width, 1),
-                    idx,
-                );
+                self.state
+                    .add_hotkey_click_region(Rect::new(inner.x, row_y, inner.width, 1), idx);
             }
         }
 
@@ -393,11 +396,9 @@ impl<'a, C: HotkeyCategory, P: HotkeyProvider<Category = C>> HotkeyDialog<'a, C,
                 ("Tab", "Categories"),
                 ("Type", "Filter"),
             ],
-            HotkeyFocus::CategoryList => vec![
-                ("Up/Dn", "Navigate"),
-                ("Tab", "Hotkeys"),
-                ("Esc", "Close"),
-            ],
+            HotkeyFocus::CategoryList => {
+                vec![("Up/Dn", "Navigate"), ("Tab", "Hotkeys"), ("Esc", "Close")]
+            }
             HotkeyFocus::HotkeyList => vec![
                 ("Up/Dn", "Navigate"),
                 ("PgUp/Dn", "Page"),
@@ -428,7 +429,10 @@ impl<'a, C: HotkeyCategory, P: HotkeyProvider<Category = C>> HotkeyDialog<'a, C,
                 Style::default().fg(self.style.global_key_color),
             ));
             spans.push(Span::raw(": "));
-            spans.push(Span::styled(*desc, Style::default().fg(self.style.dim_color)));
+            spans.push(Span::styled(
+                *desc,
+                Style::default().fg(self.style.dim_color),
+            ));
         }
 
         let line = Line::from(spans);

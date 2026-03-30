@@ -92,11 +92,6 @@ pub use context_menu::{
     calculate_menu_height, handle_context_menu_key, handle_context_menu_mouse,
     is_context_menu_trigger,
 };
-pub use menu_bar::{
-    Menu, MenuBar, MenuBarAction, MenuBarClickTarget, MenuBarItem, MenuBarState, MenuBarStyle,
-    calculate_dropdown_height as menu_bar_dropdown_height, calculate_menu_bar_height,
-    handle_menu_bar_key, handle_menu_bar_mouse,
-};
 pub use diff_viewer::{
     DiffData, DiffHunk, DiffLine, DiffLineType, DiffViewMode, DiffViewer, DiffViewerAction,
     DiffViewerState, DiffViewerStyle, handle_diff_viewer_key, handle_diff_viewer_mouse,
@@ -115,6 +110,11 @@ pub use marquee::{
     MarqueeMode, MarqueeState, MarqueeStyle, MarqueeText, ScrollDir, bounce_marquee,
     continuous_marquee,
 };
+pub use menu_bar::{
+    Menu, MenuBar, MenuBarAction, MenuBarClickTarget, MenuBarItem, MenuBarState, MenuBarStyle,
+    calculate_dropdown_height as menu_bar_dropdown_height, calculate_menu_bar_height,
+    handle_menu_bar_key, handle_menu_bar_mouse,
+};
 pub use mouse_pointer::{MousePointer, MousePointerState, MousePointerStyle};
 pub use paragraph_ext::ParagraphExt;
 pub use progress::{Progress, ProgressStyle};
@@ -122,11 +122,11 @@ pub use scrollable_content::{
     ScrollableContent, ScrollableContentAction, ScrollableContentState, ScrollableContentStyle,
     handle_scrollable_content_key, handle_scrollable_content_mouse,
 };
-pub use spinner::{LabelPosition, Spinner, SpinnerFrames, SpinnerState, SpinnerStyle};
 pub use select::{
     Select, SelectAction, SelectState, SelectStyle, calculate_dropdown_height, handle_select_key,
     handle_select_mouse,
 };
+pub use spinner::{LabelPosition, Spinner, SpinnerFrames, SpinnerState, SpinnerStyle};
 pub use split_pane::{
     Orientation, SplitPane, SplitPaneAction, SplitPaneState, SplitPaneStyle, handle_split_pane_key,
     handle_split_pane_mouse,
