@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-03-30
+
+### Fixed
+- `explorer_log_demo` example: replace removed `ToastState::show()` call with `ToastStackState::push_auto()`
+- Clippy warnings in `animated_text.rs`: use `|=` for modifier assignment, `abs_diff()`, and `enumerate()`
+- Unused variable warnings in `context_menu.rs` and `hotkey_dialog/style.rs` tests
+
+### Added
+- GitHub Actions CI workflow (check, clippy, fmt, test, doc)
+
 ## [0.5.0] - 2026-03-30
 
 ### Added
