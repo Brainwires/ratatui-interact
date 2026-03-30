@@ -23,6 +23,8 @@ Detailed code examples for each component in the ratatui-interact library.
 - [Step Display](#step-display)
 - [File Explorer](#file-explorer)
 - [Toast Notifications](#toast-notifications)
+- [Toast Stack](#toast-stack)
+- [Theme System](#theme-system)
 - [Mouse Click Handling](#mouse-click-handling)
 
 ---
@@ -825,6 +827,80 @@ app.toast_state.clear_if_expired();
 - `ToastStyle::Success` (green) - messages containing "success", "saved", "done"
 - `ToastStyle::Warning` (yellow) - messages containing "warning", "warn"
 - `ToastStyle::Error` (red) - messages containing "error", "fail"
+
+---
+
+## Toast Stack
+
+`ToastStack` manages multiple simultaneous toasts with configurable placement and dismiss policies:
+
+```rust
+use ratatui_interact::components::{
+    ToastDismissPolicy, ToastPlacement, ToastStack, ToastStackLayout, ToastStackState, ToastStyle,
+};
+
+struct App {
+    toasts: ToastStackState,
+}
+
+// Push toasts with different dismiss policies
+app.toasts.push("Saved!", ToastStyle::Success, ToastDismissPolicy::Auto { duration_ms: 3000 });
+app.toasts.push("Background task running...", ToastStyle::Info, ToastDismissPolicy::Manual);
+app.toasts.push("Warning: disk almost full", ToastStyle::Warning,
+    ToastDismissPolicy::ManualOrTimeout { duration_ms: 10000 });
+
+// Dismiss by id (returned from push)
+let id = app.toasts.push("Error occurred", ToastStyle::Error, ToastDismissPolicy::Manual);
+app.toasts.dismiss(id);
+
+// In your event loop — expire auto-dismiss toasts
+let now_ms = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64;
+app.toasts.tick(now_ms);
+
+// In your render function (render last so toasts appear on top)
+let layout = ToastStackLayout {
+    placement: ToastPlacement::TopRight,
+    ..ToastStackLayout::default()
+};
+ToastStack::new(&app.toasts, layout).render(area, frame.buffer_mut());
+```
+
+Run the demo: `cargo run --example toast_stack_demo`
+
+---
+
+## Theme System
+
+`Theme` provides a centralized `ColorPalette` with 30 semantic color roles that every widget style can be derived from:
+
+```rust
+use ratatui_interact::theme::Theme;
+use ratatui_interact::components::{Button, ButtonState, ButtonStyle};
+
+// Choose a preset
+let theme = Theme::dark();   // or Theme::light()
+
+// Derive any component style from the theme
+let button_style: ButtonStyle = theme.style();
+
+// Or use the .theme() builder shortcut on any widget
+let button = Button::new("OK", &ButtonState::enabled()).theme(&theme);
+
+// Access the palette directly for custom rendering
+let fg = theme.palette.text;
+let bg = theme.palette.surface;
+let focused_border = theme.palette.border_focused;
+```
+
+**Available palette roles:** `primary`, `secondary`, `text`, `text_dim`, `text_disabled`, `text_placeholder`, `text_muted`, `bg`, `surface`, `surface_raised`, `border_focused`, `border`, `border_disabled`, `border_accent`, `separator`, `highlight_fg`, `highlight_bg`, `success`, `warning`, `error`, `info`, `diff_add_fg/bg`, `diff_del_fg/bg`
+
+Enable serde support with the `theme-serde` feature:
+```toml
+ratatui-interact = { version = "0.5", features = ["theme-serde"] }
+```
+
+Run the demo: `cargo run --example theme_demo`
 
 ---
 

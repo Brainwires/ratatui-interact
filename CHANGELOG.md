@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-03-30
+
+### Added
+- **Interactive Components**
+  - `TextArea` enhancements:
+    - `CursorMode` enum — `Block` (inverted-span cursor, default) or `Terminal` (native blinking terminal cursor via `Frame::set_cursor_position`)
+    - `ScrollMode` enum — `Minimal` (scroll only when cursor leaves view) or `CenterTracking` (keep cursor near vertical midpoint)
+    - `TextAreaRender` return type — replaces bare `ClickRegion`; carries `click_region` and `cursor_position: Option<(u16, u16)>` for terminal-cursor mode
+    - `TextAreaStyle::title()` — dynamic title `Line` that overrides `.label()`
+    - `TextAreaStyle::content_lines()` — pre-styled line override (e.g. find/replace highlighting)
+    - `TextAreaStyle::border_color()` — border color override independent of focus state
+    - `TextAreaState::delete_word_forward()` — delete word forward (Ctrl+Delete)
+
+- **Display Components**
+  - `ToastStack` — overlay widget that manages a queue of simultaneous toasts
+    - `ToastStackState` with `push()`, `dismiss(id)`, `tick(now_ms)`, and `visible_toasts()` methods
+    - `ToastDismissPolicy` enum — `Auto { duration_ms }`, `Manual`, `ManualOrTimeout { duration_ms }`
+    - `ToastItem` — individual entry with id, message, style, and expiry
+    - `ToastPlacement` enum — `TopCenter` (default), `TopLeft`, `TopRight`, `BottomCenter`, `BottomLeft`, `BottomRight`
+    - `ToastOrder` enum — `NewestFirst` (default) or `OldestFirst`
+    - `ToastStackLayout` — configures placement, margin, gap, max width/height, and max visible count
+
+- **Theme System**
+  - `Theme` struct with `ColorPalette` — 30 semantic color roles (primary, secondary, text variants, backgrounds, borders, highlight, status colors, diff colors)
+  - `Theme::dark()` and `Theme::light()` presets
+  - `theme.style::<ComponentStyle>()` generic method for deriving any component style from the active theme
+  - `.theme(&Theme)` builder convenience method added to all widget builders
+  - `theme-serde` optional feature — serde `Serialize`/`Deserialize` for `Theme` and `ColorPalette`
+
+- **Examples**
+  - `theme_demo` — interactive demo with dark/light theme switching and live preview of all components
+  - `toast_stack_demo` — interactive demo showing simultaneous toasts with placement and dismiss policies
+
+### Changed
+- `TextArea::render_stateful()` return type changed from `ClickRegion<TextAreaAction>` to `TextAreaRender` — update callers to use `.click_region` field (breaking change)
+
 ## [0.4.1] - 2026-01-30
 
 ### Added

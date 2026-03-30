@@ -17,6 +17,7 @@ Ratatui doesn't include built-in focus navigation or mouse click handling. This 
 - **Navigation Widgets** - ListPicker, TreeView, FileExplorer, Accordion
 - **Layout Widgets** - TabView, SplitPane
 - **Viewer Widgets** - ScrollableContent, LogViewer, DiffViewer, StepDisplay
+- **Color Theming** - Centralized `Theme` / `ColorPalette` with dark/light presets; derive any component style with `theme.style::<T>()`
 - **Utilities** - ANSI parsing, display helpers, View/Copy mode, exit strategies
 - **Composition Traits** - `Focusable`, `Clickable`, `Container` for building custom components
 
@@ -26,7 +27,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ratatui-interact = "0.4"
+ratatui-interact = "0.5"
 ```
 
 Or from git:
@@ -105,6 +106,7 @@ if let Some(element) = click_region.contains(mouse_x, mouse_y) {
 | **Progress** | Progress bar with label, percentage, and step counter |
 | **MarqueeText** | Scrolling text for long content in limited space (continuous, bounce, static modes) |
 | **Spinner** | Animated loading indicator with 12 frame styles (dots, braille, line, etc.) |
+| **ToastStack** | Queue of simultaneous overlay toasts with configurable placement, ordering, and per-toast dismiss policies |
 | **MousePointer** | Visual indicator at mouse cursor position with customizable styles |
 
 ### Navigation Components
@@ -197,6 +199,8 @@ cargo run --example hotkey_dialog_demo  # Hotkey configuration dialog
 
 # Display & Viewer Components
 cargo run --example animated_text_demo  # Animated text with color effects
+cargo run --example theme_demo          # Theme system with dark/light switching
+cargo run --example toast_stack_demo    # Multiple simultaneous toasts with dismiss policies
 cargo run --example marquee_demo        # Scrolling text animation
 cargo run --example mouse_pointer_demo  # Mouse cursor indicator
 cargo run --example spinner_demo        # Animated loading indicators
