@@ -1069,6 +1069,160 @@ impl<'a> TextArea<'a> {
             }
         }
 
+        let mut display_lines: Vec<Line> = Vec::new();
+        let mut cursor_screen_pos: Option<(u16, u16)> = None;
+
+        if self.wrap_mode == WrapMode::Soft && content_width > 0 {
+            // Build visual rows: (logical_line_idx, start_col_in_line)
+            let mut visual_rows: Vec<(usize, usize)> = Vec::new();
+            for (li, line) in state.lines.iter().enumerate() {
+                let char_count = line.chars().count();
+                if char_count == 0 {
+                    visual_rows.push((li, 0));
+                } else {
+                    let mut col = 0;
+                    loop {
+                        visual_rows.push((li, col));
+                        col += content_width;
+                        if col >= char_count {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            let total_visual_rows = visual_rows.len();
+
+            // Find which visual row the cursor is on
+            let cursor_visual_row = visual_rows
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, (li, vc))| {
+                    *li == state.cursor_line && state.cursor_col >= *vc
+                })
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+
+            // Effective scroll in visual rows
+            let effective_scroll_vr =
+                if self.style.scroll_mode == ScrollMode::CenterTracking && state.visible_height > 0
+                {
+                    let half_height = state.visible_height / 2;
+                    if total_visual_rows <= state.visible_height
+                        || cursor_visual_row <= half_height
+                    {
+                        0
+                    } else if cursor_visual_row + half_height >= total_visual_rows {
+                        total_visual_rows.saturating_sub(state.visible_height)
+                    } else {
+                        cursor_visual_row.saturating_sub(half_height)
+                    }
+                } else {
+                    // Convert logical scroll_y to visual row offset
+                    visual_rows
+                        .iter()
+                        .position(|(li, _)| *li >= state.scroll_y)
+                        .unwrap_or(0)
+                };
+
+            let start_vr = effective_scroll_vr;
+            let end_vr = (start_vr + state.visible_height).min(total_visual_rows);
+
+            for (vr_offset, vr_idx) in (start_vr..end_vr).enumerate() {
+                let (line_idx, start_col) = visual_rows[vr_idx];
+                let is_cursor_line = line_idx == state.cursor_line;
+                let display_row = vr_offset as u16;
+
+                let line = &state.lines[line_idx];
+                let chars: Vec<char> = line.chars().collect();
+                let visible_chars: String =
+                    chars.iter().skip(start_col).take(content_width).collect();
+
+                let mut spans = Vec::new();
+
+                // Line number gutter (only on first visual row of a logical line)
+                if self.style.show_line_numbers {
+                    if start_col == 0 {
+                        let line_num = format!(
+                            "{:>width$} ",
+                            line_idx + 1,
+                            width = line_num_width.saturating_sub(2)
+                        );
+                        spans.push(Span::styled(
+                            line_num,
+                            Style::default().fg(self.style.line_number_fg),
+                        ));
+                    } else {
+                        spans.push(Span::raw(" ".repeat(line_num_width)));
+                    }
+                }
+
+                let line_style = if is_cursor_line {
+                    if let Some(bg) = self.style.current_line_bg {
+                        Style::default().fg(self.style.text_fg).bg(bg)
+                    } else {
+                        Style::default().fg(self.style.text_fg)
+                    }
+                } else {
+                    Style::default().fg(self.style.text_fg)
+                };
+
+                // Cursor is on this visual row if cursor_col falls in [start_col, next_start_col)
+                // or this is the last visual row for this logical line
+                let is_last_vr_for_line =
+                    vr_idx + 1 >= visual_rows.len() || visual_rows[vr_idx + 1].0 != line_idx;
+                let cursor_on_this_vr = is_cursor_line
+                    && state.cursor_col >= start_col
+                    && (is_last_vr_for_line || state.cursor_col < start_col + content_width);
+
+                if cursor_on_this_vr && state.focused {
+                    let cursor_visible_col = state.cursor_col - start_col;
+                    let visible_char_count = visible_chars.chars().count();
+
+                    if use_terminal_cursor {
+                        spans.push(Span::styled(visible_chars, line_style));
+                        let cx =
+                            inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
+                        let cy = inner_area.y + display_row;
+                        if cx < inner_area.x + inner_area.width
+                            && cy < inner_area.y + inner_area.height
+                        {
+                            cursor_screen_pos = Some((cx, cy));
+                        }
+                    } else if cursor_visible_col <= visible_char_count {
+                        let before: String =
+                            visible_chars.chars().take(cursor_visible_col).collect();
+                        let cursor_char: String = visible_chars
+                            .chars()
+                            .skip(cursor_visible_col)
+                            .take(1)
+                            .collect();
+                        let after: String =
+                            visible_chars.chars().skip(cursor_visible_col + 1).collect();
+
+                        if !before.is_empty() {
+                            spans.push(Span::styled(before, line_style));
+                        }
+                        let cursor_style = Style::default()
+                            .fg(self.style.cursor_fg)
+                            .bg(self.style.text_fg);
+                        let cursor_display =
+                            if cursor_char.is_empty() { " " } else { &cursor_char };
+                        spans.push(Span::styled(cursor_display.to_string(), cursor_style));
+                        if !after.is_empty() {
+                            spans.push(Span::styled(after, line_style));
+                        }
+                    } else {
+                        spans.push(Span::styled(visible_chars, line_style));
+                    }
+                } else {
+                    spans.push(Span::styled(visible_chars, line_style));
+                }
+
+                display_lines.push(Line::from(spans));
+            }
+        } else {
         // Calculate effective scroll offset
         let effective_scroll_y =
             if self.style.scroll_mode == ScrollMode::CenterTracking && state.visible_height > 0 {
@@ -1089,9 +1243,6 @@ impl<'a> TextArea<'a> {
         // Build visible lines
         let start_line = effective_scroll_y;
         let end_line = (start_line + state.visible_height).min(state.lines.len());
-
-        let mut display_lines: Vec<Line> = Vec::new();
-        let mut cursor_screen_pos: Option<(u16, u16)> = None;
 
         for line_idx in start_line..end_line {
             let is_cursor_line = line_idx == state.cursor_line;
@@ -1221,6 +1372,7 @@ impl<'a> TextArea<'a> {
 
             display_lines.push(Line::from(spans));
         }
+        } // end else (WrapMode::None)
 
         // Handle case when there are no lines to display (but cursor is active)
         if display_lines.is_empty() && state.focused {
