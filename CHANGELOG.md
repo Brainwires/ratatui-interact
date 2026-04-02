@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-04-02
+
+### Added
+- `TextAreaState::visual_line_count(content_width)` — returns the number of visual (wrapped) lines for a given content width
+
+### Changed
+- `render_stateful` now supports `WrapMode::Soft` — text wraps at word boundaries within the widget's content width
+
 ## [0.5.1] - 2026-03-30
 
 ### Fixed
