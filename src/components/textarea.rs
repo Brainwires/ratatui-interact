@@ -727,6 +727,29 @@ impl TextAreaState {
         self.lines.len()
     }
 
+    /// Count visual lines when soft-wrapped at `content_width` characters.
+    ///
+    /// Each logical line takes `ceil(char_count / content_width)` visual rows (minimum 1).
+    /// Use this to size a container that renders with `WrapMode::Soft`.
+    /// If `content_width` is 0, falls back to logical line count.
+    pub fn visual_line_count(&self, content_width: usize) -> usize {
+        if content_width == 0 {
+            return self.lines.len();
+        }
+        self.lines
+            .iter()
+            .map(|line| {
+                let char_count = line.chars().count();
+                if char_count == 0 {
+                    1
+                } else {
+                    (char_count + content_width - 1) / content_width
+                }
+            })
+            .sum::<usize>()
+            .max(1)
+    }
+
     /// Get current line content.
     pub fn current_line(&self) -> &str {
         &self.lines[self.cursor_line]
