@@ -19,7 +19,7 @@
 //!     .title_format(|path| format!("Browse: {}", path.display()));
 //! ```
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use ratatui::{
@@ -91,7 +91,7 @@ impl FileEntry {
 }
 
 /// Mode for the file explorer
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub enum FileExplorerMode {
     /// Normal browsing mode
     #[default]
@@ -436,6 +436,7 @@ impl FileExplorerStyle {
 pub struct FileExplorer<'a> {
     state: &'a FileExplorerState,
     style: FileExplorerStyle,
+    footer_builder: FooterBuilder,
 }
 
 impl<'a> FileExplorer<'a> {
@@ -444,7 +445,14 @@ impl<'a> FileExplorer<'a> {
         Self {
             state,
             style: FileExplorerStyle::default(),
+            footer_builder: FooterBuilder::default(),
         }
+    }
+
+    /// Set the FooterBuilder for this FileExplorer to use during rendering
+    pub fn footer_builder(mut self, footer_builder: FooterBuilder) -> Self {
+        self.footer_builder = footer_builder;
+        self
     }
 
     /// Set the style
@@ -616,7 +624,7 @@ impl Widget for FileExplorer<'_> {
         paragraph.render(inner, buf);
 
         // Footer
-        let footer = build_footer(self.state.mode);
+        let footer = self.footer_builder.build(self.state.mode);
         let footer_block = Block::default()
             .borders(Borders::TOP)
             .border_style(Style::default().fg(Color::DarkGray));
@@ -627,37 +635,80 @@ impl Widget for FileExplorer<'_> {
     }
 }
 
-/// Build footer lines based on current mode
-fn build_footer(mode: FileExplorerMode) -> Vec<Line<'static>> {
-    match mode {
-        FileExplorerMode::Browse => vec![
-            Line::from(vec![
-                Span::styled("↑↓", Style::default().fg(Color::Green)),
-                Span::raw(":Move "),
-                Span::styled("Enter", Style::default().fg(Color::Green)),
-                Span::raw(":Open "),
-                Span::styled("Space", Style::default().fg(Color::Green)),
-                Span::raw(":Select "),
-                Span::styled("/", Style::default().fg(Color::Green)),
-                Span::raw(":Search "),
-                Span::styled(".", Style::default().fg(Color::Green)),
-                Span::raw(":Hidden"),
+#[derive(Clone)]
+pub struct FooterBuilder {
+    keybinds: HashMap<FileExplorerMode, Vec<(String, String)>>,
+    pub binds_per_line: usize,
+}
+
+impl FooterBuilder {
+    /// Construct a FooterBuilder with no preset bindings
+    pub fn new() -> Self {
+        Self {
+            binds_per_line: 5,
+            keybinds: HashMap::from([
+                (FileExplorerMode::Browse, Vec::new()),
+                (FileExplorerMode::Search, Vec::new()),
             ]),
-            Line::from(vec![
-                Span::styled("a", Style::default().fg(Color::Green)),
-                Span::raw(":All "),
-                Span::styled("n", Style::default().fg(Color::Green)),
-                Span::raw(":None "),
-                Span::styled("Esc", Style::default().fg(Color::Green)),
-                Span::raw(":Close"),
+        }
+    }
+
+    /// Build and return the footer
+    pub fn build(&self, mode: FileExplorerMode) -> Vec<Line<'static>> {
+        let spans_per_line = 2 * self.binds_per_line;
+        let mut lines = Vec::new();
+        let mut spans = Vec::with_capacity(spans_per_line);
+
+        if let Some(binds) = self.keybinds.get(&mode) {
+            for (key, action) in binds {
+                if spans.len() == spans_per_line {
+                    lines.push(Line::from(spans));
+                    spans = Vec::with_capacity(self.binds_per_line);
+                }
+                spans.push(Span::styled(key.clone(), Style::default().fg(Color::Green)));
+                spans.push(Span::raw(format!("{action} ")));
+            }
+        }
+
+        lines.push(Line::from(spans));
+        lines
+    }
+
+    /// Add a keybind to the footer
+    pub fn with_keybind(mut self, mode: FileExplorerMode, key: String, action: String) -> Self {
+        if !self.keybinds.contains_key(&mode) {
+            self.keybinds.insert(mode, Vec::new());
+        }
+        self.keybinds.get_mut(&mode).unwrap().push((key, action));
+        self
+    }
+}
+
+impl Default for FooterBuilder {
+    fn default() -> Self {
+        let browse_binds = vec![
+            ("↑↓".to_string(), ":Move".to_string()),
+            ("Enter".to_string(), ":Open".to_string()),
+            ("Space".to_string(), ":Select".to_string()),
+            ("/".to_string(), ":Search".to_string()),
+            (".".to_string(), ":Hidden".to_string()),
+            ("a".to_string(), ":All".to_string()),
+            ("n".to_string(), ":None".to_string()),
+            ("Esc".to_string(), ":Close".to_string()),
+        ];
+
+        let search_binds = vec![
+            ("Enter".to_string(), ":Confirm".to_string()),
+            ("Esc".to_string(), ":Cancel".to_string()),
+        ];
+
+        Self {
+            binds_per_line: 5,
+            keybinds: HashMap::from([
+                (FileExplorerMode::Browse, browse_binds),
+                (FileExplorerMode::Search, search_binds),
             ]),
-        ],
-        FileExplorerMode::Search => vec![Line::from(vec![
-            Span::styled("Enter", Style::default().fg(Color::Green)),
-            Span::raw(":Confirm "),
-            Span::styled("Esc", Style::default().fg(Color::Green)),
-            Span::raw(":Cancel"),
-        ])],
+        }
     }
 }
 
