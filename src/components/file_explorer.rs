@@ -1089,4 +1089,11 @@ mod tests {
         explorer.render(Rect::new(0, 0, 60, 20), &mut buf);
         // Should not panic
     }
+
+    #[test]
+    fn test_file_explorer_footer_default_num_lines() {
+        let footer_builder = FooterBuilder::default();
+        let lines = footer_builder.build(FileExplorerMode::Browse);
+        assert_eq!(lines.len(), 2);
+    }
 }
