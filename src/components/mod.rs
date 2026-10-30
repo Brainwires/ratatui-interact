@@ -96,7 +96,9 @@ pub use diff_viewer::{
     DiffData, DiffHunk, DiffLine, DiffLineType, DiffViewMode, DiffViewer, DiffViewerAction,
     DiffViewerState, DiffViewerStyle, handle_diff_viewer_key, handle_diff_viewer_mouse,
 };
-pub use file_explorer::{EntryType, FileEntry, FileExplorer, FileExplorerState, FileExplorerStyle};
+pub use file_explorer::{
+    EntryType, FileEntry, FileExplorer, FileExplorerState, FileExplorerStyle, FooterBuilder,
+};
 pub use hotkey_dialog::{
     CategoryClickRegion, HotkeyCategory, HotkeyClickRegion, HotkeyDialog, HotkeyDialogAction,
     HotkeyDialogState, HotkeyDialogStyle, HotkeyEntryData, HotkeyFocus, HotkeyProvider,
