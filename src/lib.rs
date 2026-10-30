@@ -193,8 +193,8 @@ pub mod prelude {
 
     // Navigation Components
     pub use crate::components::{
-        EntryType, FileEntry, FileExplorer, FileExplorerState, FileExplorerStyle, ListPicker,
-        ListPickerState, ListPickerStyle, key_hints_footer,
+        EntryType, FileEntry, FileExplorer, FileExplorerState, FileExplorerStyle, FooterBuilder,
+        ListPicker, ListPickerState, ListPickerStyle, key_hints_footer,
     };
 
     // Tree Components

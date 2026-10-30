@@ -676,10 +676,7 @@ impl FooterBuilder {
 
     /// Add a keybind to the footer
     pub fn with_keybind(mut self, mode: FileExplorerMode, key: String, action: String) -> Self {
-        if !self.keybinds.contains_key(&mode) {
-            self.keybinds.insert(mode, Vec::new());
-        }
-        self.keybinds.get_mut(&mode).unwrap().push((key, action));
+        self.keybinds.entry(mode).or_default().push((key, action));
         self
     }
 }
