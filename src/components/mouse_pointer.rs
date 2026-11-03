@@ -28,7 +28,7 @@
 
 use ratatui::{
     buffer::Buffer,
-    layout::Rect,
+    layout::{Position, Rect},
     style::{Color, Style},
 };
 
@@ -240,18 +240,15 @@ impl<'a> MousePointer<'a> {
         let (col, row) = self.state.position.unwrap();
 
         // Check if position is within the area
-        if col >= area.x && col < area.x + area.width && row >= area.y && row < area.y + area.height
-        {
+        if area.contains(Position::new(col, row)) {
             self.render_at(buf, col, row);
         }
     }
 
     /// Internal method to render at a specific position.
     fn render_at(&self, buf: &mut Buffer, col: u16, row: u16) {
-        let buf_area = buf.area();
-
-        // Check bounds
-        if col >= buf_area.x + buf_area.width || row >= buf_area.y + buf_area.height {
+        // Check bounds (the buffer may not start at the origin, e.g. inline viewports)
+        if !buf.area().contains(Position::new(col, row)) {
             return;
         }
 
@@ -489,5 +486,19 @@ mod tests {
         pointer.render(&mut buf);
 
         assert_eq!(buf[(9, 9)].symbol(), "█");
+    }
+
+    #[test]
+    fn test_render_offset_buffer_does_not_panic() {
+        let mut state = MousePointerState::with_enabled(true);
+        // Above an inline viewport that starts at row 10
+        state.update_position(5, 2);
+        let mut buf = Buffer::empty(Rect::new(0, 10, 80, 5));
+        MousePointer::new(&state).render(&mut buf);
+
+        // Inside the offset buffer it still renders
+        state.update_position(5, 11);
+        MousePointer::new(&state).render(&mut buf);
+        assert_eq!(buf[(5, 11)].symbol(), MousePointerStyle::default().symbol);
     }
 }

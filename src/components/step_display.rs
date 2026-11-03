@@ -141,12 +141,35 @@ impl Step {
     }
 
     /// Add a line to output
+    ///
+    /// Auto-scrolls to the bottom. The scroll position stored here assumes the
+    /// default of [`DEFAULT_MAX_OUTPUT_LINES`] visible lines; when rendering, a
+    /// step scrolled to (or past) that bottom position follows the tail for
+    /// whatever [`StepDisplayStyle::max_output_lines`] is configured.
     pub fn add_output(&mut self, line: impl Into<String>) {
         self.output.push(line.into());
         // Auto-scroll to bottom
-        let visible_lines = 5;
+        let visible_lines = DEFAULT_MAX_OUTPUT_LINES;
         if self.output.len() > visible_lines {
-            self.scroll = (self.output.len() - visible_lines) as u16;
+            self.scroll = saturate_u16(self.output.len() - visible_lines);
+        }
+    }
+
+    /// Scroll position to use when showing `visible_lines` output lines.
+    ///
+    /// A step at the bottom position set by [`add_output`](Self::add_output)
+    /// (or with a saturated `scroll`) stays pinned to the tail; any other
+    /// position is clamped so the output box is filled.
+    fn effective_scroll(&self, visible_lines: usize) -> usize {
+        let total = self.output.len();
+        let max_scroll = total.saturating_sub(visible_lines);
+        let scroll = self.scroll as usize;
+        let at_bottom =
+            scroll >= total.saturating_sub(DEFAULT_MAX_OUTPUT_LINES) || self.scroll == u16::MAX;
+        if at_bottom {
+            max_scroll
+        } else {
+            scroll.min(max_scroll)
         }
     }
 
@@ -273,11 +296,25 @@ impl StepDisplayState {
     /// Scroll output for a step
     pub fn scroll_output(&mut self, index: usize, delta: i32) {
         if let Some(step) = self.steps.get_mut(index) {
-            let max_scroll = step.output.len().saturating_sub(5) as i32;
-            let new_scroll = (step.scroll as i32 + delta).clamp(0, max_scroll);
+            let max_scroll =
+                saturate_u16(step.output.len().saturating_sub(DEFAULT_MAX_OUTPUT_LINES));
+            let new_scroll = (step.scroll as i32)
+                .saturating_add(delta)
+                .clamp(0, max_scroll as i32);
             step.scroll = new_scroll as u16;
         }
     }
+}
+
+/// Default number of visible output lines per step.
+///
+/// [`Step::add_output`] and [`StepDisplayState::scroll_output`] compute scroll
+/// positions relative to this value, since the state does not know the style.
+pub const DEFAULT_MAX_OUTPUT_LINES: usize = 5;
+
+/// Convert to `u16`, saturating at `u16::MAX`.
+fn saturate_u16(value: usize) -> u16 {
+    u16::try_from(value).unwrap_or(u16::MAX)
 }
 
 /// Style for step display
@@ -296,7 +333,7 @@ impl Default for StepDisplayStyle {
         Self {
             focused_border: Color::Cyan,
             unfocused_border: Color::DarkGray,
-            max_output_lines: 5,
+            max_output_lines: DEFAULT_MAX_OUTPUT_LINES,
         }
     }
 }
@@ -307,7 +344,7 @@ impl From<&crate::theme::Theme> for StepDisplayStyle {
         Self {
             focused_border: p.border_accent,
             unfocused_border: p.border_disabled,
-            max_output_lines: 5,
+            max_output_lines: DEFAULT_MAX_OUTPUT_LINES,
         }
     }
 }
@@ -415,7 +452,7 @@ impl<'a> StepDisplay<'a> {
 
                 // Output content
                 let visible_lines = self.style.max_output_lines;
-                let scroll = step.scroll as usize;
+                let scroll = step.effective_scroll(visible_lines);
                 let total = step.output.len();
 
                 for i in 0..visible_lines {
@@ -436,7 +473,11 @@ impl<'a> StepDisplay<'a> {
 
                 // Bottom border with scroll info
                 let scroll_info = if total > visible_lines {
-                    format!(" [{}/{} lines] ", scroll + visible_lines.min(total), total)
+                    format!(
+                        " [{}/{} lines] ",
+                        (scroll + visible_lines).min(total),
+                        total
+                    )
                 } else {
                     String::new()
                 };
@@ -468,18 +509,18 @@ pub fn calculate_height(state: &StepDisplayState, style: &StepDisplayStyle) -> u
     let mut height = 0u16;
 
     for step in &state.steps {
-        height += 1; // Step header
+        height = height.saturating_add(1); // Step header
 
         // Sub-steps
         if !step.sub_steps.is_empty() && (step.expanded || step.status == StepStatus::Running) {
-            height += step.sub_steps.len() as u16;
+            height = height.saturating_add(saturate_u16(step.sub_steps.len()));
         }
 
         // Output frame
         if step.expanded && !step.output.is_empty() {
-            height += 2; // borders
-            height += style.max_output_lines as u16;
-            height += 1; // empty line after
+            height = height.saturating_add(2); // borders
+            height = height.saturating_add(saturate_u16(style.max_output_lines));
+            height = height.saturating_add(1); // empty line after
         }
     }
 
@@ -769,5 +810,73 @@ mod tests {
         let mut buf = Buffer::empty(Rect::new(0, 0, 60, 20));
         display.render(Rect::new(0, 0, 60, 20), &mut buf);
         // Should not panic
+    }
+
+    #[test]
+    fn test_add_output_scroll_saturates_instead_of_wrapping() {
+        let mut step = Step::new("build");
+        for i in 0..70_000 {
+            step.add_output(format!("line {i}"));
+        }
+        // `scroll` is a u16: it must saturate rather than wrap around
+        assert_eq!(step.scroll, u16::MAX);
+        // ...and rendering still follows the tail
+        assert_eq!(step.effective_scroll(5), 70_000 - 5);
+    }
+
+    #[test]
+    fn test_autoscroll_respects_max_output_lines() {
+        let mut state = StepDisplayState::new(vec![Step::new("build")]);
+        state.start_step(0);
+        for i in 0..8 {
+            state.add_output(0, format!("line{i}"));
+        }
+        let style = StepDisplayStyle {
+            max_output_lines: 10,
+            ..Default::default()
+        };
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 20));
+        StepDisplay::new(&state)
+            .style(style)
+            .render(buf.area, &mut buf);
+        let all: String = (0..20)
+            .map(|y| (0..40).map(|x| buf[(x, y)].symbol()).collect::<String>() + "\n")
+            .collect();
+        assert!(all.contains("line0"), "line0 scrolled away:\n{all}");
+        assert!(all.contains("line7"));
+    }
+
+    #[test]
+    fn test_autoscroll_follows_tail_with_fewer_visible_lines() {
+        let mut state = StepDisplayState::new(vec![Step::new("build")]);
+        state.start_step(0);
+        for i in 0..8 {
+            state.add_output(0, format!("line{i}"));
+        }
+        let style = StepDisplayStyle {
+            max_output_lines: 2,
+            ..Default::default()
+        };
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        StepDisplay::new(&state)
+            .style(style)
+            .render(buf.area, &mut buf);
+        let all: String = (0..10)
+            .map(|y| (0..40).map(|x| buf[(x, y)].symbol()).collect::<String>() + "\n")
+            .collect();
+        assert!(all.contains("line6") && all.contains("line7"), "{all}");
+        assert!(!all.contains("line5"), "{all}");
+    }
+
+    #[test]
+    fn test_calculate_height_saturates() {
+        let mut state = StepDisplayState::new(vec![Step::new("a")]);
+        state.steps[0].expanded = true;
+        state.steps[0].add_output("x");
+        let style = StepDisplayStyle {
+            max_output_lines: 70_000,
+            ..Default::default()
+        };
+        assert_eq!(calculate_height(&state, &style), u16::MAX);
     }
 }

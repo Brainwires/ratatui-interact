@@ -161,24 +161,39 @@ impl SpinnerState {
 
     /// Advance to the next frame if enough time has passed
     ///
+    /// The frame counter is not bounded by a frame count here; rendering takes it
+    /// modulo the number of frames of the configured [`SpinnerFrames`], so this
+    /// works for any frame set. Use [`tick_with_frames`](Self::tick_with_frames)
+    /// if you need `frame` to stay within a specific range.
+    ///
     /// Returns true if the frame changed
     pub fn tick(&mut self) -> bool {
-        self.tick_with_frames(10) // Default frame count
+        if !self.active || !self.interval_elapsed() {
+            return false;
+        }
+        self.frame = self.frame.wrapping_add(1);
+        true
     }
 
     /// Advance to the next frame with a specific frame count
     ///
     /// Returns true if the frame changed
     pub fn tick_with_frames(&mut self, frame_count: usize) -> bool {
-        if !self.active || frame_count == 0 {
+        if !self.active || frame_count == 0 || !self.interval_elapsed() {
             return false;
         }
+        self.frame = (self.frame % frame_count + 1) % frame_count;
+        true
+    }
 
+    /// Check whether the frame interval has elapsed, recording the tick time if so.
+    ///
+    /// The first call only starts the clock and returns false.
+    fn interval_elapsed(&mut self) -> bool {
         let now = Instant::now();
 
         match self.last_tick {
             Some(last) if now.duration_since(last) >= self.interval => {
-                self.frame = (self.frame + 1) % frame_count;
                 self.last_tick = Some(now);
                 true
             }
@@ -448,11 +463,9 @@ impl Widget for Spinner<'_> {
         match (self.label, self.style.label_position) {
             (Some(label), LabelPosition::Before) => {
                 // Label first, then separator, then spinner
-                let label_width = label.width() as u16;
-                if x + label_width <= area.x + area.width {
-                    buf.set_string(x, y, label, self.style.label_style);
-                    x += label_width;
-                }
+                let (end_x, _) =
+                    buf.set_stringn(x, y, label, area.width as usize, self.style.label_style);
+                x = end_x;
 
                 let sep_width = self.style.separator.width() as u16;
                 if x + sep_width <= area.x + area.width {
@@ -479,9 +492,10 @@ impl Widget for Spinner<'_> {
                     x += sep_width;
                 }
 
-                let label_width = label.width() as u16;
-                if x + label_width <= area.x + area.width {
-                    buf.set_string(x, y, label, self.style.label_style);
+                // Truncate the label to whatever room is left
+                let remaining = (area.x + area.width).saturating_sub(x);
+                if remaining > 0 {
+                    buf.set_stringn(x, y, label, remaining as usize, self.style.label_style);
                 }
             }
             (None, _) => {
@@ -641,5 +655,44 @@ mod tests {
         let mut buf = Buffer::empty(Rect::new(0, 0, 0, 0));
         spinner.render(Rect::new(0, 0, 0, 0), &mut buf);
         // Should not panic on empty area
+    }
+
+    #[test]
+    fn test_tick_reaches_all_clock_frames() {
+        let mut state = SpinnerState::with_interval(0);
+        let mut seen = std::collections::BTreeSet::new();
+        for _ in 0..100 {
+            state.tick();
+            seen.insert(state.frame % SpinnerFrames::Clock.frames().len());
+        }
+        assert_eq!(seen.len(), 12, "frames seen: {seen:?}");
+    }
+
+    #[test]
+    fn test_tick_with_frames_stays_in_range() {
+        let mut state = SpinnerState::with_interval(0);
+        state.frame = 25;
+        state.tick_with_frames(4); // starts the clock
+        state.tick_with_frames(4);
+        assert!(state.frame < 4);
+    }
+
+    #[test]
+    fn test_label_wider_than_area_is_truncated() {
+        let state = SpinnerState::new();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 8, 1));
+        Spinner::new(&state)
+            .label("Loading files")
+            .render(buf.area, &mut buf);
+        let row: String = (0..8).map(|x| buf[(x, 0)].symbol().to_string()).collect();
+        assert!(row.contains("Lo"), "label not drawn at all: {row:?}");
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 8, 1));
+        Spinner::new(&state)
+            .label("Loading files")
+            .label_position(LabelPosition::Before)
+            .render(buf.area, &mut buf);
+        let row: String = (0..8).map(|x| buf[(x, 0)].symbol().to_string()).collect();
+        assert_eq!(row, "Loading ");
     }
 }

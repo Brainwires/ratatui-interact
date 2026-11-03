@@ -1,3 +1,17 @@
+//! Stacked toast notifications
+//!
+//! [`ToastStackState`] holds several toasts at once, each with its own
+//! [`ToastDismissPolicy`], and [`ToastStack`] renders them stacked at a
+//! [`ToastPlacement`] with hit-testing support.
+//!
+//! # Time
+//!
+//! Timestamps are wall-clock milliseconds since the Unix epoch (`i64`), as
+//! exposed by [`ToastItem::created_at_ms`] and [`ToastItem::expires_at_ms`].
+//! [`ToastStackState::clear_expired`] reads the system clock; to drive expiry
+//! from your own (e.g. monotonic or test) clock, call
+//! [`ToastStackState::clear_expired_at`] with your own `now_ms` instead.
+
 use std::collections::VecDeque;
 
 use ratatui::{
@@ -6,7 +20,7 @@ use ratatui::{
     widgets::{Clear, Widget},
 };
 
-use super::toast::{Toast, ToastStyle};
+use super::toast::{Toast, ToastStyle, toast_size};
 
 /// Identifier for a toast in a stack.
 pub type ToastId = u64;
@@ -15,19 +29,27 @@ pub type ToastId = u64;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToastDismissPolicy {
     /// Automatically dismiss after `duration_ms`.
-    Auto { duration_ms: i64 },
+    Auto {
+        /// Time in milliseconds until the toast is dismissed.
+        duration_ms: i64,
+    },
     /// Persist until explicitly dismissed.
     Manual,
     /// Persist until explicitly dismissed, but also auto-dismiss after `duration_ms`.
-    ManualOrTimeout { duration_ms: i64 },
+    ManualOrTimeout {
+        /// Time in milliseconds until the toast is dismissed.
+        duration_ms: i64,
+    },
 }
 
 impl ToastDismissPolicy {
     fn expires_at_ms(&self, now_ms: i64) -> Option<i64> {
         match *self {
-            ToastDismissPolicy::Auto { duration_ms } => Some(now_ms + duration_ms),
+            ToastDismissPolicy::Auto { duration_ms } => Some(now_ms.saturating_add(duration_ms)),
             ToastDismissPolicy::Manual => None,
-            ToastDismissPolicy::ManualOrTimeout { duration_ms } => Some(now_ms + duration_ms),
+            ToastDismissPolicy::ManualOrTimeout { duration_ms } => {
+                Some(now_ms.saturating_add(duration_ms))
+            }
         }
     }
 }
@@ -35,24 +57,37 @@ impl ToastDismissPolicy {
 /// A single toast entry within a stack.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToastItem {
+    /// Unique identifier within the stack (`0` means "allocate one" for [`ToastStackState::push`]).
     pub id: ToastId,
+    /// Message text.
     pub message: String,
+    /// Style used when `auto_style` is false.
     pub style: ToastStyle,
+    /// Whether to detect the style from the message content.
     pub auto_style: bool,
+    /// Creation time in milliseconds since the Unix epoch (`0` means "now" for [`ToastStackState::push`]).
     pub created_at_ms: i64,
+    /// Expiration time in milliseconds since the Unix epoch, or `None` if it never expires.
     pub expires_at_ms: Option<i64>,
+    /// How the toast is dismissed.
     pub dismiss_policy: ToastDismissPolicy,
 }
 
 /// Placement of a toast stack within a render area.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ToastPlacement {
+    /// Top edge, horizontally centered.
     #[default]
     TopCenter,
+    /// Top-left corner.
     TopLeft,
+    /// Top-right corner.
     TopRight,
+    /// Bottom edge, horizontally centered.
     BottomCenter,
+    /// Bottom-left corner.
     BottomLeft,
+    /// Bottom-right corner.
     BottomRight,
 }
 
@@ -69,14 +104,19 @@ pub enum ToastOrder {
 /// Layout configuration for rendering a stack of toasts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ToastStackLayout {
+    /// Where the stack is anchored within the render area.
     pub placement: ToastPlacement,
     /// Outer margin in cells: `(x, y)`.
     pub margin: (u16, u16),
     /// Vertical gap in cells between stacked toasts.
     pub gap_y: u16,
+    /// Maximum width of a single toast in cells.
     pub max_width: u16,
+    /// Maximum height of a single toast in cells (including borders).
     pub max_height: u16,
+    /// Maximum number of toasts shown at once.
     pub max_toasts_visible: usize,
+    /// Which toasts are shown first.
     pub order: ToastOrder,
     /// Default offset from the edge (top/bottom) used for placement.
     /// This mirrors the old single-toast behavior where the toast is slightly below the top.
@@ -113,6 +153,7 @@ impl Default for ToastStackState {
 }
 
 impl ToastStackState {
+    /// Create an empty stack with a capacity of 5.
     pub fn new() -> Self {
         Self {
             items: VecDeque::new(),
@@ -131,30 +172,37 @@ impl ToastStackState {
         }
     }
 
+    /// Number of toasts in the stack.
     pub fn len(&self) -> usize {
         self.items.len()
     }
 
+    /// Whether the stack has no toasts.
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
 
+    /// Iterate over the toasts, oldest first.
     pub fn items(&self) -> impl Iterator<Item = &ToastItem> {
         self.items.iter()
     }
 
+    /// Iterate mutably over the toasts, oldest first.
     pub fn items_mut(&mut self) -> impl Iterator<Item = &mut ToastItem> {
         self.items.iter_mut()
     }
 
+    /// Push a toast that is dismissed automatically after `duration_ms`.
     pub fn push_auto(&mut self, message: impl Into<String>, duration_ms: i64) -> ToastId {
         self.push_with_policy(message, ToastDismissPolicy::Auto { duration_ms })
     }
 
+    /// Push a toast that persists until dismissed.
     pub fn push_manual(&mut self, message: impl Into<String>) -> ToastId {
         self.push_with_policy(message, ToastDismissPolicy::Manual)
     }
 
+    /// Push a toast that persists until dismissed or until `duration_ms` passes.
     pub fn push_manual_or_timeout(
         &mut self,
         message: impl Into<String>,
@@ -163,6 +211,7 @@ impl ToastStackState {
         self.push_with_policy(message, ToastDismissPolicy::ManualOrTimeout { duration_ms })
     }
 
+    /// Push a toast with an explicit dismiss policy.
     pub fn push_with_policy(
         &mut self,
         message: impl Into<String>,
@@ -206,6 +255,7 @@ impl ToastStackState {
         id
     }
 
+    /// Dismiss the toast with `id`. Returns whether it was found.
     pub fn dismiss(&mut self, id: ToastId) -> bool {
         if let Some(pos) = self.items.iter().position(|t| t.id == id) {
             self.items.remove(pos);
@@ -220,16 +270,25 @@ impl ToastStackState {
         self.items.pop_back().is_some()
     }
 
+    /// Dismiss all toasts.
     pub fn dismiss_all(&mut self) {
         self.items.clear();
     }
 
-    /// Remove expired toasts.
+    /// Remove expired toasts, using the system clock.
+    ///
+    /// See [`clear_expired_at`](Self::clear_expired_at) to supply your own clock.
     pub fn clear_expired(&mut self) {
         let now = current_time_ms();
         self.clear_expired_at(now);
     }
 
+    /// Remove toasts that have expired at `now_ms`.
+    ///
+    /// This is the injectable-clock entry point: `now_ms` is compared against
+    /// [`ToastItem::expires_at_ms`] (milliseconds since the Unix epoch for toasts
+    /// pushed through this API), so you can drive expiry from your own clock or
+    /// from tests instead of the system time used by [`clear_expired`](Self::clear_expired).
     pub fn clear_expired_at(&mut self, now_ms: i64) {
         self.items
             .retain(|t| t.expires_at_ms.map(|e| now_ms < e).unwrap_or(true));
@@ -251,11 +310,14 @@ impl ToastStackState {
 /// A stacked toast renderer. Also provides hit-testing based on the same layout.
 #[derive(Debug, Clone)]
 pub struct ToastStack<'a> {
+    /// The toasts to render.
     pub state: &'a ToastStackState,
+    /// Layout configuration.
     pub layout: ToastStackLayout,
 }
 
 impl<'a> ToastStack<'a> {
+    /// Create a stack renderer with the default layout.
     pub fn new(state: &'a ToastStackState) -> Self {
         Self {
             state,
@@ -263,6 +325,7 @@ impl<'a> ToastStack<'a> {
         }
     }
 
+    /// Set the layout configuration.
     pub fn layout(mut self, layout: ToastStackLayout) -> Self {
         self.layout = layout;
         self
@@ -286,9 +349,10 @@ impl<'a> ToastStack<'a> {
             .map(|(id, _)| id)
     }
 
+    /// Render the toasts, clearing the cells behind each one first.
     pub fn render_with_clear(self, area: Rect, buf: &mut Buffer) {
         for (_, rect) in self.compute_rects(area) {
-            Clear.render(rect, buf);
+            Clear.render(rect.intersection(*buf.area()), buf);
         }
         self.render(area, buf);
     }
@@ -334,12 +398,8 @@ fn compute_toast_rects(
         ids.truncate(layout.max_toasts_visible);
     }
 
-    // We need sizes to layout; compute from message length similarly to Toast::calculate_area,
+    // We need sizes to layout; computed like Toast::calculate_area,
     // but without anchoring to center/top_offset.
-    let max_content_width = (area.width as usize)
-        .saturating_sub(8)
-        .min(layout.max_width as usize);
-
     let mut sizes: Vec<(ToastId, u16, u16)> = Vec::with_capacity(ids.len());
     for id in &ids {
         let item = match state.items.iter().find(|t| t.id == *id) {
@@ -347,12 +407,8 @@ fn compute_toast_rects(
             None => continue,
         };
 
-        let content_width = item.message.len() + 4;
-        let toast_width = (content_width.min(max_content_width).max(20)) as u16;
-
-        let inner_width = toast_width.saturating_sub(2) as usize;
-        let lines_needed = (item.message.len() + inner_width - 1) / inner_width.max(1);
-        let toast_height = (lines_needed as u16 + 2).min(layout.max_height);
+        let (toast_width, toast_height) =
+            toast_size(&item.message, area, layout.max_width, layout.max_height);
 
         sizes.push((*id, toast_width, toast_height));
     }
@@ -377,7 +433,7 @@ fn compute_toast_rects(
                 break;
             }
             let x = compute_x(area, w, mx, layout.placement);
-            rects.push((id, Rect::new(x, y, w, h)));
+            rects.push((id, Rect::new(x, y, w, h).intersection(area)));
             y = y.saturating_add(h).saturating_add(layout.gap_y);
         }
     } else {
@@ -388,7 +444,7 @@ fn compute_toast_rects(
             }
             let y = y_bottom.saturating_sub(h);
             let x = compute_x(area, w, mx, layout.placement);
-            rects.push((id, Rect::new(x, y, w, h)));
+            rects.push((id, Rect::new(x, y, w, h).intersection(area)));
             y_bottom = y.saturating_sub(layout.gap_y);
         }
     }
@@ -410,6 +466,7 @@ fn compute_x(area: Rect, toast_width: u16, margin_x: u16, placement: ToastPlacem
     }
 }
 
+/// Current wall-clock time in milliseconds since the Unix epoch.
 fn current_time_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -476,5 +533,64 @@ mod tests {
             Some(id)
         );
         assert_eq!(stack.hit_test(area, r.x.saturating_sub(1), r.y), None);
+    }
+
+    #[test]
+    fn push_auto_huge_duration_does_not_overflow() {
+        let mut s = ToastStackState::new();
+        let id = s.push_auto("sticky", i64::MAX);
+        let item = s.items().find(|t| t.id == id).unwrap();
+        assert_eq!(item.expires_at_ms, Some(i64::MAX));
+        s.clear_expired();
+        assert_eq!(s.len(), 1);
+
+        s.push_manual_or_timeout("sticky too", i64::MAX);
+        assert_eq!(s.len(), 2);
+    }
+
+    #[test]
+    fn render_with_clear_narrow_area() {
+        let mut s = ToastStackState::new();
+        s.push_manual("hello");
+        let mut buf = Buffer::empty(Rect::new(0, 0, 15, 20));
+        ToastStack::new(&s).render_with_clear(buf.area, &mut buf);
+    }
+
+    #[test]
+    fn rects_stay_inside_area() {
+        let mut s = ToastStackState::new();
+        s.push_manual("hello");
+        s.push_manual("a much longer message that will need to wrap");
+        let area = Rect::new(3, 2, 15, 30);
+        for placement in [
+            ToastPlacement::TopCenter,
+            ToastPlacement::TopLeft,
+            ToastPlacement::TopRight,
+            ToastPlacement::BottomCenter,
+            ToastPlacement::BottomLeft,
+            ToastPlacement::BottomRight,
+        ] {
+            let layout = ToastStackLayout {
+                placement,
+                ..Default::default()
+            };
+            let rects = ToastStack::new(&s).layout(layout).compute_rects(area);
+            assert!(!rects.is_empty());
+            for (_, r) in rects {
+                assert_eq!(
+                    r.intersection(area),
+                    r,
+                    "{placement:?}: {r:?} outside {area:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn multiline_height() {
+        let mut s = ToastStackState::new();
+        s.push_manual("line one\nline two\nline three");
+        let rects = ToastStack::new(&s).compute_rects(Rect::new(0, 0, 80, 24));
+        assert_eq!(rects[0].1.height, 5);
     }
 }

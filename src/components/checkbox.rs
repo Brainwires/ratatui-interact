@@ -25,6 +25,8 @@ use ratatui::{
     widgets::{Paragraph, Widget},
 };
 
+use unicode_width::UnicodeWidthStr;
+
 use crate::traits::{ClickRegion, FocusId};
 
 /// Actions a checkbox can emit.
@@ -273,12 +275,12 @@ impl<'a> CheckBox<'a> {
 
     /// Calculate width needed for this checkbox.
     pub fn width(&self) -> u16 {
-        let symbol_len = if self.state.checked {
-            self.style.checked_symbol.chars().count()
+        let symbol_width = if self.state.checked {
+            self.style.checked_symbol.width()
         } else {
-            self.style.unchecked_symbol.chars().count()
+            self.style.unchecked_symbol.width()
         };
-        (symbol_len + 1 + self.label.chars().count()) as u16
+        u16::try_from(symbol_width + 1 + self.label.width()).unwrap_or(u16::MAX)
     }
 
     /// Render the checkbox and return the click region.
@@ -462,5 +464,15 @@ mod tests {
         assert!(!click_region.contains(9, 5));
         assert!(!click_region.contains(10, 4));
         assert!(!click_region.contains(10, 6));
+    }
+
+    #[test]
+    fn test_click_region_cjk_label() {
+        let state = CheckBoxState::new(false);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 1));
+        let region =
+            CheckBox::new("通知を有効", &state).render_stateful(Rect::new(0, 0, 40, 1), &mut buf);
+        // "[ ] " = 4 cols + 5 wide chars = 14 cols
+        assert_eq!(region.area.width, 14);
     }
 }
