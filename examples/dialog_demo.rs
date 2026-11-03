@@ -162,12 +162,11 @@ impl App {
                         content.notifications.toggle();
                     }
                 }
-                4 => {
+                4
                     // Auto-save checkbox
-                    if is_activate_key(key) {
+                    if is_activate_key(key) => {
                         content.auto_save.toggle();
                     }
-                }
                 _ => {}
             }
         }
@@ -227,14 +226,12 @@ fn main() -> io::Result<()> {
         if let Event::Key(key) = event::read()? {
             if app.dialog_state.is_visible() {
                 // Dialog is open - handle dialog events
-                let mut dialog = PopupDialog::new(
+                let result = PopupDialog::new(
                     &app.config,
                     &mut app.dialog_state,
                     |_, _, _| {}, // Empty renderer for event handling
-                );
-
-                let result = dialog.handle_key(key);
-                drop(dialog); // Drop dialog to release borrow
+                )
+                .handle_key(key);
 
                 match result {
                     EventResult::Action(ContainerAction::Submit) => {
@@ -262,10 +259,8 @@ fn main() -> io::Result<()> {
             if app.dialog_state.is_visible() && is_left_click(&mouse) {
                 // Handle dialog mouse events
                 let screen = terminal.get_frame().area();
-                let mut dialog = PopupDialog::new(&app.config, &mut app.dialog_state, |_, _, _| {});
-
-                let result = dialog.handle_mouse_with_screen(mouse, screen);
-                drop(dialog); // Drop dialog to release borrow
+                let result = PopupDialog::new(&app.config, &mut app.dialog_state, |_, _, _| {})
+                    .handle_mouse_with_screen(mouse, screen);
 
                 match result {
                     EventResult::Action(ContainerAction::Submit) => {

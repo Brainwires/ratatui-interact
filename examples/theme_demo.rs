@@ -121,15 +121,13 @@ fn main() -> io::Result<()> {
                         }
                     }
                 }
-                Event::Mouse(mouse) => {
-                    if is_left_click(&mouse) {
-                        if let Some(id) = app.click_regions.handle_click(mouse.column, mouse.row) {
-                            app.focus.set(*id);
-                            match id {
-                                Focus::CheckBox1 => app.checkbox1_state.toggle(),
-                                Focus::CheckBox2 => app.checkbox2_state.toggle(),
-                                _ => {}
-                            }
+                Event::Mouse(mouse) if is_left_click(&mouse) => {
+                    if let Some(id) = app.click_regions.handle_click(mouse.column, mouse.row) {
+                        app.focus.set(*id);
+                        match id {
+                            Focus::CheckBox1 => app.checkbox1_state.toggle(),
+                            Focus::CheckBox2 => app.checkbox2_state.toggle(),
+                            _ => {}
                         }
                     }
                 }

@@ -377,11 +377,9 @@ impl App {
                     }
                 }
             }
-            KeyCode::Right => {
-                if self.focused_panel == FocusedPanel::Tree {
-                    if let Some(id) = get_selected_id(&self.tree_nodes, &self.tree_state) {
-                        self.tree_state.expand(&id);
-                    }
+            KeyCode::Right if self.focused_panel == FocusedPanel::Tree => {
+                if let Some(id) = get_selected_id(&self.tree_nodes, &self.tree_state) {
+                    self.tree_state.expand(&id);
                 }
             }
             _ => {}
@@ -647,16 +645,16 @@ fn render_tree_panel(f: &mut Frame, app: &App, area: Rect) {
         .render_item(|node, _is_selected| {
             let icon = if node.data.is_dir {
                 if app.tree_state.is_collapsed(&node.id) {
-                    ""
+                    "📁"
                 } else {
-                    ""
+                    "📂"
                 }
             } else {
-                match node.data.name.split('.').last() {
-                    Some("rs") => "",
-                    Some("toml") => "",
-                    Some("md") => "",
-                    _ => "",
+                match node.data.name.split('.').next_back() {
+                    Some("rs") => "🦀",
+                    Some("toml") => "⚙",
+                    Some("md") => "📝",
+                    _ => "📄",
                 }
             };
 

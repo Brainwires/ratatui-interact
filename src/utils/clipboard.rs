@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn test_copy_lines_to_clipboard() {
-        let lines = vec!["a", "b", "c"];
+        let lines = ["a", "b", "c"];
         // Just verify it doesn't panic - actual clipboard access may not be available in tests
         let _ = copy_lines_to_clipboard(lines.iter().copied());
     }

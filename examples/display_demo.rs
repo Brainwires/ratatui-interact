@@ -315,10 +315,8 @@ impl App {
                     self.progress_style_idx = (self.progress_style_idx + 3) % 4;
                 }
             }
-            KeyCode::Right => {
-                if self.focused_panel == FocusedPanel::Progress {
-                    self.progress_style_idx = (self.progress_style_idx + 1) % 4;
-                }
+            KeyCode::Right if self.focused_panel == FocusedPanel::Progress => {
+                self.progress_style_idx = (self.progress_style_idx + 1) % 4;
             }
             _ => {}
         }

@@ -269,19 +269,17 @@ fn main() -> io::Result<()> {
                     }
                 }
             }
-            Event::Mouse(mouse) => {
-                if app.is_dialog_open() {
-                    if let Some(ref mut state) = app.dialog_state {
-                        let action = handle_hotkey_dialog_mouse(state, mouse);
+            Event::Mouse(mouse) if app.is_dialog_open() => {
+                if let Some(ref mut state) = app.dialog_state {
+                    let action = handle_hotkey_dialog_mouse(state, mouse);
 
-                        // Scroll actions are handled internally, but we can
-                        // also respond to them if needed
-                        match action {
-                            HotkeyDialogAction::ScrollUp(_) | HotkeyDialogAction::ScrollDown(_) => {
-                                // Scroll handled by state
-                            }
-                            _ => {}
+                    // Scroll actions are handled internally, but we can
+                    // also respond to them if needed
+                    match action {
+                        HotkeyDialogAction::ScrollUp(_) | HotkeyDialogAction::ScrollDown(_) => {
+                            // Scroll handled by state
                         }
+                        _ => {}
                     }
                 }
             }

@@ -73,7 +73,7 @@ impl App {
 
         // Initialize log viewer with startup messages
         let log_content = vec![
-            format!("[INFO] File Inspector started"),
+            "[INFO] File Inspector started".to_string(),
             format!("[INFO] Current directory: {}", current_dir.display()),
             format!("[INFO] {} entries loaded", explorer.entries.len()),
             String::new(),
@@ -349,10 +349,8 @@ fn main() -> io::Result<()> {
                 Event::Key(key) => {
                     app.handle_key(key);
                 }
-                Event::Mouse(mouse) => {
-                    if is_left_click(&mouse) {
-                        app.handle_click(mouse.column, mouse.row);
-                    }
+                Event::Mouse(mouse) if is_left_click(&mouse) => {
+                    app.handle_click(mouse.column, mouse.row);
                 }
                 _ => {}
             }

@@ -213,7 +213,7 @@ fn ui(f: &mut Frame, app: &mut App) {
 
 fn render_spinners(f: &mut Frame, app: &mut App, area: Rect) {
     // Split into rows of 3 spinners each
-    let rows_count = (SPINNER_TYPES.len() + 2) / 3;
+    let rows_count = SPINNER_TYPES.len().div_ceil(3);
     let row_constraints: Vec<Constraint> = (0..rows_count)
         .map(|_| Constraint::Length(3))
         .chain(std::iter::once(Constraint::Min(0)))

@@ -600,15 +600,11 @@ pub fn handle_split_pane_mouse(
                 return Some(action);
             }
         }
-        MouseEventKind::Up(MouseButton::Left) => {
-            if state.is_dragging {
-                state.end_drag();
-            }
+        MouseEventKind::Up(MouseButton::Left) if state.is_dragging => {
+            state.end_drag();
         }
-        MouseEventKind::Drag(MouseButton::Left) => {
-            if state.is_dragging {
-                state.update_drag(pos, min_percent, max_percent);
-            }
+        MouseEventKind::Drag(MouseButton::Left) if state.is_dragging => {
+            state.update_drag(pos, min_percent, max_percent);
         }
         _ => {}
     }

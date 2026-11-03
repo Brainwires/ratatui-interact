@@ -190,8 +190,8 @@ impl FileExplorerState {
         }
 
         // Sort: directories first (alphabetically), then files (alphabetically)
-        dirs.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-        files.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        dirs.sort_by_cached_key(|e| e.name.to_lowercase());
+        files.sort_by_cached_key(|e| e.name.to_lowercase());
 
         self.entries.extend(dirs);
         self.entries.extend(files);

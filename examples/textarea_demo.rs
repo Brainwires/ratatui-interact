@@ -163,16 +163,14 @@ fn main() -> io::Result<()> {
                     app.textarea.insert_char(c);
                 }
             }
-            Event::Mouse(mouse) => {
-                if is_left_click(&mouse) {
-                    if app
+            Event::Mouse(mouse)
+                if is_left_click(&mouse)
+                    && app
                         .click_regions
                         .handle_click(mouse.column, mouse.row)
-                        .is_some()
-                    {
-                        app.textarea.focused = true;
-                    }
-                }
+                        .is_some() =>
+            {
+                app.textarea.focused = true;
             }
             _ => {}
         }

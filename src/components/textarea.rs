@@ -743,7 +743,7 @@ impl TextAreaState {
                 if char_count == 0 {
                     1
                 } else {
-                    (char_count + content_width - 1) / content_width
+                    char_count.div_ceil(content_width)
                 }
             })
             .sum::<usize>()
@@ -1121,33 +1121,29 @@ impl<'a> TextArea<'a> {
                 .iter()
                 .enumerate()
                 .rev()
-                .find(|(_, (li, vc))| {
-                    *li == state.cursor_line && state.cursor_col >= *vc
-                })
+                .find(|(_, (li, vc))| *li == state.cursor_line && state.cursor_col >= *vc)
                 .map(|(i, _)| i)
                 .unwrap_or(0);
 
             // Effective scroll in visual rows
-            let effective_scroll_vr =
-                if self.style.scroll_mode == ScrollMode::CenterTracking && state.visible_height > 0
-                {
-                    let half_height = state.visible_height / 2;
-                    if total_visual_rows <= state.visible_height
-                        || cursor_visual_row <= half_height
-                    {
-                        0
-                    } else if cursor_visual_row + half_height >= total_visual_rows {
-                        total_visual_rows.saturating_sub(state.visible_height)
-                    } else {
-                        cursor_visual_row.saturating_sub(half_height)
-                    }
+            let effective_scroll_vr = if self.style.scroll_mode == ScrollMode::CenterTracking
+                && state.visible_height > 0
+            {
+                let half_height = state.visible_height / 2;
+                if total_visual_rows <= state.visible_height || cursor_visual_row <= half_height {
+                    0
+                } else if cursor_visual_row + half_height >= total_visual_rows {
+                    total_visual_rows.saturating_sub(state.visible_height)
                 } else {
-                    // Convert logical scroll_y to visual row offset
-                    visual_rows
-                        .iter()
-                        .position(|(li, _)| *li >= state.scroll_y)
-                        .unwrap_or(0)
-                };
+                    cursor_visual_row.saturating_sub(half_height)
+                }
+            } else {
+                // Convert logical scroll_y to visual row offset
+                visual_rows
+                    .iter()
+                    .position(|(li, _)| *li >= state.scroll_y)
+                    .unwrap_or(0)
+            };
 
             let start_vr = effective_scroll_vr;
             let end_vr = (start_vr + state.visible_height).min(total_visual_rows);
@@ -1205,8 +1201,7 @@ impl<'a> TextArea<'a> {
 
                     if use_terminal_cursor {
                         spans.push(Span::styled(visible_chars, line_style));
-                        let cx =
-                            inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
+                        let cx = inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
                         let cy = inner_area.y + display_row;
                         if cx < inner_area.x + inner_area.width
                             && cy < inner_area.y + inner_area.height
@@ -1230,8 +1225,11 @@ impl<'a> TextArea<'a> {
                         let cursor_style = Style::default()
                             .fg(self.style.cursor_fg)
                             .bg(self.style.text_fg);
-                        let cursor_display =
-                            if cursor_char.is_empty() { " " } else { &cursor_char };
+                        let cursor_display = if cursor_char.is_empty() {
+                            " "
+                        } else {
+                            &cursor_char
+                        };
                         spans.push(Span::styled(cursor_display.to_string(), cursor_style));
                         if !after.is_empty() {
                             spans.push(Span::styled(after, line_style));
@@ -1246,9 +1244,10 @@ impl<'a> TextArea<'a> {
                 display_lines.push(Line::from(spans));
             }
         } else {
-        // Calculate effective scroll offset
-        let effective_scroll_y =
-            if self.style.scroll_mode == ScrollMode::CenterTracking && state.visible_height > 0 {
+            // Calculate effective scroll offset
+            let effective_scroll_y = if self.style.scroll_mode == ScrollMode::CenterTracking
+                && state.visible_height > 0
+            {
                 // Center-tracking: keep cursor near vertical midpoint
                 let total_lines = state.lines.len();
                 let half_height = state.visible_height / 2;
@@ -1263,39 +1262,97 @@ impl<'a> TextArea<'a> {
                 state.scroll_y
             };
 
-        // Build visible lines
-        let start_line = effective_scroll_y;
-        let end_line = (start_line + state.visible_height).min(state.lines.len());
+            // Build visible lines
+            let start_line = effective_scroll_y;
+            let end_line = (start_line + state.visible_height).min(state.lines.len());
 
-        for line_idx in start_line..end_line {
-            let is_cursor_line = line_idx == state.cursor_line;
-            let display_row = (line_idx - start_line) as u16;
+            for line_idx in start_line..end_line {
+                let is_cursor_line = line_idx == state.cursor_line;
+                let display_row = (line_idx - start_line) as u16;
 
-            // Check if we have pre-styled content lines
-            if let Some(ref content) = self.content_lines {
-                if line_idx < content.len() {
-                    let mut spans = Vec::new();
+                // Check if we have pre-styled content lines
+                if let Some(ref content) = self.content_lines {
+                    if line_idx < content.len() {
+                        let mut spans = Vec::new();
 
-                    // Line number
-                    if self.style.show_line_numbers {
-                        let line_num = format!(
-                            "{:>width$} ",
-                            line_idx + 1,
-                            width = line_num_width.saturating_sub(2)
-                        );
-                        spans.push(Span::styled(
-                            line_num,
-                            Style::default().fg(self.style.line_number_fg),
-                        ));
+                        // Line number
+                        if self.style.show_line_numbers {
+                            let line_num = format!(
+                                "{:>width$} ",
+                                line_idx + 1,
+                                width = line_num_width.saturating_sub(2)
+                            );
+                            spans.push(Span::styled(
+                                line_num,
+                                Style::default().fg(self.style.line_number_fg),
+                            ));
+                        }
+
+                        // Use pre-styled content
+                        spans.extend(content[line_idx].spans.iter().cloned());
+                        display_lines.push(Line::from(spans));
+
+                        // Calculate cursor position for terminal mode
+                        if is_cursor_line && state.focused && use_terminal_cursor {
+                            let cursor_visible_col =
+                                state.cursor_col.saturating_sub(state.scroll_x);
+                            let cx =
+                                inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
+                            let cy = inner_area.y + display_row;
+                            if cx < inner_area.x + inner_area.width
+                                && cy < inner_area.y + inner_area.height
+                            {
+                                cursor_screen_pos = Some((cx, cy));
+                            }
+                        }
+                        continue;
                     }
+                }
 
-                    // Use pre-styled content
-                    spans.extend(content[line_idx].spans.iter().cloned());
-                    display_lines.push(Line::from(spans));
+                let line = &state.lines[line_idx];
 
-                    // Calculate cursor position for terminal mode
-                    if is_cursor_line && state.focused && use_terminal_cursor {
-                        let cursor_visible_col = state.cursor_col.saturating_sub(state.scroll_x);
+                // Apply horizontal scroll
+                let chars: Vec<char> = line.chars().collect();
+                let visible_chars: String = chars
+                    .iter()
+                    .skip(state.scroll_x)
+                    .take(content_width)
+                    .collect();
+
+                let mut spans = Vec::new();
+
+                // Line number
+                if self.style.show_line_numbers {
+                    let line_num = format!(
+                        "{:>width$} ",
+                        line_idx + 1,
+                        width = line_num_width.saturating_sub(2)
+                    );
+                    spans.push(Span::styled(
+                        line_num,
+                        Style::default().fg(self.style.line_number_fg),
+                    ));
+                }
+
+                // Determine line style
+                let line_style = if is_cursor_line {
+                    if let Some(bg) = self.style.current_line_bg {
+                        Style::default().fg(self.style.text_fg).bg(bg)
+                    } else {
+                        Style::default().fg(self.style.text_fg)
+                    }
+                } else {
+                    Style::default().fg(self.style.text_fg)
+                };
+
+                // Build content with cursor
+                if is_cursor_line && state.focused {
+                    let cursor_visible_col = state.cursor_col.saturating_sub(state.scroll_x);
+                    let visible_char_count = visible_chars.chars().count();
+
+                    if use_terminal_cursor {
+                        // Terminal cursor mode: just render text, return screen position
+                        spans.push(Span::styled(visible_chars, line_style));
                         let cx = inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
                         let cy = inner_area.y + display_row;
                         if cx < inner_area.x + inner_area.width
@@ -1303,98 +1360,44 @@ impl<'a> TextArea<'a> {
                         {
                             cursor_screen_pos = Some((cx, cy));
                         }
-                    }
-                    continue;
-                }
-            }
+                    } else if cursor_visible_col <= visible_char_count {
+                        // Block cursor mode: render inverted span
+                        let before: String =
+                            visible_chars.chars().take(cursor_visible_col).collect();
+                        let cursor_char: String = visible_chars
+                            .chars()
+                            .skip(cursor_visible_col)
+                            .take(1)
+                            .collect();
+                        let after: String =
+                            visible_chars.chars().skip(cursor_visible_col + 1).collect();
 
-            let line = &state.lines[line_idx];
+                        if !before.is_empty() {
+                            spans.push(Span::styled(before, line_style));
+                        }
 
-            // Apply horizontal scroll
-            let chars: Vec<char> = line.chars().collect();
-            let visible_chars: String = chars
-                .iter()
-                .skip(state.scroll_x)
-                .take(content_width)
-                .collect();
+                        let cursor_style = Style::default()
+                            .fg(self.style.cursor_fg)
+                            .bg(self.style.text_fg);
+                        let cursor_display = if cursor_char.is_empty() {
+                            " "
+                        } else {
+                            &cursor_char
+                        };
+                        spans.push(Span::styled(cursor_display.to_string(), cursor_style));
 
-            let mut spans = Vec::new();
-
-            // Line number
-            if self.style.show_line_numbers {
-                let line_num = format!(
-                    "{:>width$} ",
-                    line_idx + 1,
-                    width = line_num_width.saturating_sub(2)
-                );
-                spans.push(Span::styled(
-                    line_num,
-                    Style::default().fg(self.style.line_number_fg),
-                ));
-            }
-
-            // Determine line style
-            let line_style = if is_cursor_line {
-                if let Some(bg) = self.style.current_line_bg {
-                    Style::default().fg(self.style.text_fg).bg(bg)
-                } else {
-                    Style::default().fg(self.style.text_fg)
-                }
-            } else {
-                Style::default().fg(self.style.text_fg)
-            };
-
-            // Build content with cursor
-            if is_cursor_line && state.focused {
-                let cursor_visible_col = state.cursor_col.saturating_sub(state.scroll_x);
-                let visible_char_count = visible_chars.chars().count();
-
-                if use_terminal_cursor {
-                    // Terminal cursor mode: just render text, return screen position
-                    spans.push(Span::styled(visible_chars, line_style));
-                    let cx = inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
-                    let cy = inner_area.y + display_row;
-                    if cx < inner_area.x + inner_area.width && cy < inner_area.y + inner_area.height
-                    {
-                        cursor_screen_pos = Some((cx, cy));
-                    }
-                } else if cursor_visible_col <= visible_char_count {
-                    // Block cursor mode: render inverted span
-                    let before: String = visible_chars.chars().take(cursor_visible_col).collect();
-                    let cursor_char: String = visible_chars
-                        .chars()
-                        .skip(cursor_visible_col)
-                        .take(1)
-                        .collect();
-                    let after: String =
-                        visible_chars.chars().skip(cursor_visible_col + 1).collect();
-
-                    if !before.is_empty() {
-                        spans.push(Span::styled(before, line_style));
-                    }
-
-                    let cursor_style = Style::default()
-                        .fg(self.style.cursor_fg)
-                        .bg(self.style.text_fg);
-                    let cursor_display = if cursor_char.is_empty() {
-                        " "
+                        if !after.is_empty() {
+                            spans.push(Span::styled(after, line_style));
+                        }
                     } else {
-                        &cursor_char
-                    };
-                    spans.push(Span::styled(cursor_display.to_string(), cursor_style));
-
-                    if !after.is_empty() {
-                        spans.push(Span::styled(after, line_style));
+                        spans.push(Span::styled(visible_chars, line_style));
                     }
                 } else {
                     spans.push(Span::styled(visible_chars, line_style));
                 }
-            } else {
-                spans.push(Span::styled(visible_chars, line_style));
-            }
 
-            display_lines.push(Line::from(spans));
-        }
+                display_lines.push(Line::from(spans));
+            }
         } // end else (WrapMode::None)
 
         // Handle case when there are no lines to display (but cursor is active)
