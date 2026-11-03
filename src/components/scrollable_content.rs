@@ -404,7 +404,7 @@ impl Widget for ScrollableContent<'_> {
             let has_content_above = !self.state.is_at_top();
             let has_content_below = !self.state.is_at_bottom(visible_height);
 
-            if has_content_above && area.height > 2 {
+            if has_content_above && area.height > 2 && area.width >= 2 {
                 buf.set_string(
                     area.x + area.width - 2,
                     area.y,
@@ -412,7 +412,7 @@ impl Widget for ScrollableContent<'_> {
                     Style::default().fg(Color::DarkGray),
                 );
             }
-            if has_content_below && area.height > 2 {
+            if has_content_below && area.height > 2 && area.width >= 2 {
                 buf.set_string(
                     area.x + area.width - 2,
                     area.y + area.height - 1,
@@ -511,6 +511,15 @@ pub fn handle_scrollable_content_mouse(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_render_width_one_does_not_underflow() {
+        let mut st = ScrollableContentState::new((0..50).map(|i| i.to_string()).collect());
+        st.set_scroll_offset(10);
+        let area = Rect::new(0, 0, 1, 5);
+        let mut buf = Buffer::empty(area);
+        ScrollableContent::new(&st).render(area, &mut buf);
+    }
 
     fn sample_lines() -> Vec<String> {
         (1..=100).map(|i| format!("Line {}", i)).collect()

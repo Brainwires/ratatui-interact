@@ -27,12 +27,40 @@ use unicode_width::UnicodeWidthStr;
 
 /// Regex to match ANSI escape sequences (colors, cursor movement, etc.)
 static ANSI_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    // Matches:
-    // - CSI sequences: \x1b[ ... (params) ... (final byte)
-    // - OSC sequences: \x1b] ... \x07 or \x1b]...\x1b\\
-    // - Simple escapes: \x1b followed by single char
-    Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\][^\x07]*\x07|\x1b\][^\x1b]*\x1b\\|\x1b.").unwrap()
+    // Matches (ECMA-48):
+    // - CSI sequences: ESC [ params(0x30-0x3F)* intermediates(0x20-0x2F)* final(0x40-0x7E)
+    //   (covers private sequences such as `ESC[?25l`)
+    // - Control strings (OSC, DCS, SOS, PM, APC): ESC ] / P / X / ^ / _ ...
+    //   terminated by BEL or ESC \ (or unterminated up to the end)
+    // - Other escapes: ESC intermediates(0x20-0x2F)* final(0x30-0x7E)
+    Regex::new(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b[\]PX^_][^\x07\x1b]*(?:\x07|\x1b\\|$)|\x1b[ -/]*[0-~]")
+        .unwrap()
 });
+
+/// Regex matching an SGR (colour/attribute) sequence, which is safe to emit.
+static SGR_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\x1b\[[0-9;]*m$").unwrap());
+
+/// Sanitise a line before writing it directly to the terminal.
+///
+/// SGR (colour/attribute) sequences are kept; every other escape sequence
+/// (cursor movement, screen clearing, OSC title/clipboard, ...) and all other
+/// control characters except tab are removed.
+pub(crate) fn sanitize_for_terminal(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut last = 0;
+    let push_text = |out: &mut String, text: &str| {
+        out.extend(text.chars().filter(|c| !c.is_control() || *c == '\t'));
+    };
+    for m in ANSI_REGEX.find_iter(s) {
+        push_text(&mut out, &s[last..m.start()]);
+        if SGR_REGEX.is_match(m.as_str()) {
+            out.push_str(m.as_str());
+        }
+        last = m.end();
+    }
+    push_text(&mut out, &s[last..]);
+    out
+}
 
 /// Clean a string for TUI display.
 ///
@@ -55,6 +83,8 @@ static ANSI_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 pub fn clean_for_display(s: &str) -> String {
     // Handle carriage returns - terminals overwrite from beginning of line
     // So we only want the text after the last \r (if any)
+    // A trailing line ending (e.g. "text\r" or "text\r\n") must not wipe the line
+    let s = s.trim_end_matches(['\r', '\n']);
     let after_cr = if let Some(last_cr_pos) = s.rfind('\r') {
         &s[last_cr_pos + 1..]
     } else {
@@ -94,6 +124,9 @@ pub fn strip_ansi(s: &str) -> String {
 /// Uses Unicode display width for proper handling of wide characters.
 /// Control characters and ANSI sequences are stripped before width calculation.
 ///
+/// The result never exceeds `max_width` columns: if `max_width` is smaller
+/// than the ellipsis, only `max_width` dots are returned.
+///
 /// # Example
 ///
 /// ```rust
@@ -109,6 +142,11 @@ pub fn truncate_to_width(s: &str, max_width: usize) -> String {
 
     if width <= max_width {
         return clean;
+    }
+
+    // Not even room for the full ellipsis
+    if max_width < 3 {
+        return ".".repeat(max_width);
     }
 
     // Need to truncate - find where to cut
@@ -226,6 +264,50 @@ mod tests {
     fn test_truncate_to_width() {
         assert_eq!(truncate_to_width("short", 10), "short");
         assert_eq!(truncate_to_width("this is a long string", 10), "this is...");
+    }
+
+    #[test]
+    fn test_strip_ansi_private_and_intermediate_csi() {
+        assert_eq!(strip_ansi("\x1b[?25hok"), "ok");
+        assert_eq!(strip_ansi("\x1b[?1049lok"), "ok");
+        assert_eq!(strip_ansi("a\x1b[2 qb"), "ab");
+        assert_eq!(strip_ansi("a\x1b[>4;2mb"), "ab");
+    }
+
+    #[test]
+    fn test_strip_ansi_osc() {
+        assert_eq!(strip_ansi("\x1b]0;title\x07ok"), "ok");
+        assert_eq!(
+            strip_ansi("\x1b]8;;http://x\x1b\\link\x1b]8;;\x1b\\"),
+            "link"
+        );
+        assert_eq!(strip_ansi("\x1b]52;c;ZXZpbA==\x07ok"), "ok");
+    }
+
+    #[test]
+    fn test_truncate_to_width_never_exceeds_max() {
+        for max in 0..6 {
+            let t = truncate_to_width("hello world", max);
+            assert!(display_width(&t) <= max, "{t:?} wider than {max}");
+        }
+        assert_eq!(truncate_to_width("hello", 2), "..");
+        assert_eq!(truncate_to_width("hello", 0), "");
+    }
+
+    #[test]
+    fn test_clean_for_display_trailing_cr() {
+        assert_eq!(clean_for_display("hello\r"), "hello");
+        assert_eq!(clean_for_display("hello\r\n"), "hello");
+        assert_eq!(clean_for_display("a\rb\r"), "b");
+    }
+
+    #[test]
+    fn test_sanitize_for_terminal_keeps_only_sgr() {
+        assert_eq!(
+            sanitize_for_terminal("\x1b[31mred\x1b[0m\x1b]0;pwn\x07\x1b[2J\rx\x1b"),
+            "\x1b[31mred\x1b[0mx"
+        );
+        assert_eq!(sanitize_for_terminal("a\tb"), "a\tb");
     }
 
     #[test]

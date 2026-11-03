@@ -35,6 +35,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Widget, Wrap},
 };
+use unicode_width::UnicodeWidthStr;
 
 /// State for the list picker widget
 #[derive(Debug, Clone, Default)]
@@ -287,7 +288,9 @@ where
         // Calculate available height for items
         let header_lines = if self.title.is_some() { 2 } else { 0 };
         let footer_lines = self.footer.as_ref().map(|f| f.len()).unwrap_or(0);
-        let available_height = inner_height as usize - header_lines - footer_lines;
+        let available_height = (inner_height as usize)
+            .saturating_sub(header_lines)
+            .saturating_sub(footer_lines);
 
         // Items
         if self.items.is_empty() {
@@ -329,7 +332,7 @@ where
                         ));
                     } else {
                         // Indent continuation lines
-                        spans.push(Span::raw(" ".repeat(self.style.indicator.len())));
+                        spans.push(Span::raw(" ".repeat(self.style.indicator.width())));
                     }
 
                     // Add the line content with appropriate style
@@ -403,6 +406,45 @@ pub fn key_hints_footer(hints: &[(&str, &str)]) -> Vec<Line<'static>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_small_area_with_title_does_not_underflow() {
+        let items = vec!["a", "b", "c"];
+        let state = ListPickerState::new(items.len());
+        // Bordered -> inner height 1, but the title needs 2 lines.
+        let area = Rect::new(0, 0, 20, 3);
+        let mut buf = Buffer::empty(area);
+        ListPicker::new(&items, &state)
+            .title("Pick")
+            .render(area, &mut buf);
+    }
+
+    #[test]
+    fn test_small_area_with_footer_does_not_underflow() {
+        let items = vec!["a", "b", "c"];
+        let state = ListPickerState::new(items.len());
+        // Bordered -> inner height 0; footer has 2 lines.
+        let area = Rect::new(0, 0, 20, 2);
+        let mut buf = Buffer::empty(area);
+        ListPicker::new(&items, &state)
+            .footer(key_hints_footer(&[("q", "quit")]))
+            .render(area, &mut buf);
+    }
+
+    #[test]
+    fn test_continuation_indent_uses_display_width() {
+        let items = vec!["x"];
+        let state = ListPickerState::new(1);
+        let area = Rect::new(0, 0, 20, 4);
+        let mut buf = Buffer::empty(area);
+        ListPicker::new(&items, &state)
+            .render_item(|_, _, _| vec![Line::from("first"), Line::from("second")])
+            .style(ListPickerStyle::default().bordered(false))
+            .render(area, &mut buf);
+        // Indicator "▶ " is 2 columns wide (4 bytes), so the continuation
+        // line must start at column 2.
+        assert_eq!(buf[(2, 1)].symbol(), "s");
+    }
 
     #[test]
     fn test_state_new() {

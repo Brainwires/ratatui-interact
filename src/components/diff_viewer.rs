@@ -41,6 +41,7 @@ use ratatui::{
 };
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use super::log_viewer::SearchState;
 
@@ -254,16 +255,24 @@ impl DiffData {
         let mut current_hunk: Option<DiffHunk> = None;
         let mut old_line_num: usize = 0;
         let mut new_line_num: usize = 0;
+        // Lines still expected in the current hunk (from its header counts)
+        let mut old_remaining: usize = 0;
+        let mut new_remaining: usize = 0;
 
         for line in text.lines() {
-            // File headers
-            if let Some(path) = line.strip_prefix("--- ") {
-                diff.old_path = Some(path.trim_start_matches("a/").to_string());
-                continue;
-            }
-            if let Some(path) = line.strip_prefix("+++ ") {
-                diff.new_path = Some(path.trim_start_matches("b/").to_string());
-                continue;
+            // File headers. Inside a hunk, "--- x" / "+++ x" are ordinary
+            // deleted/added lines (e.g. a removed "-- comment"), so only treat
+            // them as headers outside a hunk or once its line counts are used up.
+            let in_hunk = current_hunk.is_some() && (old_remaining > 0 || new_remaining > 0);
+            if !in_hunk {
+                if let Some(path) = line.strip_prefix("--- ") {
+                    diff.old_path = Some(path.trim_start_matches("a/").to_string());
+                    continue;
+                }
+                if let Some(path) = line.strip_prefix("+++ ") {
+                    diff.new_path = Some(path.trim_start_matches("b/").to_string());
+                    continue;
+                }
             }
 
             // Hunk header
@@ -285,6 +294,8 @@ impl DiffData {
                     ));
                     old_line_num = old_start;
                     new_line_num = new_start;
+                    old_remaining = old_count;
+                    new_remaining = new_count;
                 }
                 continue;
             }
@@ -295,10 +306,12 @@ impl DiffData {
                     // Addition
                     hunk.add_line(DiffLine::addition(content.to_string(), new_line_num));
                     new_line_num += 1;
+                    new_remaining = new_remaining.saturating_sub(1);
                 } else if let Some(content) = line.strip_prefix('-') {
                     // Deletion
                     hunk.add_line(DiffLine::deletion(content.to_string(), old_line_num));
                     old_line_num += 1;
+                    old_remaining = old_remaining.saturating_sub(1);
                 } else if let Some(content) = line.strip_prefix(' ') {
                     // Context
                     hunk.add_line(DiffLine::context(
@@ -308,12 +321,16 @@ impl DiffData {
                     ));
                     old_line_num += 1;
                     new_line_num += 1;
+                    old_remaining = old_remaining.saturating_sub(1);
+                    new_remaining = new_remaining.saturating_sub(1);
                 } else if line.is_empty() || line == "\\ No newline at end of file" {
                     // Empty context line or no-newline marker
                     if line.is_empty() {
                         hunk.add_line(DiffLine::context(String::new(), old_line_num, new_line_num));
                         old_line_num += 1;
                         new_line_num += 1;
+                        old_remaining = old_remaining.saturating_sub(1);
+                        new_remaining = new_remaining.saturating_sub(1);
                     }
                 }
             }
@@ -380,6 +397,76 @@ fn parse_range(range: &str) -> (usize, usize) {
     }
 }
 
+/// Pair deletion/addition line indices for side-by-side display.
+///
+/// Context lines appear on both sides; runs of deletions and additions are
+/// paired up row by row.
+fn pair_line_indices(lines: &[DiffLine]) -> Vec<(Option<usize>, Option<usize>)> {
+    let mut pairs = Vec::new();
+    let mut deletions: Vec<usize> = Vec::new();
+    let mut additions: Vec<usize> = Vec::new();
+
+    let flush = |pairs: &mut Vec<_>, deletions: &mut Vec<usize>, additions: &mut Vec<usize>| {
+        let max_len = deletions.len().max(additions.len());
+        for i in 0..max_len {
+            pairs.push((deletions.get(i).copied(), additions.get(i).copied()));
+        }
+        deletions.clear();
+        additions.clear();
+    };
+
+    for (idx, line) in lines.iter().enumerate() {
+        match line.line_type {
+            DiffLineType::Context => {
+                // Flush any pending deletions/additions
+                flush(&mut pairs, &mut deletions, &mut additions);
+                pairs.push((Some(idx), Some(idx)));
+            }
+            DiffLineType::Deletion => deletions.push(idx),
+            DiffLineType::Addition => additions.push(idx),
+            DiffLineType::HunkHeader => {
+                // Shouldn't happen here
+            }
+        }
+    }
+
+    // Flush remaining
+    flush(&mut pairs, &mut deletions, &mut additions);
+
+    pairs
+}
+
+/// One displayed row of the diff in a given view mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DisplayRow {
+    /// Index of the hunk this row belongs to
+    hunk: usize,
+    /// What the row shows
+    kind: RowKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RowKind {
+    /// The hunk header
+    Header,
+    /// Indices into the hunk's lines shown on this row (left/old, right/new).
+    /// In unified mode only the first is used.
+    Lines(Option<usize>, Option<usize>),
+}
+
+impl RowKind {
+    fn contains_line(&self, idx: usize) -> bool {
+        matches!(self, RowKind::Lines(a, b) if *a == Some(idx) || *b == Some(idx))
+    }
+
+    fn first_line(&self) -> Option<usize> {
+        match self {
+            RowKind::Header => None,
+            RowKind::Lines(a, b) => a.or(*b),
+        }
+    }
+}
+
 // ============================================================================
 // State
 // ============================================================================
@@ -395,9 +482,15 @@ pub struct DiffViewerState {
     pub scroll_y: usize,
     /// Horizontal scroll position
     pub scroll_x: usize,
-    /// Visible viewport height (set during render)
+    /// Visible viewport height in rows.
+    ///
+    /// [`DiffViewer`] renders from a shared reference and cannot update this,
+    /// so the caller must keep it in sync (for example with
+    /// [`DiffViewerState::set_viewport`] each frame). Paging and
+    /// [`DiffViewerState::go_to_bottom`] depend on it; while it is 0 they
+    /// treat the page as one row.
     pub visible_height: usize,
-    /// Visible viewport width (set during render)
+    /// Visible viewport width in columns (see `visible_height`).
     pub visible_width: usize,
     /// Currently selected hunk index (for navigation)
     pub selected_hunk: Option<usize>,
@@ -448,13 +541,85 @@ impl DiffViewerState {
         self.search.matches.clear();
     }
 
-    /// Get total line count for scrolling
+    /// Rows displayed in the given view mode.
+    fn rows_for(&self, mode: DiffViewMode) -> Vec<DisplayRow> {
+        let mut rows = Vec::new();
+        for (hunk_idx, hunk) in self.diff.hunks.iter().enumerate() {
+            rows.push(DisplayRow {
+                hunk: hunk_idx,
+                kind: RowKind::Header,
+            });
+            match mode {
+                DiffViewMode::Unified => {
+                    rows.extend((0..hunk.lines.len()).map(|i| DisplayRow {
+                        hunk: hunk_idx,
+                        kind: RowKind::Lines(Some(i), None),
+                    }));
+                }
+                DiffViewMode::SideBySide => {
+                    rows.extend(
+                        pair_line_indices(&hunk.lines)
+                            .into_iter()
+                            .map(|(old, new)| DisplayRow {
+                                hunk: hunk_idx,
+                                kind: RowKind::Lines(old, new),
+                            }),
+                    );
+                }
+            }
+        }
+        rows
+    }
+
+    /// Rows displayed in the current view mode.
+    fn rows(&self) -> Vec<DisplayRow> {
+        self.rows_for(self.view_mode)
+    }
+
+    /// Diff lines shown on a row
+    fn row_lines(&self, row: &DisplayRow) -> impl Iterator<Item = &DiffLine> {
+        let lines = &self.diff.hunks[row.hunk].lines;
+        let (a, b) = match row.kind {
+            RowKind::Header => (None, None),
+            RowKind::Lines(a, b) => (a, if b == a { None } else { b }),
+        };
+        a.into_iter().chain(b).filter_map(move |i| lines.get(i))
+    }
+
+    /// Whether a row shows an addition or deletion
+    fn row_is_change(&self, row: &DisplayRow) -> bool {
+        self.row_lines(row)
+            .any(|l| l.line_type == DiffLineType::Addition || l.line_type == DiffLineType::Deletion)
+    }
+
+    /// Get total row count for scrolling (depends on the view mode)
     fn total_lines(&self) -> usize {
-        self.diff
-            .hunks
-            .iter()
-            .map(|h| h.lines.len() + 1)
-            .sum::<usize>() // +1 for hunk header
+        match self.view_mode {
+            DiffViewMode::Unified => self
+                .diff
+                .hunks
+                .iter()
+                .map(|h| h.lines.len() + 1)
+                .sum::<usize>(), // +1 for hunk header
+            DiffViewMode::SideBySide => self.rows().len(),
+        }
+    }
+
+    /// Page size used for paging, at least one row.
+    fn page_size(&self) -> usize {
+        self.visible_height.max(1)
+    }
+
+    /// Set `visible_height` / `visible_width` from the area the
+    /// [`DiffViewer`] will be rendered into (the whole widget area, including
+    /// borders, status bar and search bar).
+    ///
+    /// Call this before handling input or rendering so that paging and
+    /// [`DiffViewerState::go_to_bottom`] use the real viewport size.
+    pub fn set_viewport(&mut self, area: Rect) {
+        let inner = content_inner_area(area, self.search.active);
+        self.visible_height = inner.height as usize;
+        self.visible_width = inner.width as usize;
     }
 
     // Navigation methods
@@ -483,15 +648,21 @@ impl DiffViewerState {
     }
 
     /// Scroll up by one page
+    ///
+    /// Uses `visible_height`, which the caller must set (see
+    /// [`DiffViewerState::set_viewport`]).
     pub fn page_up(&mut self) {
-        self.scroll_y = self.scroll_y.saturating_sub(self.visible_height);
+        self.scroll_y = self.scroll_y.saturating_sub(self.page_size());
     }
 
     /// Scroll down by one page
+    ///
+    /// Uses `visible_height`, which the caller must set (see
+    /// [`DiffViewerState::set_viewport`]).
     pub fn page_down(&mut self) {
         let total = self.total_lines();
-        let max_scroll = total.saturating_sub(self.visible_height);
-        self.scroll_y = (self.scroll_y + self.visible_height).min(max_scroll);
+        let max_scroll = total.saturating_sub(self.page_size());
+        self.scroll_y = (self.scroll_y + self.page_size()).min(max_scroll);
     }
 
     /// Go to top
@@ -505,9 +676,13 @@ impl DiffViewerState {
     }
 
     /// Go to bottom
+    ///
+    /// Uses `visible_height`, which the caller must set (see
+    /// [`DiffViewerState::set_viewport`]); while it is unknown (0) this
+    /// scrolls to the last row.
     pub fn go_to_bottom(&mut self) {
         let total = self.total_lines();
-        self.scroll_y = total.saturating_sub(self.visible_height);
+        self.scroll_y = total.saturating_sub(self.page_size());
         self.selected_hunk = if self.diff.hunks.is_empty() {
             None
         } else {
@@ -523,16 +698,23 @@ impl DiffViewerState {
 
     // Hunk navigation
 
-    /// Get the line index where a hunk starts
+    /// Get the row index where a hunk starts (in the current view mode)
     fn hunk_start_line(&self, hunk_index: usize) -> usize {
-        let mut line = 0;
-        for (i, hunk) in self.diff.hunks.iter().enumerate() {
-            if i == hunk_index {
-                return line;
-            }
-            line += hunk.lines.len() + 1; // +1 for hunk header
-        }
-        line
+        let rows = self.rows();
+        rows.iter()
+            .position(|r| r.hunk == hunk_index && r.kind == RowKind::Header)
+            .unwrap_or(rows.len())
+    }
+
+    /// Scroll targets for change rows: one row above each change, so the
+    /// change appears with a line of context.
+    fn change_scroll_targets(&self) -> Vec<usize> {
+        self.rows()
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| self.row_is_change(r))
+            .map(|(i, _)| i.saturating_sub(1))
+            .collect()
     }
 
     /// Jump to the next hunk
@@ -567,55 +749,12 @@ impl DiffViewerState {
 
     /// Navigate to next change (addition or deletion)
     pub fn next_change(&mut self) {
-        let total = self.total_lines();
-        let line_idx = self.scroll_y + 1;
-        let mut running_line = 0;
-
-        for hunk in &self.diff.hunks {
-            // Skip hunk header
-            running_line += 1;
-            if running_line > line_idx {
-                // Check if this is a change line
-                if hunk
-                    .lines
-                    .first()
-                    .map(|l| l.line_type != DiffLineType::Context)
-                    .unwrap_or(false)
-                {
-                    self.scroll_y = running_line - 1;
-                    return;
-                }
-            }
-
-            for line in &hunk.lines {
-                if running_line > line_idx
-                    && (line.line_type == DiffLineType::Addition
-                        || line.line_type == DiffLineType::Deletion)
-                {
-                    self.scroll_y = running_line - 1;
-                    return;
-                }
-                running_line += 1;
-            }
-        }
-
-        // Wrap around to beginning
-        self.scroll_y = 0;
-        if total > 0 {
-            // Find first change
-            running_line = 0;
-            for hunk in &self.diff.hunks {
-                running_line += 1; // hunk header
-                for line in &hunk.lines {
-                    if line.line_type == DiffLineType::Addition
-                        || line.line_type == DiffLineType::Deletion
-                    {
-                        self.scroll_y = running_line - 1;
-                        return;
-                    }
-                    running_line += 1;
-                }
-            }
+        let targets = self.change_scroll_targets();
+        if let Some(&next) = targets.iter().find(|&&t| t > self.scroll_y) {
+            self.scroll_y = next;
+        } else {
+            // Wrap around to the first change (or the top)
+            self.scroll_y = targets.first().copied().unwrap_or(0);
         }
     }
 
@@ -627,32 +766,13 @@ impl DiffViewerState {
         }
 
         let line_idx = self.scroll_y.saturating_sub(1);
-        let mut changes: Vec<usize> = Vec::new();
-        let mut running_line = 0;
-
-        // Collect all change line positions
-        for hunk in &self.diff.hunks {
-            running_line += 1; // hunk header
-            for line in &hunk.lines {
-                if line.line_type == DiffLineType::Addition
-                    || line.line_type == DiffLineType::Deletion
-                {
-                    changes.push(running_line - 1);
-                }
-                running_line += 1;
-            }
-        }
+        let targets = self.change_scroll_targets();
 
         // Find the closest change before current position
-        for &change_line in changes.iter().rev() {
-            if change_line <= line_idx {
-                self.scroll_y = change_line;
-                return;
-            }
-        }
-
-        // Wrap to last change
-        if let Some(&last) = changes.last() {
+        if let Some(&prev) = targets.iter().rev().find(|&&t| t <= line_idx) {
+            self.scroll_y = prev;
+        } else if let Some(&last) = targets.last() {
+            // Wrap to last change
             self.scroll_y = last;
         }
     }
@@ -661,15 +781,56 @@ impl DiffViewerState {
 
     /// Toggle between side-by-side and unified view modes
     pub fn toggle_view_mode(&mut self) {
-        self.view_mode = match self.view_mode {
+        let mode = match self.view_mode {
             DiffViewMode::SideBySide => DiffViewMode::Unified,
             DiffViewMode::Unified => DiffViewMode::SideBySide,
         };
+        self.set_view_mode(mode);
     }
 
     /// Set the view mode
+    ///
+    /// The scroll position and search matches are mapped to the rows of the
+    /// new mode, since side-by-side shows fewer rows than unified.
     pub fn set_view_mode(&mut self, mode: DiffViewMode) {
+        if mode == self.view_mode {
+            return;
+        }
+        let old_rows = self.rows();
+        let anchor = old_rows.get(self.scroll_y).copied();
+        let current_match_row = self
+            .search
+            .matches
+            .get(self.search.current_match)
+            .and_then(|&i| old_rows.get(i).copied());
+
         self.view_mode = mode;
+        let new_rows = self.rows();
+        let map_row = |row: DisplayRow| -> Option<usize> {
+            new_rows.iter().position(|r| {
+                r.hunk == row.hunk
+                    && match row.kind.first_line() {
+                        None => r.kind == RowKind::Header,
+                        Some(line) => r.kind.contains_line(line),
+                    }
+            })
+        };
+
+        if let Some(row) = anchor {
+            if let Some(new_idx) = map_row(row) {
+                self.scroll_y = new_idx;
+            }
+        }
+        self.scroll_y = self.scroll_y.min(new_rows.len().saturating_sub(1));
+
+        if !self.search.query.is_empty() {
+            self.recompute_search_matches();
+            if let Some(target) = current_match_row.and_then(map_row) {
+                if let Some(pos) = self.search.matches.iter().position(|&m| m == target) {
+                    self.search.current_match = pos;
+                }
+            }
+        }
     }
 
     // Search methods
@@ -687,8 +848,9 @@ impl DiffViewerState {
         self.search.active = false;
     }
 
-    /// Update search with current query
-    pub fn update_search(&mut self) {
+    /// Recompute `search.matches` (row indices in the current view mode)
+    /// without moving the scroll position.
+    fn recompute_search_matches(&mut self) {
         self.search.matches.clear();
         self.search.current_match = 0;
 
@@ -697,23 +859,29 @@ impl DiffViewerState {
         }
 
         let query = self.search.query.to_lowercase();
-        let mut line_idx = 0;
+        let matches: Vec<usize> = self
+            .rows()
+            .iter()
+            .enumerate()
+            .filter(|(_, row)| match row.kind {
+                RowKind::Header => self.diff.hunks[row.hunk]
+                    .header
+                    .to_lowercase()
+                    .contains(&query),
+                RowKind::Lines(..) => self
+                    .row_lines(row)
+                    .any(|l| l.content.to_lowercase().contains(&query)),
+            })
+            .map(|(i, _)| i)
+            .collect();
+        self.search.matches = matches;
+    }
 
-        for hunk in &self.diff.hunks {
-            // Check hunk header
-            if hunk.header.to_lowercase().contains(&query) {
-                self.search.matches.push(line_idx);
-            }
-            line_idx += 1;
-
-            // Check lines
-            for line in &hunk.lines {
-                if line.content.to_lowercase().contains(&query) {
-                    self.search.matches.push(line_idx);
-                }
-                line_idx += 1;
-            }
-        }
+    /// Update search with current query
+    ///
+    /// Matches are row indices in the current view mode.
+    pub fn update_search(&mut self) {
+        self.recompute_search_matches();
 
         // Jump to first match if any
         if !self.search.matches.is_empty() {
@@ -940,6 +1108,15 @@ impl<'a> DiffViewer<'a> {
         max_line.to_string().len().max(3)
     }
 
+    /// Search match flags `(is_match, is_current_match)` for a display row
+    fn match_flags(&self, row: usize) -> (bool, bool) {
+        let matches = &self.state.search.matches;
+        (
+            matches.contains(&row),
+            matches.get(self.state.search.current_match) == Some(&row),
+        )
+    }
+
     /// Build lines for unified view
     fn build_unified_lines(&self, inner: Rect) -> Vec<Line<'static>> {
         let visible_height = inner.height as usize;
@@ -1108,7 +1285,14 @@ impl<'a> DiffViewer<'a> {
         for hunk in &self.state.diff.hunks {
             // Hunk header (spans both sides)
             if current_line >= start_line && current_line < end_line {
-                let header_style = self.style.hunk_header_style;
+                let (is_match, is_current_match) = self.match_flags(current_line);
+                let header_style = if is_current_match {
+                    self.style.current_match_style
+                } else if is_match {
+                    self.style.match_style
+                } else {
+                    self.style.hunk_header_style
+                };
                 let header_content: String = hunk
                     .header
                     .chars()
@@ -1124,12 +1308,14 @@ impl<'a> DiffViewer<'a> {
 
             for (old_line, new_line) in paired_lines {
                 if current_line >= start_line && current_line < end_line {
+                    let (is_match, is_current_match) = self.match_flags(current_line);
                     lines.push(self.build_side_by_side_line(
                         old_line,
                         new_line,
                         line_num_width,
                         content_width,
                         half_width,
+                        (is_match, is_current_match),
                     ));
                 }
                 current_line += 1;
@@ -1152,49 +1338,10 @@ impl<'a> DiffViewer<'a> {
         &self,
         lines: &'b [DiffLine],
     ) -> Vec<(Option<&'b DiffLine>, Option<&'b DiffLine>)> {
-        let mut pairs = Vec::new();
-        let mut deletions: Vec<&DiffLine> = Vec::new();
-        let mut additions: Vec<&DiffLine> = Vec::new();
-
-        for line in lines {
-            match line.line_type {
-                DiffLineType::Context => {
-                    // Flush any pending deletions/additions
-                    Self::flush_changes(&mut pairs, &mut deletions, &mut additions);
-                    pairs.push((Some(line), Some(line)));
-                }
-                DiffLineType::Deletion => {
-                    deletions.push(line);
-                }
-                DiffLineType::Addition => {
-                    additions.push(line);
-                }
-                DiffLineType::HunkHeader => {
-                    // Shouldn't happen here
-                }
-            }
-        }
-
-        // Flush remaining
-        Self::flush_changes(&mut pairs, &mut deletions, &mut additions);
-
-        pairs
-    }
-
-    /// Flush accumulated deletions and additions into pairs
-    fn flush_changes<'b>(
-        pairs: &mut Vec<(Option<&'b DiffLine>, Option<&'b DiffLine>)>,
-        deletions: &mut Vec<&'b DiffLine>,
-        additions: &mut Vec<&'b DiffLine>,
-    ) {
-        let max_len = deletions.len().max(additions.len());
-        for i in 0..max_len {
-            let del = deletions.get(i).copied();
-            let add = additions.get(i).copied();
-            pairs.push((del, add));
-        }
-        deletions.clear();
-        additions.clear();
+        pair_line_indices(lines)
+            .into_iter()
+            .map(|(old, new)| (old.map(|i| &lines[i]), new.map(|i| &lines[i])))
+            .collect()
     }
 
     /// Build a side-by-side line
@@ -1205,14 +1352,21 @@ impl<'a> DiffViewer<'a> {
         line_num_width: usize,
         content_width: usize,
         half_width: usize,
+        match_flags: (bool, bool),
     ) -> Line<'static> {
         let mut spans = Vec::new();
 
         // Left side (old)
-        spans.extend(self.build_half_line(old_line, line_num_width, content_width, true));
+        spans.extend(self.build_half_line(
+            old_line,
+            line_num_width,
+            content_width,
+            true,
+            match_flags,
+        ));
 
-        // Pad to half width
-        let left_len: usize = spans.iter().map(|s| s.content.chars().count()).sum();
+        // Pad to half width (by display width, so wide characters line up)
+        let left_len: usize = spans.iter().map(|s| s.content.width()).sum();
         if left_len < half_width {
             spans.push(Span::raw(" ".repeat(half_width - left_len)));
         }
@@ -1224,7 +1378,13 @@ impl<'a> DiffViewer<'a> {
         ));
 
         // Right side (new)
-        spans.extend(self.build_half_line(new_line, line_num_width, content_width, false));
+        spans.extend(self.build_half_line(
+            new_line,
+            line_num_width,
+            content_width,
+            false,
+            match_flags,
+        ));
 
         Line::from(spans)
     }
@@ -1236,6 +1396,7 @@ impl<'a> DiffViewer<'a> {
         line_num_width: usize,
         content_width: usize,
         is_old: bool,
+        (is_match, is_current_match): (bool, bool),
     ) -> Vec<Span<'static>> {
         let mut spans = Vec::new();
 
@@ -1273,16 +1434,27 @@ impl<'a> DiffViewer<'a> {
                     }
                 };
 
-                let final_style = style.patch(bg);
+                // Apply search highlighting
+                let final_style = if is_current_match {
+                    self.style.current_match_style
+                } else if is_match {
+                    self.style.match_style
+                } else {
+                    style.patch(bg)
+                };
 
                 spans.push(Span::styled(prefix.to_string(), final_style));
 
-                // Content with scroll
+                // Content with scroll, truncated by display width
+                let mut used = 0;
                 let content: String = l
                     .content
                     .chars()
                     .skip(self.state.scroll_x)
-                    .take(content_width)
+                    .take_while(|c| {
+                        used += c.width().unwrap_or(0);
+                        used <= content_width
+                    })
                     .collect();
                 spans.push(Span::styled(content, final_style));
             }
@@ -1299,23 +1471,35 @@ impl<'a> DiffViewer<'a> {
     }
 }
 
+/// Split the widget area into content, status bar and optional search bar.
+fn layout_chunks(area: Rect, search_active: bool) -> std::rc::Rc<[Rect]> {
+    // Layout: content + status bar + optional search bar
+    let constraints = if search_active {
+        vec![
+            Constraint::Min(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ]
+    } else {
+        vec![Constraint::Min(1), Constraint::Length(1)]
+    };
+
+    Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(constraints)
+        .split(area)
+}
+
+/// Inner (inside the border) content area for a given widget area.
+fn content_inner_area(area: Rect, search_active: bool) -> Rect {
+    Block::default()
+        .borders(Borders::ALL)
+        .inner(layout_chunks(area, search_active)[0])
+}
+
 impl Widget for DiffViewer<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // Layout: content + status bar + optional search bar
-        let constraints = if self.state.search.active {
-            vec![
-                Constraint::Min(1),
-                Constraint::Length(1),
-                Constraint::Length(1),
-            ]
-        } else {
-            vec![Constraint::Min(1), Constraint::Length(1)]
-        };
-
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(constraints)
-            .split(area);
+        let chunks = layout_chunks(area, self.state.search.active);
 
         // Build title with stats
         let title_text = if let Some(t) = self.title {
@@ -1623,6 +1807,155 @@ mod tests {
  context line 2
  context line 3
 "#;
+
+    fn buf_text(buf: &Buffer) -> String {
+        let a = buf.area;
+        let mut s = String::new();
+        for y in a.y..a.y + a.height {
+            for x in a.x..a.x + a.width {
+                s.push_str(buf[(x, y)].symbol());
+            }
+            s.push('\n');
+        }
+        s
+    }
+
+    #[test]
+    fn test_parse_keeps_deleted_line_starting_with_dashes() {
+        // A deleted SQL comment "-- old comment" looks like a "--- " header
+        let d = "--- a/x.sql\n+++ b/x.sql\n@@ -1,2 +1,1 @@\n--- old comment\n select 1;\n";
+        let data = DiffData::from_unified_diff(d);
+        assert_eq!(data.old_path, Some("x.sql".to_string()));
+        assert_eq!(data.total_deletions(), 1);
+        assert_eq!(data.hunks[0].lines[0].content, "-- old comment");
+
+        // Same for an added line "++ x"
+        let d = "@@ -1,1 +1,2 @@\n+++ added\n same\n";
+        let data = DiffData::from_unified_diff(d);
+        assert_eq!(data.new_path, None);
+        assert_eq!(data.total_additions(), 1);
+    }
+
+    #[test]
+    fn test_parse_multi_file_headers_after_hunk() {
+        let d = "--- a/one\n+++ b/one\n@@ -1,1 +1,1 @@\n-a\n+b\n--- a/two\n+++ b/two\n@@ -1,1 +1,1 @@\n-c\n+d\n";
+        let data = DiffData::from_unified_diff(d);
+        assert_eq!(data.hunks.len(), 2);
+        assert_eq!(data.total_deletions(), 2);
+        assert_eq!(data.total_additions(), 2);
+        assert_eq!(data.new_path, Some("two".to_string()));
+    }
+
+    #[test]
+    fn test_go_to_bottom_without_visible_height_stays_in_range() {
+        let d = "@@ -1,2 +1,2 @@\n-a\n+b\n c\n";
+        let mut st = DiffViewerState::from_unified_diff(d);
+        st.go_to_bottom();
+        // header + 3 lines
+        assert_eq!(st.scroll_y, 3);
+    }
+
+    #[test]
+    fn test_paging_without_visible_height_moves() {
+        let mut st = DiffViewerState::from_unified_diff(SAMPLE_DIFF);
+        st.page_down();
+        assert_eq!(st.scroll_y, 1);
+        st.page_up();
+        assert_eq!(st.scroll_y, 0);
+    }
+
+    #[test]
+    fn test_set_viewport_matches_render() {
+        let mut st = DiffViewerState::from_unified_diff(SAMPLE_DIFF);
+        // 10 rows: 1 status bar + 2 borders -> 7 content rows
+        st.set_viewport(Rect::new(0, 0, 40, 10));
+        assert_eq!(st.visible_height, 7);
+        assert_eq!(st.visible_width, 38);
+    }
+
+    #[test]
+    fn test_side_by_side_go_to_bottom_shows_content() {
+        let d = "@@ -1,3 +1,3 @@\n-a\n-b\n-c\n+A\n+B\n+C\n";
+        let mut st = DiffViewerState::from_unified_diff(d);
+        st.set_view_mode(DiffViewMode::SideBySide);
+        st.visible_height = 2;
+        // Unified has 7 rows, side-by-side only 4 (header + 3 pairs)
+        st.go_to_bottom();
+        assert_eq!(st.scroll_y, 2);
+        let area = Rect::new(0, 0, 40, 5); // border(2)+status(1) => inner height 2
+        let mut buf = Buffer::empty(area);
+        DiffViewer::new(&st).render(area, &mut buf);
+        let t = buf_text(&buf);
+        assert!(
+            t.contains('C'),
+            "side-by-side bottom shows no content:\n{t}"
+        );
+    }
+
+    #[test]
+    fn test_side_by_side_search_and_navigation() {
+        let d = "@@ -1,3 +1,3 @@\n-a\n-b\n-c\n+A\n+B\n+needle\n";
+        let mut st = DiffViewerState::from_unified_diff(d);
+        st.set_view_mode(DiffViewMode::SideBySide);
+        st.search.query = "needle".into();
+        st.update_search();
+        // Row 3 in side-by-side (header, a|A, b|B, c|needle)
+        assert_eq!(st.search.matches, vec![3]);
+
+        // Switching modes maps matches and the scroll position
+        st.set_view_mode(DiffViewMode::Unified);
+        assert_eq!(st.search.matches, vec![6]);
+        st.set_view_mode(DiffViewMode::SideBySide);
+        assert_eq!(st.search.matches, vec![3]);
+
+        // Change navigation stays within side-by-side rows
+        st.go_to_top();
+        st.next_change();
+        assert_eq!(st.scroll_y, 1);
+        st.next_change();
+        assert_eq!(st.scroll_y, 2);
+        st.next_change();
+        assert_eq!(st.scroll_y, 0); // wrapped
+    }
+
+    #[test]
+    fn test_side_by_side_search_highlight() {
+        let d = "@@ -1,1 +1,1 @@\n-old\n+needle\n";
+        let mut st = DiffViewerState::from_unified_diff(d);
+        st.set_view_mode(DiffViewMode::SideBySide);
+        st.search.query = "needle".into();
+        st.update_search();
+        st.scroll_y = 0;
+        let area = Rect::new(0, 0, 40, 6);
+        let mut buf = Buffer::empty(area);
+        let style = DiffViewerStyle::default();
+        DiffViewer::new(&st)
+            .style(style.clone())
+            .render(area, &mut buf);
+        // Row 1 of the content (y = 2) is the matched pair
+        let highlighted =
+            (0..area.width).any(|x| buf[(x, 2)].bg == style.current_match_style.bg.unwrap());
+        assert!(highlighted, "no search highlight in side-by-side");
+    }
+
+    #[test]
+    fn test_side_by_side_padding_uses_display_width() {
+        // The separator column must be the same for a row with wide (CJK)
+        // characters as for an ASCII-only row.
+        let separator_col = |diff: &str| {
+            let mut st = DiffViewerState::from_unified_diff(diff);
+            st.set_view_mode(DiffViewMode::SideBySide);
+            let area = Rect::new(0, 0, 41, 5);
+            let mut buf = Buffer::empty(area);
+            DiffViewer::new(&st).render(area, &mut buf);
+            // Content row 1 is y = 2; skip the outer border columns
+            (1..area.width - 1).find(|&x| buf[(x, 2)].symbol() == "│")
+        };
+        let ascii = separator_col("@@ -1,1 +1,1 @@\n-ab\n+ab\n");
+        let wide = separator_col("@@ -1,1 +1,1 @@\n-你好\n+ab\n");
+        assert!(ascii.is_some());
+        assert_eq!(wide, ascii);
+    }
 
     #[test]
     fn test_parse_unified_diff_basic() {

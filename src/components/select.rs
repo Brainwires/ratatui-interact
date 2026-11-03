@@ -108,6 +108,12 @@ impl SelectState {
             if let Some(idx) = self.selected_index {
                 self.highlighted_index = idx;
             }
+            // Scroll so the highlighted item is visible. The viewport height is
+            // not known here; `render_dropdown` also keeps the highlighted
+            // item in view if it is below the visible window.
+            if self.highlighted_index < self.scroll_offset as usize {
+                self.scroll_offset = self.highlighted_index as u16;
+            }
         }
     }
 
@@ -516,7 +522,7 @@ where
         let dropdown_width = anchor.width;
 
         // Position dropdown below the anchor, but flip up if not enough space
-        let space_below = screen.height.saturating_sub(anchor.y + anchor.height);
+        let space_below = screen.bottom().saturating_sub(anchor.bottom());
         let space_above = anchor.y.saturating_sub(screen.y);
 
         let (dropdown_y, flip_up) = if space_below >= dropdown_height {
@@ -548,7 +554,18 @@ where
 
         // Render options
         let actual_visible = inner.height as usize;
-        let scroll = self.state.scroll_offset as usize;
+        // Keep the highlighted option in view even if `scroll_offset` was
+        // computed for a different viewport height.
+        let mut scroll = self.state.scroll_offset as usize;
+        if actual_visible > 0 {
+            let highlighted = self.state.highlighted_index;
+            if highlighted < scroll {
+                scroll = highlighted;
+            } else if highlighted >= scroll + actual_visible {
+                scroll = highlighted + 1 - actual_visible;
+            }
+            scroll = scroll.min(self.options.len().saturating_sub(actual_visible));
+        }
 
         for (i, option) in self
             .options
@@ -670,6 +687,20 @@ where
 /// - `PageUp` - Move up by 5
 /// - `PageDown` - Move down by 5
 pub fn handle_select_key(key: &KeyEvent, state: &mut SelectState) -> Option<SelectAction> {
+    handle_select_key_with_visible(key, state, 8)
+}
+
+/// Handle keyboard events for select component, scrolling for a dropdown that
+/// shows `visible_options` options at once.
+///
+/// Pass the same value as [`SelectStyle::max_options`] so that scrolling
+/// matches what is rendered. [`handle_select_key`] uses the default of 8.
+/// Key bindings are the same as [`handle_select_key`].
+pub fn handle_select_key_with_visible(
+    key: &KeyEvent,
+    state: &mut SelectState,
+    visible_options: usize,
+) -> Option<SelectAction> {
     if !state.enabled {
         return None;
     }
@@ -688,12 +719,12 @@ pub fn handle_select_key(key: &KeyEvent, state: &mut SelectState) -> Option<Sele
             }
             KeyCode::Up => {
                 state.highlight_prev();
-                state.ensure_visible(8); // Use default visible count
+                state.ensure_visible(visible_options);
                 None
             }
             KeyCode::Down => {
                 state.highlight_next();
-                state.ensure_visible(8);
+                state.ensure_visible(visible_options);
                 None
             }
             KeyCode::Home => {
@@ -702,21 +733,21 @@ pub fn handle_select_key(key: &KeyEvent, state: &mut SelectState) -> Option<Sele
             }
             KeyCode::End => {
                 state.highlight_last();
-                state.ensure_visible(8);
+                state.ensure_visible(visible_options);
                 None
             }
             KeyCode::PageUp => {
                 for _ in 0..5 {
                     state.highlight_prev();
                 }
-                state.ensure_visible(8);
+                state.ensure_visible(visible_options);
                 None
             }
             KeyCode::PageDown => {
                 for _ in 0..5 {
                     state.highlight_next();
                 }
-                state.ensure_visible(8);
+                state.ensure_visible(visible_options);
                 None
             }
             _ => None,
@@ -809,6 +840,98 @@ pub fn calculate_dropdown_height(option_count: usize, max_visible: u16) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crossterm::event::KeyModifiers;
+    use ratatui::{Terminal, backend::TestBackend};
+
+    fn shown_regions(
+        opts: &[String],
+        st: &SelectState,
+        style: SelectStyle,
+        anchor: Rect,
+        screen: Rect,
+    ) -> Vec<SelectAction> {
+        let mut term = Terminal::new(TestBackend::new(30, 30)).unwrap();
+        let mut regions = vec![];
+        term.draw(|f| {
+            regions = Select::new(opts, st)
+                .style(style)
+                .render_dropdown(f, anchor, screen);
+        })
+        .unwrap();
+        regions.into_iter().map(|r| r.data).collect()
+    }
+
+    #[test]
+    fn test_highlight_stays_visible_with_small_max_options() {
+        let opts: Vec<String> = (0..20).map(|i| format!("opt{i}")).collect();
+        let mut st = SelectState::new(opts.len());
+        st.open();
+        for _ in 0..4 {
+            handle_select_key(&KeyEvent::new(KeyCode::Down, KeyModifiers::NONE), &mut st);
+        }
+        let shown = shown_regions(
+            &opts,
+            &st,
+            SelectStyle::default().max_options(3),
+            Rect::new(0, 0, 20, 3),
+            Rect::new(0, 0, 30, 20),
+        );
+        assert_eq!(shown.len(), 3);
+        assert!(shown.contains(&SelectAction::Select(st.highlighted_index)));
+    }
+
+    #[test]
+    fn test_handle_select_key_with_visible_scrolls_by_viewport() {
+        let mut st = SelectState::new(20);
+        st.open();
+        for _ in 0..4 {
+            handle_select_key_with_visible(
+                &KeyEvent::new(KeyCode::Down, KeyModifiers::NONE),
+                &mut st,
+                3,
+            );
+        }
+        assert_eq!(st.highlighted_index, 4);
+        assert_eq!(st.scroll_offset, 2);
+    }
+
+    #[test]
+    fn test_open_shows_selected_item() {
+        let opts: Vec<String> = (0..20).map(|i| format!("opt{i}")).collect();
+        let mut st = SelectState::with_selected(opts.len(), 15);
+        st.open();
+        let shown = shown_regions(
+            &opts,
+            &st,
+            SelectStyle::default(),
+            Rect::new(0, 0, 20, 3),
+            Rect::new(0, 0, 30, 30),
+        );
+        assert!(shown.contains(&SelectAction::Select(15)), "shown={shown:?}");
+
+        // Re-opening after scrolling past a selected item scrolls back to it
+        let mut st = SelectState::with_selected(opts.len(), 2);
+        st.scroll_offset = 10;
+        st.open();
+        assert_eq!(st.scroll_offset, 2);
+    }
+
+    #[test]
+    fn test_dropdown_space_below_accounts_for_screen_y() {
+        let opts: Vec<String> = vec!["a".into(), "b".into(), "c".into()];
+        let mut st = SelectState::new(3);
+        st.open();
+        // Screen is rows 10..20; anchor ends at row 15 -> 5 rows free below
+        // (3 options + 2 borders).
+        let shown = shown_regions(
+            &opts,
+            &st,
+            SelectStyle::default(),
+            Rect::new(0, 12, 20, 3),
+            Rect::new(0, 10, 30, 10),
+        );
+        assert_eq!(shown.len(), 3);
+    }
 
     #[test]
     fn test_state_default() {

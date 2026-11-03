@@ -45,9 +45,15 @@ pub struct LogViewerState {
     pub scroll_y: usize,
     /// Horizontal scroll position
     pub scroll_x: usize,
-    /// Visible viewport height (set during render)
+    /// Visible viewport height in lines.
+    ///
+    /// [`LogViewer`] renders from a shared reference and cannot update this,
+    /// so the caller must keep it in sync (for example with
+    /// [`LogViewerState::set_viewport`] each frame). Paging and
+    /// [`LogViewerState::go_to_bottom`] depend on it; while it is 0 they
+    /// treat the page as one line.
     pub visible_height: usize,
-    /// Visible viewport width (set during render)
+    /// Visible viewport width in columns (see `visible_height`).
     pub visible_width: usize,
     /// Search state
     pub search: SearchState,
@@ -109,15 +115,38 @@ impl LogViewerState {
         }
     }
 
+    /// Set `visible_height` / `visible_width` from the area the
+    /// [`LogViewer`] will be rendered into (the whole widget area, including
+    /// borders, status bar and search bar).
+    ///
+    /// Call this before handling input or rendering so that paging and
+    /// [`LogViewerState::go_to_bottom`] use the real viewport size.
+    pub fn set_viewport(&mut self, area: Rect) {
+        let inner = content_inner_area(area, self.search.active);
+        self.visible_height = inner.height as usize;
+        self.visible_width = inner.width as usize;
+    }
+
+    /// Page size used for paging, at least one line.
+    fn page_size(&self) -> usize {
+        self.visible_height.max(1)
+    }
+
     /// Scroll up by one page
+    ///
+    /// Uses `visible_height`, which the caller must set (see
+    /// [`LogViewerState::set_viewport`]).
     pub fn page_up(&mut self) {
-        self.scroll_y = self.scroll_y.saturating_sub(self.visible_height);
+        self.scroll_y = self.scroll_y.saturating_sub(self.page_size());
     }
 
     /// Scroll down by one page
+    ///
+    /// Uses `visible_height`, which the caller must set (see
+    /// [`LogViewerState::set_viewport`]).
     pub fn page_down(&mut self) {
-        let max_scroll = self.content.len().saturating_sub(self.visible_height);
-        self.scroll_y = (self.scroll_y + self.visible_height).min(max_scroll);
+        let max_scroll = self.content.len().saturating_sub(self.page_size());
+        self.scroll_y = (self.scroll_y + self.page_size()).min(max_scroll);
     }
 
     /// Scroll left
@@ -136,8 +165,12 @@ impl LogViewerState {
     }
 
     /// Go to bottom
+    ///
+    /// Uses `visible_height`, which the caller must set (see
+    /// [`LogViewerState::set_viewport`]); while it is unknown (0) this
+    /// scrolls to the last line.
     pub fn go_to_bottom(&mut self) {
-        self.scroll_y = self.content.len().saturating_sub(self.visible_height);
+        self.scroll_y = self.content.len().saturating_sub(self.page_size());
     }
 
     /// Go to a specific line (0-indexed)
@@ -227,11 +260,17 @@ pub struct LogViewerStyle {
 /// Colors for different log levels
 #[derive(Debug, Clone)]
 pub struct LogLevelColors {
+    /// Color for error lines
     pub error: Color,
+    /// Color for warning lines
     pub warn: Color,
+    /// Color for info lines
     pub info: Color,
+    /// Color for debug lines
     pub debug: Color,
+    /// Color for trace lines
     pub trace: Color,
+    /// Color for success lines
     pub success: Color,
 }
 
@@ -432,23 +471,35 @@ impl<'a> LogViewer<'a> {
     }
 }
 
+/// Split the widget area into content, status bar and optional search bar.
+fn layout_chunks(area: Rect, search_active: bool) -> std::rc::Rc<[Rect]> {
+    // Layout: content + status bar + optional search bar
+    let constraints = if search_active {
+        vec![
+            Constraint::Min(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ]
+    } else {
+        vec![Constraint::Min(1), Constraint::Length(1)]
+    };
+
+    Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(constraints)
+        .split(area)
+}
+
+/// Inner (inside the border) content area for a given widget area.
+fn content_inner_area(area: Rect, search_active: bool) -> Rect {
+    Block::default()
+        .borders(Borders::ALL)
+        .inner(layout_chunks(area, search_active)[0])
+}
+
 impl Widget for LogViewer<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // Layout: content + status bar + optional search bar
-        let constraints = if self.state.search.active {
-            vec![
-                Constraint::Min(1),
-                Constraint::Length(1),
-                Constraint::Length(1),
-            ]
-        } else {
-            vec![Constraint::Min(1), Constraint::Length(1)]
-        };
-
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(constraints)
-            .split(area);
+        let chunks = layout_chunks(area, self.state.search.active);
 
         // Content area
         let title = self.title.map(|t| format!(" {} ", t)).unwrap_or_default();
@@ -543,6 +594,41 @@ fn render_search_bar(state: &LogViewerState, area: Rect, buf: &mut Buffer) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn numbered(n: usize) -> Vec<String> {
+        (0..n).map(|i| format!("Line {i}")).collect()
+    }
+
+    #[test]
+    fn test_go_to_bottom_without_visible_height_stays_in_range() {
+        let mut state = LogViewerState::new(numbered(5));
+        state.go_to_bottom();
+        assert_eq!(state.scroll_y, 4);
+    }
+
+    #[test]
+    fn test_paging_without_visible_height_moves() {
+        let mut state = LogViewerState::new(numbered(5));
+        state.page_down();
+        assert_eq!(state.scroll_y, 1);
+        state.page_up();
+        assert_eq!(state.scroll_y, 0);
+    }
+
+    #[test]
+    fn test_set_viewport_matches_render() {
+        let mut state = LogViewerState::new(numbered(100));
+        // 20 rows: 1 status bar + 2 borders -> 17 content rows
+        state.set_viewport(Rect::new(0, 0, 40, 20));
+        assert_eq!(state.visible_height, 17);
+        assert_eq!(state.visible_width, 38);
+        state.go_to_bottom();
+        assert_eq!(state.scroll_y, 83);
+
+        state.search.active = true;
+        state.set_viewport(Rect::new(0, 0, 40, 20));
+        assert_eq!(state.visible_height, 16);
+    }
 
     #[test]
     fn test_log_viewer_state_new() {
