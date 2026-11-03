@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- MSRV is now Rust 1.88 (the declared 1.85 could not build: ratatui 0.30 needs 1.88)
+- `arboard` is built without its default image features; the `thiserror` and `tokio` dependencies are removed (they were unused)
+- docs.rs builds with all features, so feature-gated APIs are documented
+- The README Quick Start is rewritten against the real API and is now compiled as a doctest, and the Cargo features are documented
+
+### Added
+- CI: a per-feature build matrix, an MSRV job, tests on Linux, macOS and Windows, cargo-deny, and clippy on all targets
+
+## [0.5.3] - 2026-04-02
+
+Republished 0.5.2 with no code changes.
+
 ## [0.5.2] - 2026-04-02
 
 ### Added

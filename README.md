@@ -40,45 +40,79 @@ ratatui-interact = { git = "https://github.com/Brainwires/ratatui-interact.git" 
 ## Quick Start
 
 ```rust
+use crossterm::event::Event;
+use ratatui::{Frame, layout::Rect};
 use ratatui_interact::prelude::*;
 
-// Define focusable elements
-#[derive(Clone, Eq, PartialEq, Hash)]
+// The focusable elements of your screen
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 enum Element {
-    NameInput,
-    EnableCheckbox,
-    SubmitButton,
+    Name,
+    Enable,
 }
 
-// Set up focus manager
-let mut focus = FocusManager::new();
-focus.register(Element::NameInput);
-focus.register(Element::EnableCheckbox);
-focus.register(Element::SubmitButton);
-
-// Create component states
-let mut input_state = InputState::new("Hello");
-let mut checkbox_state = CheckBoxState::new(false);
-let button_state = ButtonState::enabled();
-
-// Handle keyboard events
-match event {
-    Event::Key(key) if is_tab(key) => focus.next(),
-    Event::Key(key) if is_shift_tab(key) => focus.prev(),
-    _ => {}
+struct App {
+    focus: FocusManager<Element>,
+    clicks: ClickRegionRegistry<Element>,
+    name: InputState,
+    enable: CheckBoxState,
 }
 
-// Render with focus awareness
-let input = Input::new(&input_state)
-    .label("Name")
-    .focused(focus.is_focused(&Element::NameInput));
-let click_region = input.render_stateful(frame, area);
+impl App {
+    fn new() -> Self {
+        let mut focus = FocusManager::new();
+        focus.register_all([Element::Name, Element::Enable]);
+        Self {
+            focus,
+            clicks: ClickRegionRegistry::new(),
+            name: InputState::new("Hello"),
+            enable: CheckBoxState::new(false),
+        }
+    }
 
-// Handle mouse clicks
-if let Some(element) = click_region.contains(mouse_x, mouse_y) {
-    focus.focus(&element);
+    // Render with focus awareness, and remember where each element was drawn
+    fn render(&mut self, frame: &mut Frame, name_area: Rect, enable_area: Rect) {
+        self.name.focused = self.focus.is_focused(&Element::Name);
+        self.enable.focused = self.focus.is_focused(&Element::Enable);
+
+        self.clicks.clear();
+        let region = Input::new(&self.name)
+            .label("Name")
+            .render_stateful(frame, name_area);
+        self.clicks.register(region.area, Element::Name);
+        let region = CheckBox::new("Enable", &self.enable)
+            .render_stateful(enable_area, frame.buffer_mut());
+        self.clicks.register(region.area, Element::Enable);
+    }
+
+    // Tab / Shift+Tab move focus; a click focuses what was clicked
+    fn handle_event(&mut self, event: &Event) {
+        match event {
+            Event::Key(key) if is_tab(key) => self.focus.next(),
+            Event::Key(key) if is_backtab(key) => self.focus.prev(),
+            Event::Mouse(mouse) if is_left_click(mouse) => {
+                if let Some(&element) = self.clicks.handle_click(mouse.column, mouse.row) {
+                    self.focus.set(element);
+                }
+            }
+            _ => {}
+        }
+    }
 }
 ```
+
+See [`examples/`](examples/) for complete, runnable apps.
+
+## Cargo features
+
+| Feature | What it enables |
+|---|---|
+| `filesystem` | Directory loading for `FileExplorer` |
+| `clipboard` | Copy and paste through the system clipboard (`arboard`) |
+| `markdown` | Markdown rendering in the ANSI parser (`termimad`) |
+| `theme-serde` | `serde` support for `Theme` and `ColorPalette` |
+
+The minimum supported Rust version is 1.88.
 
 ## Components
 
@@ -165,7 +199,7 @@ let size = format_size(1536); // "1.5 KB"
 
 ### View/Copy Mode & Exit Strategies
 
-```rust
+```rust,ignore
 use ratatui_interact::utils::{ViewCopyMode, ViewCopyConfig, ExitStrategy};
 
 // Enter view/copy mode for native terminal text selection

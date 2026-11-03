@@ -2,24 +2,21 @@
 name = "ratatui-interact"
 version = "0.5.3"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 description = "Interactive TUI components for ratatui with focus management and mouse support"
 license = "MIT"
 authors = ["Brainwires Team"]
 keywords = ["tui", "ratatui", "widgets", "focus", "mouse"]
-categories = ["command-line-interface", "gui"]
+categories = ["command-line-interface"]
 repository = "https://github.com/Brainwires/ratatui-interact"
-homepage = "https://github.com/Brainwires/ratatui-interact"
 documentation = "https://docs.rs/ratatui-interact"
 readme = "README.md"
+exclude = [".github", ".gitignore", "deny.toml"]
 
 [dependencies]
 # TUI framework
 ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
 crossterm = "0.29"
-
-# Error handling
-thiserror = "2.0"
 
 # Text processing
 regex = "1.12"
@@ -29,13 +26,10 @@ unicode-width = "0.2"
 termimad = { version = "0.34", optional = true }
 
 # Optional: Clipboard support
-arboard = { version = "3.4", optional = true }
+arboard = { version = "3.4", optional = true, default-features = false }
 
 # Optional: Serialization support for themes
 serde = { version = "1", features = ["derive"], optional = true }
-
-[dev-dependencies]
-tokio = { version = "1", features = ["rt", "macros"] }
 
 [features]
 default = []
@@ -52,5 +46,6 @@ theme-serde = ["dep:serde", "ratatui/serde"]
 name = "explorer_log_demo"
 required-features = ["filesystem"]
 
-[[example]]
-name = "copyable_pane_demo"
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

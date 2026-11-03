@@ -1,4 +1,4 @@
-//! # TUI Extension
+//! # ratatui-interact
 //!
 //! Reusable UI components extending ratatui with focus management and mouse support.
 //!
@@ -150,6 +150,12 @@
 //!     println!("Clicked: {}", clicked);
 //! }
 //! ```
+
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
+#[doc = include_str!("../README.md")]
+#[cfg(doctest)]
+pub struct ReadmeDoctests;
 
 pub mod components;
 pub mod events;
