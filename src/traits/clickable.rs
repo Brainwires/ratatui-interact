@@ -59,9 +59,9 @@ impl<T: Clone> ClickRegion<T> {
     /// `true` if the point is within the region's bounds.
     pub fn contains(&self, col: u16, row: u16) -> bool {
         col >= self.area.x
-            && col < self.area.x + self.area.width
+            && col < self.area.x.saturating_add(self.area.width)
             && row >= self.area.y
-            && row < self.area.y + self.area.height
+            && row < self.area.y.saturating_add(self.area.height)
     }
 }
 
@@ -198,6 +198,21 @@ impl<T: Clone> ClickRegionRegistry<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_click_region_contains_no_overflow() {
+        let region = ClickRegion::new(
+            Rect {
+                x: u16::MAX - 1,
+                y: u16::MAX - 1,
+                width: 10,
+                height: 10,
+            },
+            (),
+        );
+        assert!(region.contains(u16::MAX - 1, u16::MAX - 1));
+        assert!(!region.contains(0, 0));
+    }
 
     #[test]
     fn test_click_region_contains() {

@@ -46,6 +46,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
+use unicode_width::UnicodeWidthStr;
 
 use crate::traits::ClickRegion;
 
@@ -329,54 +330,20 @@ impl MenuBarState {
     }
 
     /// Move highlight to the next item in the dropdown.
+    ///
+    /// With no highlighted item, highlights the first selectable item.
     pub fn next_item(&mut self, items: &[MenuBarItem]) {
-        if items.is_empty() {
-            return;
-        }
-
-        let current = self.highlighted_item.unwrap_or(0);
-        let mut new_index = current;
-
-        loop {
-            new_index += 1;
-            if new_index >= items.len() {
-                // Wrap around to start
-                new_index = 0;
-            }
-            if new_index == current {
-                // We've gone full circle
-                break;
-            }
-            if items.get(new_index).is_some_and(|i| i.is_selectable()) {
-                self.highlighted_item = Some(new_index);
-                break;
-            }
+        if let Some(idx) = step_selectable(items, self.highlighted_item, true) {
+            self.highlighted_item = Some(idx);
         }
     }
 
     /// Move highlight to the previous item in the dropdown.
+    ///
+    /// With no highlighted item, highlights the last selectable item.
     pub fn prev_item(&mut self, items: &[MenuBarItem]) {
-        if items.is_empty() {
-            return;
-        }
-
-        let current = self.highlighted_item.unwrap_or(0);
-        let mut new_index = current;
-
-        loop {
-            if new_index == 0 {
-                new_index = items.len() - 1;
-            } else {
-                new_index -= 1;
-            }
-            if new_index == current {
-                // We've gone full circle
-                break;
-            }
-            if items.get(new_index).is_some_and(|i| i.is_selectable()) {
-                self.highlighted_item = Some(new_index);
-                break;
-            }
+        if let Some(idx) = step_selectable(items, self.highlighted_item, false) {
+            self.highlighted_item = Some(idx);
         }
     }
 
@@ -428,50 +395,34 @@ impl MenuBarState {
     }
 
     /// Move to next item in submenu.
+    ///
+    /// With no highlighted item, highlights the first selectable item.
     pub fn next_submenu_item(&mut self, items: &[MenuBarItem]) {
-        if items.is_empty() {
-            return;
-        }
-
-        let current = self.submenu_highlighted.unwrap_or(0);
-        let mut new_index = current;
-
-        loop {
-            new_index += 1;
-            if new_index >= items.len() {
-                new_index = 0;
-            }
-            if new_index == current {
-                break;
-            }
-            if items.get(new_index).is_some_and(|i| i.is_selectable()) {
-                self.submenu_highlighted = Some(new_index);
-                break;
-            }
+        if let Some(idx) = step_selectable(items, self.submenu_highlighted, true) {
+            self.submenu_highlighted = Some(idx);
         }
     }
 
     /// Move to previous item in submenu.
+    ///
+    /// With no highlighted item, highlights the last selectable item.
     pub fn prev_submenu_item(&mut self, items: &[MenuBarItem]) {
-        if items.is_empty() {
+        if let Some(idx) = step_selectable(items, self.submenu_highlighted, false) {
+            self.submenu_highlighted = Some(idx);
+        }
+    }
+
+    /// Ensure the highlighted submenu item is visible in the submenu viewport.
+    fn ensure_submenu_visible(&mut self, viewport_height: usize) {
+        if viewport_height == 0 {
             return;
         }
-
-        let current = self.submenu_highlighted.unwrap_or(0);
-        let mut new_index = current;
-
-        loop {
-            if new_index == 0 {
-                new_index = items.len() - 1;
-            } else {
-                new_index -= 1;
-            }
-            if new_index == current {
-                break;
-            }
-            if items.get(new_index).is_some_and(|i| i.is_selectable()) {
-                self.submenu_highlighted = Some(new_index);
-                break;
+        if let Some(idx) = self.submenu_highlighted {
+            if idx < self.submenu_scroll_offset as usize {
+                self.submenu_scroll_offset = idx.min(u16::MAX as usize) as u16;
+            } else if idx >= self.submenu_scroll_offset as usize + viewport_height {
+                self.submenu_scroll_offset =
+                    (idx + 1 - viewport_height).min(u16::MAX as usize) as u16;
             }
         }
     }
@@ -485,10 +436,35 @@ impl MenuBarState {
             if idx < self.scroll_offset as usize {
                 self.scroll_offset = idx as u16;
             } else if idx >= self.scroll_offset as usize + viewport_height {
-                self.scroll_offset = (idx - viewport_height + 1) as u16;
+                self.scroll_offset = (idx + 1 - viewport_height).min(u16::MAX as usize) as u16;
             }
         }
     }
+}
+
+/// Find the next (or previous) selectable item after `current`, wrapping
+/// around. A missing or out-of-range `current` starts from the first (or
+/// last) item. Examines each item at most once, so it always terminates.
+fn step_selectable(items: &[MenuBarItem], current: Option<usize>, forward: bool) -> Option<usize> {
+    let len = items.len();
+    if len == 0 {
+        return None;
+    }
+    // Position "before" the first candidate
+    let start = match current {
+        Some(i) if i < len => i,
+        _ if forward => len - 1,
+        _ => 0,
+    };
+    (1..=len)
+        .map(|step| {
+            if forward {
+                (start + step) % len
+            } else {
+                (start + len - step % len) % len
+            }
+        })
+        .find(|&idx| items[idx].is_selectable())
 }
 
 /// Style configuration for menu bar.
@@ -721,14 +697,14 @@ impl<'a> MenuBar<'a> {
                 MenuBarItem::Action {
                     label, shortcut, ..
                 } => {
-                    max_label_width = max_label_width.max(label.chars().count() as u16);
+                    max_label_width = max_label_width.max(label.width() as u16);
                     if let Some(s) = shortcut {
-                        max_shortcut_width = max_shortcut_width.max(s.chars().count() as u16);
+                        max_shortcut_width = max_shortcut_width.max(s.width() as u16);
                     }
                 }
                 MenuBarItem::Submenu { label, .. } => {
                     // +2 for submenu indicator
-                    let label_width = label.chars().count() as u16 + 2;
+                    let label_width = label.width() as u16 + 2;
                     max_label_width = max_label_width.max(label_width);
                 }
                 MenuBarItem::Separator => {}
@@ -769,7 +745,7 @@ impl<'a> MenuBar<'a> {
         let y = bar_bottom;
 
         // Prefer aligned with menu label, adjust if needed
-        let x = if menu_x + width <= screen.x + screen.width {
+        let x = if menu_x.saturating_add(width) <= screen.x.saturating_add(screen.width) {
             menu_x
         } else {
             screen.x + screen.width.saturating_sub(width)
@@ -807,11 +783,17 @@ impl<'a> MenuBar<'a> {
 
         // Render menu labels
         let mut x = bar_area.x;
+        let bar_right = bar_area.x.saturating_add(bar_area.width);
         let mut menu_positions: Vec<(u16, u16)> = Vec::new(); // (x, width) for each menu
 
         for (idx, menu) in self.menus.iter().enumerate() {
             let label = format!(" {} ", menu.label);
-            let label_width = label.chars().count() as u16;
+            // Clip labels to the bar; labels past the right edge get no region
+            let label_width = (label.width() as u16).min(bar_right.saturating_sub(x));
+            if label_width == 0 {
+                menu_positions.push((x.min(bar_right), 0));
+                continue;
+            }
 
             let is_active = self.state.focused && idx == self.state.active_menu;
             let is_open = self.state.is_open && idx == self.state.active_menu;
@@ -840,7 +822,9 @@ impl<'a> MenuBar<'a> {
                 ));
             }
 
-            x += label_width + self.style.menu_padding;
+            x = x
+                .saturating_add(label_width)
+                .saturating_add(self.style.menu_padding);
         }
 
         // Render dropdown if a menu is open
@@ -896,29 +880,43 @@ impl<'a> MenuBar<'a> {
                         if let Some(MenuBarItem::Submenu { items, .. }) =
                             menu.items.get(submenu_idx)
                         {
-                            let submenu_x = dropdown_area.x + dropdown_area.width;
-                            let submenu_y = dropdown_area.y
-                                + 1
-                                + (submenu_idx as u16).saturating_sub(self.state.scroll_offset);
-
-                            let submenu_width = self.calculate_dropdown_width(items);
-                            let submenu_height = self.calculate_dropdown_height(items.len());
+                            let submenu_x = dropdown_area.x.saturating_add(dropdown_area.width);
+                            let submenu_y = dropdown_area.y.saturating_add(1).saturating_add(
+                                (submenu_idx as u16).saturating_sub(self.state.scroll_offset),
+                            );
 
                             let screen = frame.area();
+                            let screen_right = screen.x.saturating_add(screen.width);
+                            let screen_bottom = screen.y.saturating_add(screen.height);
 
-                            // Adjust submenu position to stay on screen
-                            let final_x = if submenu_x + submenu_width <= screen.x + screen.width {
-                                submenu_x
+                            let submenu_width = self.calculate_dropdown_width(items);
+                            let submenu_height = self
+                                .calculate_dropdown_height(items.len())
+                                .min(screen.height);
+
+                            // Place the submenu to the right of the dropdown, or
+                            // to its left (without overlapping it) if it does not
+                            // fit. If neither side fits, use the side with more
+                            // room and clip the submenu.
+                            let room_right = screen_right.saturating_sub(submenu_x);
+                            let room_left = dropdown_area.x.saturating_sub(screen.x);
+                            let (final_x, final_width) = if submenu_width <= room_right {
+                                (submenu_x, submenu_width)
+                            } else if submenu_width <= room_left {
+                                (dropdown_area.x - submenu_width, submenu_width)
+                            } else if room_left > room_right {
+                                (screen.x, room_left)
                             } else {
-                                dropdown_area.x.saturating_sub(submenu_width)
+                                (submenu_x, room_right)
                             };
 
-                            let submenu_area = Rect::new(
-                                final_x,
-                                submenu_y.min(screen.y + screen.height - submenu_height),
-                                submenu_width,
-                                submenu_height,
-                            );
+                            // Keep the submenu vertically on screen
+                            let final_y = submenu_y
+                                .min(screen_bottom.saturating_sub(submenu_height))
+                                .max(screen.y);
+
+                            let submenu_area =
+                                Rect::new(final_x, final_y, final_width, submenu_height);
 
                             // Clear and render submenu
                             frame.render_widget(Clear, submenu_area);
@@ -1034,8 +1032,8 @@ impl<'a> MenuBar<'a> {
                 spans.push(Span::styled(label.clone(), style));
 
                 // Fill space before shortcut
-                let current_len: usize = spans.iter().map(|s| s.content.chars().count()).sum();
-                let shortcut_len = shortcut.as_ref().map(|s| s.chars().count()).unwrap_or(0);
+                let current_len: usize = spans.iter().map(|s| s.content.width()).sum();
+                let shortcut_len = shortcut.as_ref().map(|s| s.width()).unwrap_or(0);
                 let fill_len = (item_area.width as usize)
                     .saturating_sub(current_len)
                     .saturating_sub(shortcut_len)
@@ -1095,8 +1093,8 @@ impl<'a> MenuBar<'a> {
                 spans.push(Span::styled(label.clone(), style));
 
                 // Fill and submenu indicator
-                let current_len: usize = spans.iter().map(|s| s.content.chars().count()).sum();
-                let indicator_len = self.style.submenu_indicator.chars().count();
+                let current_len: usize = spans.iter().map(|s| s.content.width()).sum();
+                let indicator_len = self.style.submenu_indicator.width();
                 let fill_len = (item_area.width as usize)
                     .saturating_sub(current_len)
                     .saturating_sub(indicator_len)
@@ -1133,6 +1131,10 @@ impl<'a> MenuBar<'a> {
 ///
 /// Returns `Some(MenuBarAction)` if an action was triggered, `None` otherwise.
 ///
+/// Disabled menus are skipped. Scrolling assumes the default
+/// [`MenuBarStyle::dropdown_max_height`]; use [`handle_menu_bar_key_with_style`]
+/// if you render with a custom value.
+///
 /// # Key Bindings
 ///
 /// - `Left/Right` - Navigate between menus
@@ -1141,15 +1143,30 @@ impl<'a> MenuBar<'a> {
 /// - `Escape` - Close menu
 /// - `Home` - Jump to first item
 /// - `End` - Jump to last item
-#[allow(clippy::collapsible_match)]
 pub fn handle_menu_bar_key(
     key: &KeyEvent,
     state: &mut MenuBarState,
     menus: &[Menu],
 ) -> Option<MenuBarAction> {
+    handle_menu_bar_key_with_style(key, state, menus, &MenuBarStyle::default())
+}
+
+/// Handle keyboard events for menu bar using the given style.
+///
+/// Like [`handle_menu_bar_key`], but keeps the highlighted item visible
+/// according to `style.dropdown_max_height`.
+#[allow(clippy::collapsible_match)]
+pub fn handle_menu_bar_key_with_style(
+    key: &KeyEvent,
+    state: &mut MenuBarState,
+    menus: &[Menu],
+    style: &MenuBarStyle,
+) -> Option<MenuBarAction> {
     if menus.is_empty() {
         return None;
     }
+
+    let viewport = |len: usize| (style.dropdown_max_height as usize).min(len);
 
     // If submenu is open, handle submenu navigation
     if state.has_open_submenu() {
@@ -1163,6 +1180,7 @@ pub fn handle_menu_bar_key(
                         }
                         KeyCode::Up => {
                             state.prev_submenu_item(items);
+                            state.ensure_submenu_visible(viewport(items.len()));
                             return Some(MenuBarAction::HighlightChange(
                                 state.active_menu,
                                 state.submenu_highlighted,
@@ -1170,6 +1188,7 @@ pub fn handle_menu_bar_key(
                         }
                         KeyCode::Down => {
                             state.next_submenu_item(items);
+                            state.ensure_submenu_visible(viewport(items.len()));
                             return Some(MenuBarAction::HighlightChange(
                                 state.active_menu,
                                 state.submenu_highlighted,
@@ -1196,10 +1215,44 @@ pub fn handle_menu_bar_key(
         }
     }
 
+    let menu_enabled = |idx: usize| menus.get(idx).is_some_and(|m| m.enabled);
+    // Move to the next/previous enabled menu (at most one full cycle)
+    let step_menu = |state: &mut MenuBarState, forward: bool| {
+        for _ in 0..menus.len() {
+            if forward {
+                state.next_menu(menus.len());
+            } else {
+                state.prev_menu(menus.len());
+            }
+            if menu_enabled(state.active_menu) {
+                break;
+            }
+        }
+        if state.is_open {
+            if let Some(menu) = menus.get(state.active_menu) {
+                state.highlight_first(&menu.items);
+            }
+        }
+    };
+    // Open the active menu (if enabled) with its first item highlighted
+    let open_active = |state: &mut MenuBarState| -> Option<MenuBarAction> {
+        if !menu_enabled(state.active_menu) {
+            return None;
+        }
+        state.open_menu(state.active_menu);
+        if let Some(menu) = menus.get(state.active_menu) {
+            state.highlight_first(&menu.items);
+        }
+        Some(MenuBarAction::MenuOpen(state.active_menu))
+    };
+
     match key.code {
         KeyCode::Left => {
-            state.prev_menu(menus.len());
-            Some(MenuBarAction::HighlightChange(state.active_menu, None))
+            step_menu(state, false);
+            Some(MenuBarAction::HighlightChange(
+                state.active_menu,
+                state.highlighted_item,
+            ))
         }
         KeyCode::Right => {
             // If on a submenu item, open it
@@ -1215,14 +1268,17 @@ pub fn handle_menu_bar_key(
                     }
                 }
             }
-            state.next_menu(menus.len());
-            Some(MenuBarAction::HighlightChange(state.active_menu, None))
+            step_menu(state, true);
+            Some(MenuBarAction::HighlightChange(
+                state.active_menu,
+                state.highlighted_item,
+            ))
         }
         KeyCode::Down => {
             if state.is_open {
                 if let Some(menu) = menus.get(state.active_menu) {
                     state.next_item(&menu.items);
-                    state.ensure_visible(8);
+                    state.ensure_visible(viewport(menu.items.len()));
                     Some(MenuBarAction::HighlightChange(
                         state.active_menu,
                         state.highlighted_item,
@@ -1231,18 +1287,14 @@ pub fn handle_menu_bar_key(
                     None
                 }
             } else {
-                state.open_menu(state.active_menu);
-                if let Some(menu) = menus.get(state.active_menu) {
-                    state.highlight_first(&menu.items);
-                }
-                Some(MenuBarAction::MenuOpen(state.active_menu))
+                open_active(state)
             }
         }
         KeyCode::Up => {
             if state.is_open {
                 if let Some(menu) = menus.get(state.active_menu) {
                     state.prev_item(&menu.items);
-                    state.ensure_visible(8);
+                    state.ensure_visible(viewport(menu.items.len()));
                     Some(MenuBarAction::HighlightChange(
                         state.active_menu,
                         state.highlighted_item,
@@ -1260,12 +1312,16 @@ pub fn handle_menu_bar_key(
                     if let Some(idx) = state.highlighted_item {
                         if let Some(item) = menu.items.get(idx) {
                             match item {
-                                MenuBarItem::Action { id, enabled, .. } if *enabled => {
+                                MenuBarItem::Action { id, enabled, .. }
+                                    if *enabled && menu.enabled =>
+                                {
                                     let action_id = id.clone();
                                     state.close_menu();
                                     return Some(MenuBarAction::ItemSelect(action_id));
                                 }
-                                MenuBarItem::Submenu { enabled, .. } if *enabled => {
+                                MenuBarItem::Submenu { enabled, .. }
+                                    if *enabled && menu.enabled =>
+                                {
                                     state.open_submenu();
                                     return Some(MenuBarAction::SubmenuOpen(
                                         state.active_menu,
@@ -1279,11 +1335,7 @@ pub fn handle_menu_bar_key(
                 }
                 None
             } else {
-                state.open_menu(state.active_menu);
-                if let Some(menu) = menus.get(state.active_menu) {
-                    state.highlight_first(&menu.items);
-                }
-                Some(MenuBarAction::MenuOpen(state.active_menu))
+                open_active(state)
             }
         }
         KeyCode::Esc => {
@@ -1298,6 +1350,7 @@ pub fn handle_menu_bar_key(
             if state.is_open {
                 if let Some(menu) = menus.get(state.active_menu) {
                     state.highlight_first(&menu.items);
+                    state.ensure_visible(viewport(menu.items.len()));
                     Some(MenuBarAction::HighlightChange(
                         state.active_menu,
                         state.highlighted_item,
@@ -1306,15 +1359,15 @@ pub fn handle_menu_bar_key(
                     None
                 }
             } else {
-                state.active_menu = 0;
-                Some(MenuBarAction::HighlightChange(0, None))
+                state.active_menu = (0..menus.len()).find(|&i| menu_enabled(i)).unwrap_or(0);
+                Some(MenuBarAction::HighlightChange(state.active_menu, None))
             }
         }
         KeyCode::End => {
             if state.is_open {
                 if let Some(menu) = menus.get(state.active_menu) {
                     state.highlight_last(&menu.items);
-                    state.ensure_visible(menu.items.len());
+                    state.ensure_visible(viewport(menu.items.len()));
                     Some(MenuBarAction::HighlightChange(
                         state.active_menu,
                         state.highlighted_item,
@@ -1323,7 +1376,10 @@ pub fn handle_menu_bar_key(
                     None
                 }
             } else {
-                state.active_menu = menus.len().saturating_sub(1);
+                state.active_menu = (0..menus.len())
+                    .rev()
+                    .find(|&i| menu_enabled(i))
+                    .unwrap_or(menus.len() - 1);
                 Some(MenuBarAction::HighlightChange(state.active_menu, None))
             }
         }
@@ -1357,8 +1413,9 @@ pub fn handle_menu_bar_mouse(
 
     match mouse.kind {
         MouseEventKind::Down(MouseButton::Left) => {
-            // Check if clicked on a menu label
-            for region in click_regions {
+            // Check regions from last to first: submenu items are drawn on top
+            // of (and registered after) the dropdown, so they win.
+            for region in click_regions.iter().rev() {
                 if region.contains(col, row) {
                     match &region.data {
                         MenuBarClickTarget::MenuLabel(idx) => {
@@ -1419,13 +1476,26 @@ pub fn handle_menu_bar_mouse(
                 }
             }
 
-            // Check if clicked outside menu
-            let in_bar = bar_area.intersects(Rect::new(col, row, 1, 1));
-            let in_dropdown = dropdown_area
-                .map(|d| d.intersects(Rect::new(col, row, 1, 1)))
-                .unwrap_or(false);
+            // Check if clicked outside menu (bar, dropdown or open submenu)
+            let point = Rect::new(col, row, 1, 1);
+            let in_bar = bar_area.intersects(point);
+            let in_dropdown = dropdown_area.map(|d| d.intersects(point)).unwrap_or(false);
+            // Submenu bounds, including its border, from its item regions
+            let in_submenu = click_regions
+                .iter()
+                .filter(|r| matches!(r.data, MenuBarClickTarget::SubmenuItem(_)))
+                .map(|r| {
+                    Rect::new(
+                        r.area.x.saturating_sub(1),
+                        r.area.y.saturating_sub(1),
+                        r.area.width.saturating_add(2),
+                        r.area.height.saturating_add(2),
+                    )
+                })
+                .reduce(|a, b| a.union(b))
+                .is_some_and(|b| b.intersects(point));
 
-            if state.is_open && !in_bar && !in_dropdown {
+            if state.is_open && !in_bar && !in_dropdown && !in_submenu {
                 state.close_menu();
                 return Some(MenuBarAction::MenuClose);
             }
@@ -1433,8 +1503,8 @@ pub fn handle_menu_bar_mouse(
             None
         }
         MouseEventKind::Moved => {
-            // Update highlight on hover
-            for region in click_regions {
+            // Update highlight on hover (submenu items first, see above)
+            for region in click_regions.iter().rev() {
                 if region.contains(col, row) {
                     match &region.data {
                         MenuBarClickTarget::MenuLabel(idx) => {
@@ -1896,5 +1966,211 @@ mod tests {
 
         state.prev_submenu_item(&items);
         assert!(state.submenu_highlighted.is_some());
+    }
+
+    type Rendered = (Rect, Option<Rect>, Vec<ClickRegion<MenuBarClickTarget>>);
+
+    fn press(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, crossterm::event::KeyModifiers::NONE)
+    }
+
+    fn big_menu(n: usize) -> Vec<MenuBarItem> {
+        (0..n)
+            .map(|i| MenuBarItem::action(format!("i{i}"), format!("Item {i}")))
+            .collect()
+    }
+
+    fn render(menus: &[Menu], state: &MenuBarState, width: u16, height: u16) -> Rendered {
+        use ratatui::{Terminal, backend::TestBackend};
+        let mut term = Terminal::new(TestBackend::new(width, height)).unwrap();
+        let mut out = (Rect::default(), None, Vec::new());
+        term.draw(|f| out = MenuBar::new(menus, state).render_stateful(f, f.area()))
+            .unwrap();
+        out
+    }
+
+    #[test]
+    fn test_submenu_taller_than_screen_no_panic() {
+        let menus =
+            vec![Menu::new("File").items(vec![MenuBarItem::submenu("Recent", big_menu(20))])];
+        let mut state = MenuBarState::new();
+        state.open_menu(0);
+        state.highlighted_item = Some(0);
+        state.open_submenu();
+        let (_, _, regions) = render(&menus, &state, 80, 10);
+        assert!(regions.iter().all(|r| r.area.y + r.area.height <= 10));
+    }
+
+    #[test]
+    fn test_keyboard_scroll_uses_dropdown_height() {
+        // 12 items all fit in the default 15-row dropdown: no scrolling
+        let menus = vec![Menu::new("File").items(big_menu(12))];
+        let mut state = MenuBarState::new();
+        handle_menu_bar_key(&press(KeyCode::Down), &mut state, &menus); // open, highlight 0
+        for _ in 0..8 {
+            handle_menu_bar_key(&press(KeyCode::Down), &mut state, &menus);
+        }
+        assert_eq!(state.highlighted_item, Some(8));
+        assert_eq!(state.scroll_offset, 0);
+
+        let style = MenuBarStyle::default().dropdown_max_height(5);
+        handle_menu_bar_key_with_style(&press(KeyCode::End), &mut state, &menus, &style);
+        assert_eq!(state.scroll_offset, 7);
+    }
+
+    #[test]
+    fn test_end_on_long_menu_is_rendered() {
+        let menus = vec![Menu::new("File").items(big_menu(30))];
+        let mut state = MenuBarState::new();
+        handle_menu_bar_key(&press(KeyCode::Down), &mut state, &menus);
+        handle_menu_bar_key(&press(KeyCode::End), &mut state, &menus);
+        let (_, _, regions) = render(&menus, &state, 80, 40);
+        assert!(
+            regions
+                .iter()
+                .any(|r| r.data == MenuBarClickTarget::DropdownItem(29))
+        );
+    }
+
+    #[test]
+    fn test_right_then_down_highlights_first_item() {
+        let menus = vec![
+            Menu::new("File").items(big_menu(3)),
+            Menu::new("Edit").items(vec![MenuBarItem::action("undo", "Undo")]),
+        ];
+        let mut state = MenuBarState::new();
+        handle_menu_bar_key(&press(KeyCode::Down), &mut state, &menus); // open File
+        handle_menu_bar_key(&press(KeyCode::Right), &mut state, &menus);
+        assert_eq!(state.active_menu, 1);
+        assert_eq!(state.highlighted_item, Some(0));
+        handle_menu_bar_key(&press(KeyCode::Down), &mut state, &menus);
+        assert_eq!(state.highlighted_item, Some(0));
+        let action = handle_menu_bar_key(&press(KeyCode::Enter), &mut state, &menus);
+        assert_eq!(action, Some(MenuBarAction::ItemSelect("undo".into())));
+    }
+
+    #[test]
+    fn test_disabled_menu_skipped_by_keyboard() {
+        let menus = vec![
+            Menu::new("File").items(big_menu(1)),
+            Menu::new("Admin")
+                .enabled(false)
+                .items(vec![MenuBarItem::action("wipe", "Wipe")]),
+            Menu::new("Help").items(big_menu(1)),
+        ];
+        let mut state = MenuBarState::new();
+        handle_menu_bar_key(&press(KeyCode::Right), &mut state, &menus);
+        assert_eq!(state.active_menu, 2, "Right should skip the disabled menu");
+        handle_menu_bar_key(&press(KeyCode::Left), &mut state, &menus);
+        assert_eq!(state.active_menu, 0);
+
+        // Even if made active directly, a disabled menu does not open
+        state.active_menu = 1;
+        assert_eq!(
+            handle_menu_bar_key(&press(KeyCode::Down), &mut state, &menus),
+            None
+        );
+        assert_eq!(
+            handle_menu_bar_key(&press(KeyCode::Enter), &mut state, &menus),
+            None
+        );
+        assert!(!state.is_open);
+    }
+
+    #[test]
+    fn test_stale_highlight_with_nothing_selectable_terminates() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let items = vec![
+                MenuBarItem::action("a", "A").enabled(false),
+                MenuBarItem::separator(),
+            ];
+            let mut state = MenuBarState::new();
+            state.is_open = true;
+            state.highlighted_item = Some(5); // stale index after the menu shrank
+            state.next_item(&items);
+            state.prev_item(&items);
+            state.submenu_highlighted = Some(5);
+            state.next_submenu_item(&items);
+            state.prev_submenu_item(&items);
+            tx.send(()).unwrap();
+        });
+        assert!(
+            rx.recv_timeout(Duration::from_secs(2)).is_ok(),
+            "item navigation looped forever"
+        );
+    }
+
+    #[test]
+    fn test_label_regions_clipped_to_bar() {
+        let menus: Vec<Menu> = (0..10)
+            .map(|i| Menu::new(format!("Menu{i}")).items(big_menu(2)))
+            .collect();
+        let mut state = MenuBarState::new();
+        state.open_menu(9);
+        let (_, _, regions) = render(&menus, &state, 30, 10);
+        assert!(regions.iter().all(|r| r.area.x + r.area.width <= 30));
+    }
+
+    #[test]
+    fn test_flipped_submenu_click_selects_submenu_item() {
+        // File menu at x=0; the submenu does not fit on the right
+        let menus = vec![Menu::new("File").items(vec![
+            MenuBarItem::submenu(
+                "Recent",
+                vec![
+                    MenuBarItem::action("r0", "Recent zero"),
+                    MenuBarItem::action("r1", "Recent one"),
+                ],
+            ),
+            MenuBarItem::action("quit", "Quit"),
+        ])];
+        let mut state = MenuBarState::new();
+        state.open_menu(0);
+        state.highlighted_item = Some(0);
+        state.open_submenu();
+        let (bar, dropdown, regions) = render(&menus, &state, 25, 12);
+        let r0 = regions
+            .iter()
+            .find(|r| r.data == MenuBarClickTarget::SubmenuItem(0))
+            .unwrap()
+            .area;
+        let click = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: r0.x + 2,
+            row: r0.y,
+            modifiers: crossterm::event::KeyModifiers::NONE,
+        };
+        let action = handle_menu_bar_mouse(&click, &mut state, bar, dropdown, &regions, &menus);
+        assert_eq!(action, Some(MenuBarAction::ItemSelect("r0".into())));
+    }
+
+    #[test]
+    fn test_submenu_placed_left_without_overlap() {
+        // Dropdown near the right edge: the submenu goes to its left
+        let menus = vec![
+            Menu::new("AAAAAAAAAAAAAAAAAAAAAA"),
+            Menu::new("File").items(vec![MenuBarItem::submenu(
+                "Recent",
+                vec![MenuBarItem::action("r0", "Recent zero")],
+            )]),
+        ];
+        let mut state = MenuBarState::new();
+        state.open_menu(1);
+        state.highlighted_item = Some(0);
+        state.open_submenu();
+        let (_, dropdown, regions) = render(&menus, &state, 50, 12);
+        let dropdown = dropdown.unwrap();
+        let r0 = regions
+            .iter()
+            .find(|r| r.data == MenuBarClickTarget::SubmenuItem(0))
+            .unwrap()
+            .area;
+        assert!(
+            r0.x + r0.width < dropdown.x,
+            "submenu {r0:?} overlaps dropdown {dropdown:?}"
+        );
     }
 }

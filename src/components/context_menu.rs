@@ -38,6 +38,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
+use unicode_width::UnicodeWidthStr;
 
 use crate::traits::ClickRegion;
 
@@ -502,6 +503,8 @@ pub struct ContextMenu<'a> {
     items: &'a [ContextMenuItem],
     state: &'a ContextMenuState,
     style: ContextMenuStyle,
+    /// Exact x position (used for submenus, which are placed by the parent).
+    forced_x: Option<u16>,
 }
 
 impl<'a> ContextMenu<'a> {
@@ -511,6 +514,7 @@ impl<'a> ContextMenu<'a> {
             items,
             state,
             style: ContextMenuStyle::default(),
+            forced_x: None,
         }
     }
 
@@ -538,17 +542,17 @@ impl<'a> ContextMenu<'a> {
                     shortcut,
                     ..
                 } => {
-                    let icon_width = icon.as_ref().map(|i| i.chars().count() + 1).unwrap_or(0);
-                    let label_width = label.chars().count() + icon_width;
+                    let icon_width = icon.as_ref().map(|i| i.width() + 1).unwrap_or(0);
+                    let label_width = label.width() + icon_width;
                     max_label_width = max_label_width.max(label_width as u16);
                     if let Some(s) = shortcut {
-                        max_shortcut_width = max_shortcut_width.max(s.chars().count() as u16);
+                        max_shortcut_width = max_shortcut_width.max(s.width() as u16);
                     }
                 }
                 ContextMenuItem::Submenu { label, icon, .. } => {
-                    let icon_width = icon.as_ref().map(|i| i.chars().count() + 1).unwrap_or(0);
+                    let icon_width = icon.as_ref().map(|i| i.width() + 1).unwrap_or(0);
                     // +2 for submenu indicator
-                    let label_width = label.chars().count() + icon_width + 2;
+                    let label_width = label.width() + icon_width + 2;
                     max_label_width = max_label_width.max(label_width as u16);
                 }
                 ContextMenuItem::Separator => {}
@@ -585,13 +589,15 @@ impl<'a> ContextMenu<'a> {
         let height = self.calculate_height();
 
         // Prefer right-down positioning, flip if needed
-        let x = if anchor_x + width <= screen.x + screen.width {
+        let x = if let Some(x) = self.forced_x {
+            x
+        } else if anchor_x.saturating_add(width) <= screen.x.saturating_add(screen.width) {
             anchor_x
         } else {
             anchor_x.saturating_sub(width)
         };
 
-        let y = if anchor_y + height <= screen.y + screen.height {
+        let y = if anchor_y.saturating_add(height) <= screen.y.saturating_add(screen.height) {
             anchor_y
         } else {
             anchor_y.saturating_sub(height)
@@ -699,8 +705,8 @@ impl<'a> ContextMenu<'a> {
                     spans.push(Span::styled(label.clone(), style));
 
                     // Fill space before shortcut
-                    let current_len: usize = spans.iter().map(|s| s.content.chars().count()).sum();
-                    let shortcut_len = shortcut.as_ref().map(|s| s.chars().count()).unwrap_or(0);
+                    let current_len: usize = spans.iter().map(|s| s.content.width()).sum();
+                    let shortcut_len = shortcut.as_ref().map(|s| s.width()).unwrap_or(0);
                     let fill_len = (inner.width as usize)
                         .saturating_sub(current_len)
                         .saturating_sub(shortcut_len)
@@ -759,8 +765,8 @@ impl<'a> ContextMenu<'a> {
                     spans.push(Span::styled(label.clone(), style));
 
                     // Fill and submenu indicator
-                    let current_len: usize = spans.iter().map(|s| s.content.chars().count()).sum();
-                    let indicator_len = self.style.submenu_indicator.chars().count();
+                    let current_len: usize = spans.iter().map(|s| s.content.width()).sum();
+                    let indicator_len = self.style.submenu_indicator.width();
                     let fill_len = (inner.width as usize)
                         .saturating_sub(current_len)
                         .saturating_sub(indicator_len)
@@ -795,16 +801,35 @@ impl<'a> ContextMenu<'a> {
         {
             if let Some(ContextMenuItem::Submenu { items, .. }) = self.items.get(submenu_idx) {
                 // Position submenu to the right of the parent item
-                let submenu_anchor_x = menu_area.x + menu_area.width;
-                let submenu_anchor_y =
-                    menu_area.y + 1 + (submenu_idx as u16).saturating_sub(self.state.scroll_offset);
+                let submenu_anchor_x = menu_area.x.saturating_add(menu_area.width);
+                let submenu_anchor_y = menu_area
+                    .y
+                    .saturating_add(1)
+                    .saturating_add((submenu_idx as u16).saturating_sub(self.state.scroll_offset));
 
                 let mut adjusted_state = (**submenu_state).clone();
                 adjusted_state.anchor_position = (submenu_anchor_x, submenu_anchor_y);
 
-                let adjusted_submenu =
+                let mut adjusted_submenu =
                     ContextMenu::new(items, &adjusted_state).style(self.style.clone());
 
+                // If it does not fit on the right, place it to the left of the
+                // parent menu (not on top of it). If neither side fits, use
+                // the side with more room (the submenu is clipped).
+                let sub_width = adjusted_submenu.calculate_width();
+                let screen_right = screen.x.saturating_add(screen.width);
+                let room_right = screen_right.saturating_sub(submenu_anchor_x);
+                let room_left = menu_area.x.saturating_sub(screen.x);
+                adjusted_submenu.forced_x = Some(if sub_width <= room_right {
+                    submenu_anchor_x
+                } else if sub_width <= room_left || room_left > room_right {
+                    menu_area.x.saturating_sub(sub_width).max(screen.x)
+                } else {
+                    submenu_anchor_x
+                });
+
+                // Submenu regions are appended after the parent's; the mouse
+                // handler hit-tests them first.
                 let (_, submenu_regions) = adjusted_submenu.render_stateful(frame, screen);
                 regions.extend(submenu_regions);
             }
@@ -817,6 +842,9 @@ impl<'a> ContextMenu<'a> {
 /// Handle keyboard events for context menu.
 ///
 /// Returns `Some(ContextMenuAction)` if an action was triggered, `None` otherwise.
+///
+/// Scrolling assumes the default [`ContextMenuStyle::max_visible_items`]; use
+/// [`handle_context_menu_key_with_style`] if you render with a custom value.
 ///
 /// # Key Bindings
 ///
@@ -832,6 +860,19 @@ pub fn handle_context_menu_key(
     key: &KeyEvent,
     state: &mut ContextMenuState,
     items: &[ContextMenuItem],
+) -> Option<ContextMenuAction> {
+    handle_context_menu_key_with_style(key, state, items, &ContextMenuStyle::default())
+}
+
+/// Handle keyboard events for context menu using the given style.
+///
+/// Like [`handle_context_menu_key`], but keeps the highlighted item visible
+/// according to `style.max_visible_items`.
+pub fn handle_context_menu_key_with_style(
+    key: &KeyEvent,
+    state: &mut ContextMenuState,
+    items: &[ContextMenuItem],
+    style: &ContextMenuStyle,
 ) -> Option<ContextMenuAction> {
     if !state.is_open {
         return None;
@@ -851,9 +892,16 @@ pub fn handle_context_menu_key(
                     return Some(ContextMenuAction::SubmenuClose);
                 }
                 _ => {
-                    if let Some(action) =
-                        handle_context_menu_key(key, submenu_state.as_mut(), sub_items)
-                    {
+                    if let Some(action) = handle_context_menu_key_with_style(
+                        key,
+                        submenu_state.as_mut(),
+                        sub_items,
+                        style,
+                    ) {
+                        // Selecting an item anywhere closes the whole menu
+                        if matches!(action, ContextMenuAction::Select(_)) {
+                            state.close();
+                        }
                         return Some(action);
                     }
                 }
@@ -862,6 +910,8 @@ pub fn handle_context_menu_key(
         }
     }
 
+    let viewport = (style.max_visible_items as usize).min(items.len());
+
     match key.code {
         KeyCode::Esc => {
             state.close();
@@ -869,21 +919,22 @@ pub fn handle_context_menu_key(
         }
         KeyCode::Up => {
             state.highlight_prev(items);
-            state.ensure_visible(8);
+            state.ensure_visible(viewport);
             Some(ContextMenuAction::HighlightChange(state.highlighted_index))
         }
         KeyCode::Down => {
             state.highlight_next(items);
-            state.ensure_visible(8);
+            state.ensure_visible(viewport);
             Some(ContextMenuAction::HighlightChange(state.highlighted_index))
         }
         KeyCode::Home => {
             state.highlight_first(items);
+            state.ensure_visible(viewport);
             Some(ContextMenuAction::HighlightChange(state.highlighted_index))
         }
         KeyCode::End => {
             state.highlight_last(items);
-            state.ensure_visible(items.len());
+            state.ensure_visible(viewport);
             Some(ContextMenuAction::HighlightChange(state.highlighted_index))
         }
         KeyCode::Enter | KeyCode::Char(' ') => {
@@ -944,29 +995,40 @@ pub fn handle_context_menu_mouse(
     let col = mouse.column;
     let row = mouse.row;
 
+    // Submenu regions are rendered on top of (and registered after) the
+    // parent's, so hit-test from the last region backwards.
+    let hit = item_regions
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, r)| r.contains(col, row));
+
     match mouse.kind {
         MouseEventKind::Down(MouseButton::Left) => {
             // Check if clicked on an item
-            for region in item_regions {
-                if region.contains(col, row) {
-                    match &region.data {
-                        ContextMenuAction::Select(id) => {
-                            let action_id = id.clone();
-                            state.close();
-                            return Some(ContextMenuAction::Select(action_id));
-                        }
-                        ContextMenuAction::SubmenuOpen(idx) => {
-                            state.highlighted_index = *idx;
-                            state.open_submenu();
-                            return Some(ContextMenuAction::SubmenuOpen(*idx));
-                        }
-                        _ => {}
+            if let Some((region_idx, region)) = hit {
+                match &region.data {
+                    ContextMenuAction::Select(id) => {
+                        let action_id = id.clone();
+                        state.close();
+                        return Some(ContextMenuAction::Select(action_id));
                     }
+                    ContextMenuAction::SubmenuOpen(idx) => {
+                        let level = region_level(item_regions, region_idx, menu_area);
+                        let target = state_at_level(state, level);
+                        target.highlighted_index = *idx;
+                        target.open_submenu();
+                        return Some(ContextMenuAction::SubmenuOpen(*idx));
+                    }
+                    _ => {}
                 }
             }
 
-            // Check if clicked outside menu
-            if !menu_area.intersects(Rect::new(col, row, 1, 1)) {
+            // Check if clicked outside menu (and outside any open submenu)
+            let point = Rect::new(col, row, 1, 1);
+            let in_submenu = submenu_bounds(item_regions, menu_area)
+                .is_some_and(|bounds| bounds.intersects(point));
+            if !menu_area.intersects(point) && !in_submenu {
                 state.close();
                 return Some(ContextMenuAction::Close);
             }
@@ -974,32 +1036,123 @@ pub fn handle_context_menu_mouse(
         }
         MouseEventKind::Moved => {
             // Update highlight on hover
-            for region in item_regions.iter() {
-                if region.contains(col, row) {
-                    // Find the actual item index from the region
-                    if let ContextMenuAction::Select(_) | ContextMenuAction::SubmenuOpen(_) =
-                        &region.data
-                    {
-                        // The item_regions index may not match the items index due to separators
-                        // We need to find the corresponding item
-                        let inner_start_y = menu_area.y + 1; // +1 for border
-                        let item_idx =
-                            (row - inner_start_y) as usize + state.scroll_offset as usize;
+            let (region_idx, region) = hit?;
+            if !matches!(
+                region.data,
+                ContextMenuAction::Select(_) | ContextMenuAction::SubmenuOpen(_)
+            ) {
+                return None;
+            }
 
-                        if item_idx < item_regions.len() + state.scroll_offset as usize
-                            && state.highlighted_index != item_idx
-                        {
-                            state.highlighted_index = item_idx;
-                            return Some(ContextMenuAction::HighlightChange(item_idx));
-                        }
+            let level = region_level(item_regions, region_idx, menu_area);
+            // Row of the first visible item of the menu level that was hit
+            let inner_start_y = if level == 0 {
+                Some(menu_area.y.saturating_add(1)) // +1 for border
+            } else if level == 1 {
+                // The submenu is anchored at its parent item's row; below it
+                // its first item is right after the top border. Otherwise it
+                // was flipped upwards: fall back to its topmost item region.
+                state.active_submenu.map(|parent_idx| {
+                    let anchor_y = menu_area
+                        .y
+                        .saturating_add(1)
+                        .saturating_add((parent_idx as u16).saturating_sub(state.scroll_offset));
+                    if row > anchor_y {
+                        anchor_y + 1
+                    } else {
+                        level_top(item_regions, region.area, menu_area)
                     }
-                    break;
-                }
+                })
+            } else {
+                Some(level_top(item_regions, region.area, menu_area))
+            };
+
+            let target = state_at_level(state, level);
+            let item_idx = row
+                .checked_sub(inner_start_y?)
+                .map(|offset| offset as usize + target.scroll_offset as usize)?;
+
+            if target.highlighted_index != item_idx {
+                target.highlighted_index = item_idx;
+                return Some(ContextMenuAction::HighlightChange(item_idx));
             }
             None
         }
         _ => None,
     }
+}
+
+/// Menu nesting level of the region at `region_idx`: 0 for the root menu,
+/// 1 for its submenu, and so on.
+///
+/// Regions inside `menu_area` belong to the root menu; the remaining regions
+/// are grouped by column (each menu's items share x and width), in the
+/// order they were rendered.
+fn region_level(
+    regions: &[ClickRegion<ContextMenuAction>],
+    region_idx: usize,
+    menu_area: Rect,
+) -> usize {
+    let target = regions[region_idx].area;
+    if menu_area.contains(target.as_position()) {
+        return 0;
+    }
+    let mut columns: Vec<(u16, u16)> = Vec::new();
+    for region in regions {
+        if menu_area.contains(region.area.as_position()) {
+            continue;
+        }
+        let key = (region.area.x, region.area.width);
+        if !columns.contains(&key) {
+            columns.push(key);
+        }
+    }
+    columns
+        .iter()
+        .position(|&k| k == (target.x, target.width))
+        .map_or(1, |p| p + 1)
+}
+
+/// Topmost row of the item regions in the same menu column as `area`.
+fn level_top(regions: &[ClickRegion<ContextMenuAction>], area: Rect, menu_area: Rect) -> u16 {
+    regions
+        .iter()
+        .filter(|r| {
+            r.area.x == area.x
+                && r.area.width == area.width
+                && !menu_area.contains(r.area.as_position())
+        })
+        .map(|r| r.area.y)
+        .min()
+        .unwrap_or(area.y)
+}
+
+/// Bounding box (including borders) of all submenu item regions.
+fn submenu_bounds(regions: &[ClickRegion<ContextMenuAction>], menu_area: Rect) -> Option<Rect> {
+    regions
+        .iter()
+        .filter(|r| !menu_area.contains(r.area.as_position()))
+        .map(|r| {
+            Rect::new(
+                r.area.x.saturating_sub(1),
+                r.area.y.saturating_sub(1),
+                r.area.width.saturating_add(2),
+                r.area.height.saturating_add(2),
+            )
+        })
+        .reduce(|a, b| a.union(b))
+}
+
+/// The state of the open (sub)menu at nesting `level` (or the deepest one).
+fn state_at_level(state: &mut ContextMenuState, level: usize) -> &mut ContextMenuState {
+    let mut current = state;
+    for _ in 0..level {
+        if current.submenu_state.is_none() {
+            break;
+        }
+        current = current.submenu_state.as_deref_mut().unwrap();
+    }
+    current
 }
 
 /// Check if a mouse event is a context menu trigger (right-click).
@@ -1772,5 +1925,154 @@ mod tests {
 
         assert!(action.is_none());
         assert!(!state.has_open_submenu());
+    }
+
+    fn press(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, crossterm::event::KeyModifiers::NONE)
+    }
+
+    fn mouse_at(kind: MouseEventKind, column: u16, row: u16) -> MouseEvent {
+        MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers: crossterm::event::KeyModifiers::NONE,
+        }
+    }
+
+    fn render(
+        items: &[ContextMenuItem],
+        state: &ContextMenuState,
+        width: u16,
+        height: u16,
+    ) -> (Rect, Vec<ClickRegion<ContextMenuAction>>) {
+        use ratatui::{Terminal, backend::TestBackend};
+        let mut term = Terminal::new(TestBackend::new(width, height)).unwrap();
+        let mut out = (Rect::default(), Vec::new());
+        term.draw(|f| out = ContextMenu::new(items, state).render_stateful(f, f.area()))
+            .unwrap();
+        out
+    }
+
+    fn region_of(regions: &[ClickRegion<ContextMenuAction>], action: ContextMenuAction) -> Rect {
+        regions.iter().find(|r| r.data == action).unwrap().area
+    }
+
+    #[test]
+    fn test_submenu_keyboard_select_closes_menu() {
+        let items = vec![ContextMenuItem::submenu(
+            "More",
+            vec![ContextMenuItem::action("x", "X")],
+        )];
+        let mut state = ContextMenuState::new();
+        state.open_at(0, 0);
+        handle_context_menu_key(&press(KeyCode::Right), &mut state, &items);
+        let action = handle_context_menu_key(&press(KeyCode::Enter), &mut state, &items);
+        assert_eq!(action, Some(ContextMenuAction::Select("x".into())));
+        assert!(!state.is_open);
+    }
+
+    #[test]
+    fn test_hover_on_flipped_submenu_no_panic() {
+        let sub: Vec<_> = (0..10)
+            .map(|i| ContextMenuItem::action(format!("s{i}"), format!("Sub {i}")))
+            .collect();
+        let items = vec![
+            ContextMenuItem::submenu("More", sub),
+            ContextMenuItem::action("a", "A"),
+            ContextMenuItem::action("b", "B"),
+        ];
+        let mut state = ContextMenuState::new();
+        state.open_at(5, 10);
+        state.open_submenu();
+        let (area, regions) = render(&items, &state, 80, 20);
+        let s3 = region_of(&regions, ContextMenuAction::Select("s3".into()));
+        let action = handle_context_menu_mouse(
+            &mouse_at(MouseEventKind::Moved, s3.x + 1, s3.y),
+            &mut state,
+            area,
+            &regions,
+        );
+        // Hover is routed to the submenu, not the parent
+        assert_eq!(action, Some(ContextMenuAction::HighlightChange(3)));
+        assert_eq!(state.submenu_state.as_ref().unwrap().highlighted_index, 3);
+        assert_eq!(state.highlighted_index, 0);
+    }
+
+    #[test]
+    fn test_flipped_submenu_does_not_overlap_parent() {
+        let items = vec![
+            ContextMenuItem::submenu(
+                "More",
+                vec![
+                    ContextMenuItem::action("sub0", "S0"),
+                    ContextMenuItem::action("sub1", "S1"),
+                ],
+            ),
+            ContextMenuItem::action("delete", "Delete"),
+        ];
+        let mut state = ContextMenuState::new();
+        state.open_at(20, 2);
+        state.open_submenu();
+        let (area, regions) = render(&items, &state, 40, 20);
+        let sub = region_of(&regions, ContextMenuAction::Select("sub0".into()));
+        assert!(
+            sub.x + sub.width < area.x,
+            "submenu {sub:?} overlaps parent {area:?}"
+        );
+        let action = handle_context_menu_mouse(
+            &mouse_at(MouseEventKind::Down(MouseButton::Left), sub.x + 2, sub.y),
+            &mut state,
+            area,
+            &regions,
+        );
+        assert_eq!(action, Some(ContextMenuAction::Select("sub0".into())));
+        assert!(!state.is_open);
+    }
+
+    #[test]
+    fn test_submenu_regions_win_when_overlapping() {
+        // Too narrow for the submenu on either side: it overlaps the parent,
+        // and the visible (submenu) item must win.
+        let items = vec![
+            ContextMenuItem::submenu(
+                "More",
+                vec![ContextMenuItem::action("sub0", "Submenu zero")],
+            ),
+            ContextMenuItem::action("delete", "Delete"),
+        ];
+        let mut state = ContextMenuState::new();
+        state.open_at(4, 0);
+        state.open_submenu();
+        let (area, regions) = render(&items, &state, 24, 10);
+        let sub = region_of(&regions, ContextMenuAction::Select("sub0".into()));
+        let action = handle_context_menu_mouse(
+            &mouse_at(MouseEventKind::Down(MouseButton::Left), sub.x, sub.y),
+            &mut state,
+            area,
+            &regions,
+        );
+        assert_eq!(action, Some(ContextMenuAction::Select("sub0".into())));
+    }
+
+    #[test]
+    fn test_keyboard_scroll_uses_style_height() {
+        let items: Vec<_> = (0..12)
+            .map(|i| ContextMenuItem::action(format!("i{i}"), format!("Item {i}")))
+            .collect();
+        let mut state = ContextMenuState::new();
+        state.open_at(0, 0);
+        for _ in 0..8 {
+            handle_context_menu_key(&press(KeyCode::Down), &mut state, &items);
+        }
+        assert_eq!(state.highlighted_index, 8);
+        assert_eq!(state.scroll_offset, 0, "all 12 items fit (max 15)");
+
+        let style = ContextMenuStyle::default().max_visible_items(5);
+        handle_context_menu_key_with_style(&press(KeyCode::End), &mut state, &items, &style);
+        assert_eq!(state.highlighted_index, 11);
+        assert_eq!(state.scroll_offset, 7);
+        handle_context_menu_key_with_style(&press(KeyCode::Home), &mut state, &items, &style);
+        assert_eq!(state.scroll_offset, 0);
     }
 }

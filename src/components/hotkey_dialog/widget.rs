@@ -276,8 +276,9 @@ impl<'a, C: HotkeyCategory, P: HotkeyProvider<Category = C>> HotkeyDialog<'a, C,
         // Visible height for scrolling
         let visible_height = inner.height as usize;
 
-        // Ensure selected hotkey is visible
-        self.state.ensure_hotkey_visible(visible_height);
+        // Ensure selected hotkey is visible (only when the selection moved, so
+        // mouse-wheel scrolling is not undone)
+        self.state.ensure_hotkey_visible_if_changed(visible_height);
 
         // Build lines with proper formatting
         let lines =
@@ -303,7 +304,7 @@ impl<'a, C: HotkeyCategory, P: HotkeyProvider<Category = C>> HotkeyDialog<'a, C,
                 .viewport_content_length(visible_height);
 
             let scrollbar_area = Rect::new(
-                area.x + area.width - 1,
+                (area.x + area.width).saturating_sub(1),
                 area.y + 1,
                 1,
                 area.height.saturating_sub(2),
@@ -457,4 +458,67 @@ pub fn render_hotkey_dialog<C: HotkeyCategory, P: HotkeyProvider<Category = C>>(
 ) {
     let dialog = HotkeyDialog::new(state, provider, style);
     dialog.render(frame, frame.area());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::components::hotkey_dialog::handle_hotkey_dialog_mouse;
+    use crossterm::event::{KeyModifiers, MouseEvent, MouseEventKind};
+    use ratatui::{Terminal, backend::TestBackend};
+
+    #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+    enum Cat {
+        #[default]
+        A,
+    }
+
+    impl HotkeyCategory for Cat {
+        fn all() -> &'static [Self] {
+            &[Cat::A]
+        }
+        fn display_name(&self) -> &str {
+            "A"
+        }
+        fn next(&self) -> Self {
+            Cat::A
+        }
+        fn prev(&self) -> Self {
+            Cat::A
+        }
+    }
+
+    struct Prov;
+
+    impl HotkeyProvider for Prov {
+        type Category = Cat;
+        fn entries_for_category(&self, _: Cat) -> Vec<HotkeyEntryData> {
+            (0..100)
+                .map(|i| HotkeyEntryData::new(format!("K{i}"), format!("act{i}"), "c"))
+                .collect()
+        }
+        fn search(&self, _: &str) -> Vec<(Cat, HotkeyEntryData)> {
+            vec![]
+        }
+    }
+
+    #[test]
+    fn test_render_keeps_mouse_wheel_scroll() {
+        let mut state: HotkeyDialogState<Cat> = HotkeyDialogState::new();
+        let style = HotkeyDialogStyle::default();
+        let mut term = Terminal::new(TestBackend::new(100, 40)).unwrap();
+        term.draw(|f| render_hotkey_dialog(f, &mut state, &Prov, &style))
+            .unwrap();
+        let wheel = MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            column: 50,
+            row: 20,
+            modifiers: KeyModifiers::NONE,
+        };
+        handle_hotkey_dialog_mouse(&mut state, wheel);
+        assert_eq!(state.hotkey_scroll, 3);
+        term.draw(|f| render_hotkey_dialog(f, &mut state, &Prov, &style))
+            .unwrap();
+        assert_eq!(state.hotkey_scroll, 3, "render reset wheel scroll");
+    }
 }

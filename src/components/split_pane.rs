@@ -342,13 +342,15 @@ impl SplitPane {
             Orientation::Vertical => area.height,
         };
 
-        let divider_size = self.style.divider_size;
+        let divider_size = self.style.divider_size.min(total_size);
         let available_size = total_size.saturating_sub(divider_size);
 
         // Calculate first pane size based on percentage
         let first_size = ((available_size as u32) * (split_percent as u32) / 100) as u16;
-        let first_size =
-            first_size.clamp(self.min_size, available_size.saturating_sub(self.min_size));
+        // When the area is too small to honour `min_size` for both panes, the
+        // upper bound wins (avoids `clamp` panicking with min > max).
+        let max_first = available_size.saturating_sub(self.min_size);
+        let first_size = first_size.max(self.min_size).min(max_first);
 
         // Second pane gets the rest
         let second_size = available_size.saturating_sub(first_size);
@@ -615,6 +617,16 @@ pub fn handle_split_pane_mouse(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_calculate_areas_small_area_no_panic() {
+        // default min_size = 5; a 10-wide area used to panic in clamp(5, 4)
+        let sp = SplitPane::new();
+        let (first, divider, second) = sp.calculate_areas(Rect::new(0, 0, 10, 5), 50);
+        assert!(first.width + divider.width + second.width <= 10);
+        let (first, divider, second) = sp.calculate_areas(Rect::new(0, 0, 0, 5), 50);
+        assert_eq!(first.width + divider.width + second.width, 0);
+    }
 
     #[test]
     fn test_state_creation() {

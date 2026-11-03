@@ -532,6 +532,7 @@ where
         }
 
         let mut y = area.y;
+        let bottom = area.y.saturating_add(area.height);
         let scroll = self.state.scroll;
         let mut current_y: u16 = 0;
 
@@ -549,22 +550,24 @@ where
                 0
             };
             let header_height = 1u16;
-            let item_height = header_height + content_height;
+            // Must match `calculate_item_heights` (which `ensure_visible` uses)
+            let border_height = if self.style.show_borders { 1 } else { 0 };
+            let item_height = header_height + content_height + border_height;
 
             // Skip items above scroll position
-            if current_y + item_height <= scroll {
-                current_y += item_height;
+            if current_y.saturating_add(item_height) <= scroll {
+                current_y = current_y.saturating_add(item_height);
                 continue;
             }
 
             // Stop if we've filled the area
-            if y >= area.y + area.height {
+            if y >= bottom {
                 break;
             }
 
             // Calculate visible portion
             let skip_lines = scroll.saturating_sub(current_y);
-            let available_height = (area.y + area.height).saturating_sub(y);
+            let available_height = bottom.saturating_sub(y);
 
             // Render header (if visible)
             if skip_lines == 0 && available_height > 0 {
@@ -604,10 +607,10 @@ where
             }
 
             // Render content (if expanded and visible)
-            if is_expanded && y < area.y + area.height {
+            if is_expanded && y < bottom {
                 let content_start_in_item = header_height;
                 let content_skip = skip_lines.saturating_sub(content_start_in_item);
-                let content_available = (area.y + area.height)
+                let content_available = bottom
                     .saturating_sub(y)
                     .min(content_height.saturating_sub(content_skip));
 
@@ -624,16 +627,17 @@ where
                 }
             }
 
-            // Render border (if enabled)
-            if self.style.show_borders && y < area.y + area.height {
+            // Render border (if enabled); it is the item's last line, so it is
+            // never above the scroll position here
+            if self.style.show_borders && y < bottom {
                 let border_char = "─";
-                for x in area.x..area.x + area.width {
+                for x in area.x..area.x.saturating_add(area.width) {
                     buf.set_string(x, y, border_char, self.style.border_style);
                 }
                 y += 1;
             }
 
-            current_y += item_height;
+            current_y = current_y.saturating_add(item_height);
         }
     }
 }
@@ -713,9 +717,9 @@ pub fn handle_accordion_mouse(
     if let MouseEventKind::Down(crossterm::event::MouseButton::Left) = mouse.kind {
         for (idx, area, id) in item_areas {
             if mouse.column >= area.x
-                && mouse.column < area.x + area.width
+                && mouse.column < area.x.saturating_add(area.width)
                 && mouse.row >= area.y
-                && mouse.row < area.y + area.height
+                && mouse.row < area.y.saturating_add(area.height)
             {
                 state.focus(*idx);
                 state.toggle(id);
@@ -993,5 +997,29 @@ mod tests {
             true,
         );
         assert_eq!(height, 14);
+    }
+
+    #[test]
+    fn test_bordered_render_matches_ensure_visible() {
+        let items = vec!["a", "b", "c", "d"];
+        let mut state = AccordionState::new(4);
+        state.focused_index = 2;
+        let style = AccordionStyle::bordered();
+        let heights = Accordion::new(&items, &state)
+            .style(style.clone())
+            .render_header(|t, _, _| Line::raw(t.to_string()))
+            .calculate_item_heights();
+        assert_eq!(heights, vec![2, 2, 2, 2]); // header + border
+        state.ensure_visible(2, &heights);
+        assert_eq!(state.scroll, 4);
+
+        let acc = Accordion::new(&items, &state)
+            .style(style)
+            .render_header(|t, _, _| Line::raw(t.to_string()));
+        let mut buf = Buffer::empty(Rect::new(0, 0, 10, 2));
+        acc.render(Rect::new(0, 0, 10, 2), &mut buf);
+        let row0: String = (0..10).map(|x| buf[(x, 0)].symbol().to_string()).collect();
+        assert!(row0.contains('c'), "focused item not at top: {row0:?}");
+        assert_eq!(buf[(0, 1)].symbol(), "─");
     }
 }

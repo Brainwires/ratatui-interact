@@ -301,6 +301,8 @@ where
     config: &'a DialogConfig,
     state: &'a mut DialogState<T>,
     content_renderer: F,
+    /// Screen size seen by the last `render` call on this instance.
+    last_screen: Option<Rect>,
 }
 
 impl<'a, T, F> PopupDialog<'a, T, F>
@@ -323,23 +325,27 @@ where
             config,
             state,
             content_renderer,
+            last_screen: None,
         }
     }
 
     /// Calculate dialog area centered on screen.
     pub fn calculate_area(&self, screen: Rect) -> Rect {
-        let width = (screen.width * self.config.width_percent / 100)
+        let percent_of = |total: u16, percent: u16| -> u16 {
+            (total as u32 * percent as u32 / 100).min(u16::MAX as u32) as u16
+        };
+        let width = percent_of(screen.width, self.config.width_percent)
             .max(self.config.min_width)
             .min(self.config.max_width)
             .min(screen.width.saturating_sub(4));
 
-        let height = (screen.height * self.config.height_percent / 100)
+        let height = percent_of(screen.height, self.config.height_percent)
             .max(self.config.min_height)
             .min(self.config.max_height)
             .min(screen.height.saturating_sub(4));
 
-        let x = (screen.width.saturating_sub(width)) / 2;
-        let y = (screen.height.saturating_sub(height)) / 2;
+        let x = screen.x + (screen.width.saturating_sub(width)) / 2;
+        let y = screen.y + (screen.height.saturating_sub(height)) / 2;
 
         Rect::new(x, y, width, height)
     }
@@ -351,6 +357,7 @@ where
         }
 
         let screen = frame.area();
+        self.last_screen = Some(screen);
         let area = self.calculate_area(screen);
 
         // Clear click regions before rendering
@@ -395,17 +402,22 @@ where
             .config
             .buttons
             .iter()
-            .map(|(label, _)| label.len() as u16 + 4)
-            .sum::<u16>()
-            + (button_count as u16).saturating_sub(1) * 2;
+            .map(|(label, _)| Self::button_width(label))
+            .fold(0u16, |acc, w| acc.saturating_add(w))
+            .saturating_add((button_count as u16).saturating_sub(1).saturating_mul(2));
 
         let start_x = area.x + (area.width.saturating_sub(total_button_width)) / 2;
         let mut x = start_x;
 
         for (idx, (label, _action)) in self.config.buttons.iter().enumerate() {
             let is_focused = self.state.is_button_focused(idx);
-            let btn_width = label.len() as u16 + 4;
-            let btn_area = Rect::new(x, area.y, btn_width, 1);
+            let btn_width = Self::button_width(label);
+            // Clip buttons to the available area
+            let right = area.x.saturating_add(area.width);
+            if x >= right {
+                break;
+            }
+            let btn_area = Rect::new(x, area.y, btn_width.min(right - x), 1);
 
             let style = if is_focused {
                 Style::default()
@@ -425,8 +437,15 @@ where
                 .click_regions
                 .register(btn_area, DialogFocusTarget::Button(idx));
 
-            x += btn_width + 2;
+            x = x.saturating_add(btn_width).saturating_add(2);
         }
+    }
+
+    /// Width of a rendered button: the label plus one space of padding on
+    /// each side (matches the `" {label} "` text drawn by `render_buttons`).
+    fn button_width(label: &str) -> u16 {
+        use unicode_width::UnicodeWidthStr;
+        (label.width() as u16).saturating_add(2)
     }
 
     /// Handle keyboard event.
@@ -469,54 +488,19 @@ where
     }
 
     /// Handle mouse event.
+    ///
+    /// This method does not know the real screen size. It uses the screen
+    /// seen by the last [`render`](Self::render) call on this same
+    /// `PopupDialog` instance, falling back to an 80x24 screen otherwise, so
+    /// hit-testing is wrong whenever the dialog is constructed anew for
+    /// event handling (the usual pattern).
+    #[deprecated(
+        since = "0.5.4",
+        note = "assumes an 80x24 screen unless rendered by the same instance; use `handle_mouse_with_screen` instead"
+    )]
     pub fn handle_mouse(&mut self, mouse: MouseEvent) -> EventResult {
-        if !self.state.visible {
-            return EventResult::NotHandled;
-        }
-
-        let screen = Rect::new(0, 0, 80, 24); // Will be passed from actual screen
-        let area = self.calculate_area(screen);
-
-        if let MouseEventKind::Down(MouseButton::Left) = mouse.kind {
-            let col = mouse.column;
-            let row = mouse.row;
-
-            // Check if click is outside dialog
-            if self.config.close_on_outside_click
-                && (col < area.x
-                    || col >= area.x + area.width
-                    || row < area.y
-                    || row >= area.y + area.height)
-            {
-                self.state.hide();
-                return EventResult::Action(ContainerAction::Close);
-            }
-
-            // Check click regions
-            if let Some(target) = self.state.click_regions.handle_click(col, row) {
-                match target {
-                    DialogFocusTarget::Button(idx) => {
-                        if let Some((_, action)) = self.config.buttons.get(*idx) {
-                            let action = action.clone();
-                            if action.is_close() {
-                                self.state.hide();
-                            }
-                            return EventResult::Action(action);
-                        }
-                    }
-                    DialogFocusTarget::Child(idx) => {
-                        self.state.focus.set(DialogFocusTarget::Child(*idx));
-                        return EventResult::Consumed;
-                    }
-                    DialogFocusTarget::Close => {
-                        self.state.hide();
-                        return EventResult::Action(ContainerAction::Close);
-                    }
-                }
-            }
-        }
-
-        EventResult::NotHandled
+        let screen = self.last_screen.unwrap_or(Rect::new(0, 0, 80, 24));
+        self.handle_mouse_with_screen(mouse, screen)
     }
 
     /// Handle mouse event with screen dimensions.
@@ -715,5 +699,64 @@ mod tests {
         assert_ne!(DialogFocusTarget::Child(0), DialogFocusTarget::Child(1));
         assert_ne!(DialogFocusTarget::Child(0), DialogFocusTarget::Button(0));
         assert_eq!(DialogFocusTarget::Close, DialogFocusTarget::Close);
+    }
+
+    fn left_click(col: u16, row: u16) -> MouseEvent {
+        MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: col,
+            row,
+            modifiers: KeyModifiers::NONE,
+        }
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_handle_mouse_uses_rendered_screen() {
+        use ratatui::{Terminal, backend::TestBackend};
+        let cfg = DialogConfig::new("t");
+        let mut state: DialogState<()> = DialogState::new(());
+        state.show();
+        let mut term = Terminal::new(TestBackend::new(200, 60)).unwrap();
+        let mut dlg = PopupDialog::new(&cfg, &mut state, |_, _, _| {});
+        term.draw(|f| dlg.render(f)).unwrap();
+        let area = dlg.calculate_area(Rect::new(0, 0, 200, 60));
+        // click in the middle of the visible dialog must not close it
+        let r = dlg.handle_mouse(left_click(
+            area.x + area.width / 2,
+            area.y + area.height / 2,
+        ));
+        assert_ne!(r, EventResult::Action(ContainerAction::Close));
+    }
+
+    #[test]
+    fn test_handle_mouse_with_screen_inside_and_outside() {
+        let cfg = DialogConfig::new("t");
+        let mut state: DialogState<()> = DialogState::new(());
+        state.show();
+        let screen = Rect::new(0, 0, 200, 60);
+        let mut dlg = PopupDialog::new(&cfg, &mut state, |_, _, _| {});
+        let area = dlg.calculate_area(screen);
+        let r = dlg.handle_mouse_with_screen(
+            left_click(area.x + area.width / 2, area.y + area.height / 2),
+            screen,
+        );
+        assert_ne!(r, EventResult::Action(ContainerAction::Close));
+        let r = dlg.handle_mouse_with_screen(left_click(0, 0), screen);
+        assert_eq!(r, EventResult::Action(ContainerAction::Close));
+    }
+
+    #[test]
+    fn test_button_regions_match_drawn_width() {
+        use ratatui::{Terminal, backend::TestBackend};
+        let cfg = DialogConfig::new("t").ok_cancel();
+        let mut state: DialogState<()> = DialogState::new(());
+        state.show();
+        let mut term = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        let mut dlg = PopupDialog::new(&cfg, &mut state, |_, _, _| {});
+        term.draw(|f| dlg.render(f)).unwrap();
+        for (region, (label, _)) in state.click_regions.regions().iter().zip(&cfg.buttons) {
+            assert_eq!(region.area.width as usize, label.len() + 2);
+        }
     }
 }

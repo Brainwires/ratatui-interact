@@ -34,6 +34,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Paragraph, Widget},
 };
+use unicode_width::UnicodeWidthStr;
 
 use crate::traits::ClickRegion;
 
@@ -459,6 +460,37 @@ enum VisibleElement {
     Ellipsis,
 }
 
+/// Determine which elements are visible for `state` under `style`'s collapse settings.
+fn visible_elements(state: &BreadcrumbState, style: &BreadcrumbStyle) -> Vec<VisibleElement> {
+    let len = state.items.len();
+
+    // No collapsing needed (or nothing would actually be hidden)
+    if len <= style.collapse_threshold
+        || state.expanded
+        || style.visible_start.saturating_add(style.visible_end) >= len
+    {
+        return (0..len).map(VisibleElement::Item).collect();
+    }
+
+    let mut elements = Vec::new();
+
+    // Show first visible_start items
+    for i in 0..style.visible_start.min(len) {
+        elements.push(VisibleElement::Item(i));
+    }
+
+    // Add ellipsis
+    elements.push(VisibleElement::Ellipsis);
+
+    // Show last visible_end items
+    let start = len.saturating_sub(style.visible_end);
+    for i in start..len {
+        elements.push(VisibleElement::Item(i));
+    }
+
+    elements
+}
+
 /// Breadcrumb widget - hierarchical navigation path display.
 ///
 /// Displays a breadcrumb trail showing the user's current location in a hierarchy.
@@ -499,30 +531,7 @@ impl<'a> Breadcrumb<'a> {
 
     /// Determine which elements are visible based on collapse logic.
     fn visible_elements(&self) -> Vec<VisibleElement> {
-        let len = self.state.items.len();
-
-        // No collapsing needed
-        if len <= self.style.collapse_threshold || self.state.expanded {
-            return (0..len).map(VisibleElement::Item).collect();
-        }
-
-        let mut elements = Vec::new();
-
-        // Show first visible_start items
-        for i in 0..self.style.visible_start.min(len) {
-            elements.push(VisibleElement::Item(i));
-        }
-
-        // Add ellipsis
-        elements.push(VisibleElement::Ellipsis);
-
-        // Show last visible_end items
-        let start = len.saturating_sub(self.style.visible_end);
-        for i in start..len {
-            elements.push(VisibleElement::Item(i));
-        }
-
-        elements
+        visible_elements(self.state, &self.style)
     }
 
     /// Get the style for an item at the given index.
@@ -562,7 +571,16 @@ impl<'a> Breadcrumb<'a> {
 
         let visible = self.visible_elements();
         let mut spans = Vec::new();
-        let mut x_offset = area.x + self.style.padding.0;
+        // Text is rendered inside the horizontal padding
+        let text_area = Rect {
+            x: area.x.saturating_add(self.style.padding.0.min(area.width)),
+            width: area
+                .width
+                .saturating_sub(self.style.padding.0)
+                .saturating_sub(self.style.padding.1),
+            ..area
+        };
+        let mut x_offset = text_area.x;
 
         // Track positions for click regions
         let mut element_positions: Vec<(VisibleElement, u16, u16)> = Vec::new();
@@ -571,9 +589,9 @@ impl<'a> Breadcrumb<'a> {
             // Add separator before items (except first)
             if i > 0 {
                 let sep_span = Span::styled(self.style.separator, self.style.separator_style);
-                let sep_width = self.style.separator.chars().count() as u16;
+                let sep_width = self.style.separator.width() as u16;
                 spans.push(sep_span);
-                x_offset += sep_width;
+                x_offset = x_offset.saturating_add(sep_width);
             }
 
             match element {
@@ -589,18 +607,18 @@ impl<'a> Breadcrumb<'a> {
                     }
                     item_text.push_str(&item.label);
 
-                    let item_width = item_text.chars().count() as u16;
+                    let item_width = item_text.width() as u16;
                     element_positions.push((element.clone(), x_offset, item_width));
 
                     spans.push(Span::styled(item_text, style));
-                    x_offset += item_width;
+                    x_offset = x_offset.saturating_add(item_width);
                 }
                 VisibleElement::Ellipsis => {
-                    let ellipsis_width = self.style.ellipsis.chars().count() as u16;
+                    let ellipsis_width = self.style.ellipsis.width() as u16;
                     element_positions.push((element.clone(), x_offset, ellipsis_width));
 
                     spans.push(Span::styled(self.style.ellipsis, self.style.ellipsis_style));
-                    x_offset += ellipsis_width;
+                    x_offset = x_offset.saturating_add(ellipsis_width);
                 }
             }
         }
@@ -608,11 +626,13 @@ impl<'a> Breadcrumb<'a> {
         // Create the line and render
         let line = Line::from(spans);
         let paragraph = Paragraph::new(line);
-        paragraph.render(area, buf);
+        paragraph.render(text_area, buf);
 
-        // Create click regions
+        // Create click regions (clipped to the rendered text area)
+        let right = text_area.x.saturating_add(text_area.width);
         for (element, start_x, width) in element_positions {
-            if width == 0 {
+            let width = width.min(right.saturating_sub(start_x));
+            if width == 0 || area.height == 0 {
                 continue;
             }
 
@@ -652,20 +672,20 @@ impl<'a> Breadcrumb<'a> {
         for (i, element) in visible.iter().enumerate() {
             // Add separator width (except first)
             if i > 0 {
-                width += self.style.separator.chars().count() as u16;
+                width += self.style.separator.width() as u16;
             }
 
             match element {
                 VisibleElement::Item(idx) => {
                     let item = &self.state.items[*idx];
                     if let Some(ref icon) = item.icon {
-                        width += icon.chars().count() as u16;
-                        width += self.style.icon_separator.chars().count() as u16;
+                        width += icon.width() as u16;
+                        width += self.style.icon_separator.width() as u16;
                     }
-                    width += item.label.chars().count() as u16;
+                    width += item.label.width() as u16;
                 }
                 VisibleElement::Ellipsis => {
-                    width += self.style.ellipsis.chars().count() as u16;
+                    width += self.style.ellipsis.width() as u16;
                 }
             }
         }
@@ -677,6 +697,11 @@ impl<'a> Breadcrumb<'a> {
 /// Handle keyboard events for breadcrumb component.
 ///
 /// Returns `Some(BreadcrumbAction)` if an action was triggered, `None` otherwise.
+///
+/// Navigation skips disabled items and items hidden behind the ellipsis,
+/// assuming the default [`BreadcrumbStyle`] collapse settings. If you render
+/// with custom `collapse_threshold` / `visible_start` / `visible_end`, use
+/// [`handle_breadcrumb_key_with_style`] instead.
 ///
 /// # Key Bindings
 ///
@@ -690,25 +715,62 @@ pub fn handle_breadcrumb_key(
     key: &KeyEvent,
     state: &mut BreadcrumbState,
 ) -> Option<BreadcrumbAction> {
+    handle_breadcrumb_key_with_style(key, state, &BreadcrumbStyle::default())
+}
+
+/// Handle keyboard events for breadcrumb component using the given style.
+///
+/// Like [`handle_breadcrumb_key`], but uses `style`'s collapse settings to
+/// decide which items are visible (and therefore selectable).
+pub fn handle_breadcrumb_key_with_style(
+    key: &KeyEvent,
+    state: &mut BreadcrumbState,
+    style: &BreadcrumbStyle,
+) -> Option<BreadcrumbAction> {
     if !state.enabled || state.items.is_empty() {
         return None;
     }
 
+    // Items that keyboard navigation may land on: visible and enabled
+    let navigable: Vec<usize> = visible_elements(state, style)
+        .into_iter()
+        .filter_map(|e| match e {
+            VisibleElement::Item(idx) if state.items[idx].enabled => Some(idx),
+            _ => None,
+        })
+        .collect();
+
     match key.code {
         KeyCode::Left | KeyCode::Char('h') => {
-            state.select_prev();
+            let target = match state.selected_index {
+                Some(cur) => navigable.iter().rev().find(|&&i| i < cur),
+                None => navigable.last(),
+            };
+            if let Some(&idx) = target {
+                state.selected_index = Some(idx);
+            }
             None
         }
         KeyCode::Right | KeyCode::Char('l') => {
-            state.select_next();
+            let target = match state.selected_index {
+                Some(cur) => navigable.iter().find(|&&i| i > cur),
+                None => navigable.first(),
+            };
+            if let Some(&idx) = target {
+                state.selected_index = Some(idx);
+            }
             None
         }
         KeyCode::Home => {
-            state.select_first();
+            if let Some(&idx) = navigable.first() {
+                state.selected_index = Some(idx);
+            }
             None
         }
         KeyCode::End => {
-            state.select_last();
+            if let Some(&idx) = navigable.last() {
+                state.selected_index = Some(idx);
+            }
             None
         }
         KeyCode::Enter | KeyCode::Char(' ') => {
@@ -1007,5 +1069,105 @@ mod tests {
         assert!(region.contains(29, 5));
         assert!(!region.contains(9, 5));
         assert!(!region.contains(30, 5));
+    }
+
+    fn hit_at(regions: &[ClickRegion<BreadcrumbAction>], x: u16) -> Option<BreadcrumbAction> {
+        regions
+            .iter()
+            .find(|r| r.contains(x, 0))
+            .map(|r| r.data.clone())
+    }
+
+    fn find_x(buf: &Buffer, symbol: &str) -> u16 {
+        (0..buf.area.width)
+            .find(|&x| buf[(x, 0)].symbol() == symbol)
+            .unwrap()
+    }
+
+    #[test]
+    fn test_click_regions_match_padded_text() {
+        let state = BreadcrumbState::new(vec![
+            BreadcrumbItem::new("home", "Home"),
+            BreadcrumbItem::new("docs", "Docs"),
+        ]);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 1));
+        let regions = Breadcrumb::new(&state).render_stateful(Rect::new(0, 0, 40, 1), &mut buf);
+        let hx = find_x(&buf, "H");
+        assert_eq!(hx, 1, "text should start after the left padding");
+        assert_eq!(
+            hit_at(&regions, hx),
+            Some(BreadcrumbAction::Navigate("home".into()))
+        );
+        let dx = find_x(&buf, "D");
+        assert_eq!(
+            hit_at(&regions, dx),
+            Some(BreadcrumbAction::Navigate("docs".into()))
+        );
+    }
+
+    #[test]
+    fn test_click_regions_wide_chars() {
+        for label in ["日本語", "日本語日本語"] {
+            let state = BreadcrumbState::new(vec![
+                BreadcrumbItem::new("a", label),
+                BreadcrumbItem::new("b", "Docs"),
+            ]);
+            let mut buf = Buffer::empty(Rect::new(0, 0, 40, 1));
+            let regions = Breadcrumb::new(&state).render_stateful(Rect::new(0, 0, 40, 1), &mut buf);
+            let dx = find_x(&buf, "D");
+            assert_eq!(
+                hit_at(&regions, dx),
+                Some(BreadcrumbAction::Navigate("b".into()))
+            );
+        }
+    }
+
+    #[test]
+    fn test_click_regions_clipped_to_area() {
+        let state = BreadcrumbState::new(vec![
+            BreadcrumbItem::new("a", "Alpha"),
+            BreadcrumbItem::new("b", "Bravo"),
+            BreadcrumbItem::new("c", "Charlie"),
+        ]);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 12, 1));
+        let regions = Breadcrumb::new(&state).render_stateful(Rect::new(0, 0, 12, 1), &mut buf);
+        assert!(regions.iter().all(|r| r.area.x + r.area.width <= 11));
+    }
+
+    #[test]
+    fn test_keyboard_skips_hidden_items() {
+        let items = (0..6)
+            .map(|i| BreadcrumbItem::new(format!("{i}"), format!("N{i}")))
+            .collect();
+        let mut state = BreadcrumbState::new(items);
+        state.select(0);
+        // default style collapses: visible = 0, ..., 4, 5
+        handle_breadcrumb_key(&KeyEvent::from(KeyCode::Right), &mut state);
+        assert_eq!(state.selected_index, Some(4));
+        handle_breadcrumb_key(&KeyEvent::from(KeyCode::Left), &mut state);
+        assert_eq!(state.selected_index, Some(0));
+
+        // Custom style that shows everything: all items are reachable
+        let style = BreadcrumbStyle::default().collapse_threshold(10);
+        handle_breadcrumb_key_with_style(&KeyEvent::from(KeyCode::Right), &mut state, &style);
+        assert_eq!(state.selected_index, Some(1));
+    }
+
+    #[test]
+    fn test_keyboard_skips_disabled_items() {
+        let mut state = BreadcrumbState::new(vec![
+            BreadcrumbItem::new("a", "A").enabled(false),
+            BreadcrumbItem::new("b", "B"),
+            BreadcrumbItem::new("c", "C").enabled(false),
+            BreadcrumbItem::new("d", "D"),
+        ]);
+        handle_breadcrumb_key(&KeyEvent::from(KeyCode::Home), &mut state);
+        assert_eq!(state.selected_index, Some(1));
+        handle_breadcrumb_key(&KeyEvent::from(KeyCode::Right), &mut state);
+        assert_eq!(state.selected_index, Some(3));
+        handle_breadcrumb_key(&KeyEvent::from(KeyCode::Left), &mut state);
+        assert_eq!(state.selected_index, Some(1));
+        handle_breadcrumb_key(&KeyEvent::from(KeyCode::Left), &mut state);
+        assert_eq!(state.selected_index, Some(1));
     }
 }

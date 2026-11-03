@@ -185,8 +185,8 @@ pub trait PopupContainer: Container {
         let width = width.min(screen.width.saturating_sub(4));
         let height = height.min(screen.height.saturating_sub(4));
 
-        let x = (screen.width.saturating_sub(width)) / 2;
-        let y = (screen.height.saturating_sub(height)) / 2;
+        let x = screen.x + (screen.width.saturating_sub(width)) / 2;
+        let y = screen.y + (screen.height.saturating_sub(height)) / 2;
 
         Rect::new(x, y, width, height)
     }
@@ -227,30 +227,40 @@ pub trait PopupContainer: Container {
     ) -> Rect {
         let (width, height) = self.preferred_size();
         let margin = self.screen_margin();
-        let width = width.min(screen.width.saturating_sub(margin * 2));
-        let height = height.min(screen.height.saturating_sub(margin * 2));
+        let width = width.min(screen.width.saturating_sub(margin.saturating_mul(2)));
+        let height = height.min(screen.height.saturating_sub(margin.saturating_mul(2)));
+        let right = screen.x.saturating_add(screen.width);
+        let bottom = screen.y.saturating_add(screen.height);
 
         let x = match anchor_x {
             Some(ax) => {
                 // Try to position near anchor, but keep on screen
                 let ideal = ax.saturating_sub(width / 2);
-                ideal.clamp(margin, screen.width.saturating_sub(width + margin))
+                let lo = screen.x.saturating_add(margin);
+                let hi = right.saturating_sub(width.saturating_add(margin));
+                if lo <= hi {
+                    ideal.clamp(lo, hi)
+                } else {
+                    // Screen too small to honour the margin: center instead
+                    screen.x + (screen.width.saturating_sub(width)) / 2
+                }
             }
-            None => (screen.width.saturating_sub(width)) / 2,
+            None => screen.x + (screen.width.saturating_sub(width)) / 2,
         };
 
         let y = match anchor_y {
             Some(ay) => {
                 // Try to position below anchor
-                let below = ay + 1;
-                if below + height <= screen.height.saturating_sub(margin) {
+                let below = ay.saturating_add(1);
+                if below.saturating_add(height) <= bottom.saturating_sub(margin) {
                     below
                 } else {
                     // Position above if not enough room below
-                    ay.saturating_sub(height + 1).max(margin)
+                    ay.saturating_sub(height.saturating_add(1))
+                        .max(screen.y.saturating_add(margin))
                 }
             }
-            None => (screen.height.saturating_sub(height)) / 2,
+            None => screen.y + (screen.height.saturating_sub(height)) / 2,
         };
 
         Rect::new(x, y, width, height)
@@ -382,5 +392,28 @@ mod tests {
         // Anchored near bottom - should flip above
         let area = container.popup_area_anchored(screen, Some(40), Some(20));
         assert_eq!(area.y, 9); // Above anchor (20 - 10 - 1)
+    }
+
+    #[test]
+    fn test_popup_area_anchored_tiny_screen_no_panic() {
+        let container = TestContainer {
+            preferred_width: 20,
+            preferred_height: 5,
+        };
+        let area = container.popup_area_anchored(Rect::new(0, 0, 3, 10), Some(1), None);
+        assert!(area.x + area.width <= 3);
+    }
+
+    #[test]
+    fn test_popup_area_respects_screen_origin() {
+        let container = TestContainer {
+            preferred_width: 20,
+            preferred_height: 5,
+        };
+        let screen = Rect::new(100, 50, 40, 20);
+        let area = container.popup_area(screen);
+        assert_eq!(area, Rect::new(110, 57, 20, 5));
+        let area = container.popup_area_anchored(screen, None, None);
+        assert_eq!(area, Rect::new(110, 57, 20, 5));
     }
 }
