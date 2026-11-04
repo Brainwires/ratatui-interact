@@ -32,6 +32,8 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Widget},
 };
 
+use unicode_width::UnicodeWidthStr;
+
 use crate::traits::{ClickRegion, ClickRegionRegistry, FocusId};
 
 /// Actions a button can emit.
@@ -373,10 +375,10 @@ impl<'a> Button<'a> {
     /// Calculate minimum width for this button.
     pub fn min_width(&self) -> u16 {
         let text = self.build_text();
-        let text_len = text.chars().count() as u16;
+        let text_len = u16::try_from(text.width()).unwrap_or(u16::MAX);
 
         match self.style.variant {
-            ButtonVariant::Block => text_len + 4, // Border + padding
+            ButtonVariant::Block => text_len.saturating_add(4), // Border + padding
             _ => text_len,
         }
     }
@@ -417,7 +419,16 @@ impl<'a> Button<'a> {
     pub fn render_stateful(self, area: Rect, buf: &mut Buffer) -> ClickRegion<ButtonAction> {
         let click_area = match self.style.variant {
             ButtonVariant::Block => area,
-            _ => Rect::new(area.x, area.y, self.min_width().min(area.width), 1),
+            _ => {
+                let width = self.min_width().min(area.width);
+                // Match where `Paragraph` places the line (IconText is always left-aligned)
+                let offset = match (self.style.variant, self.alignment) {
+                    (ButtonVariant::IconText, _) | (_, Alignment::Left) => 0,
+                    (_, Alignment::Center) => (area.width / 2).saturating_sub(width / 2),
+                    (_, Alignment::Right) => area.width - width,
+                };
+                Rect::new(area.x + offset, area.y, width, area.height.min(1))
+            }
         };
 
         self.render(area, buf);
@@ -609,7 +620,9 @@ mod tests {
 
         let click_region = button.render_stateful(area, &mut buffer);
 
-        assert_eq!(click_region.area.x, 5);
+        // " Test " (6 cols) centered in 20 cols starts 7 cols in
+        assert_eq!(click_region.area.x, 12);
+        assert_eq!(click_region.area.width, 6);
         assert_eq!(click_region.area.y, 3);
         assert_eq!(click_region.data, ButtonAction::Click);
     }
@@ -629,8 +642,8 @@ mod tests {
         // Verify registry has the region
         assert_eq!(registry.len(), 1);
 
-        // Verify click detection works - click inside the button area
-        assert_eq!(registry.handle_click(5, 3), Some(&"test_button"));
+        // Verify click detection works - click on the (centered) label
+        assert_eq!(registry.handle_click(14, 3), Some(&"test_button"));
 
         // Verify click outside returns None
         assert_eq!(registry.handle_click(100, 100), None);
@@ -659,7 +672,7 @@ mod tests {
         assert_eq!(registry.len(), 3);
 
         // Verify clicking each button returns the correct index
-        assert_eq!(registry.handle_click(2, 0), Some(&0)); // OK
+        assert_eq!(registry.handle_click(4, 0), Some(&0)); // OK
         assert_eq!(registry.handle_click(18, 0), Some(&1)); // Cancel
         assert_eq!(registry.handle_click(32, 0), Some(&2)); // Help
 
@@ -716,5 +729,49 @@ mod tests {
         let style = button.current_style();
         assert_eq!(style.fg, Some(button.style.toggled_fg));
         assert_eq!(style.bg, Some(button.style.toggled_bg));
+    }
+
+    #[test]
+    fn test_click_region_covers_centered_text() {
+        let state = ButtonState::enabled();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 20, 1));
+        let region = Button::new("OK", &state).render_stateful(Rect::new(0, 0, 20, 1), &mut buf);
+        let ok_x = (0..20).find(|&x| buf[(x, 0)].symbol() == "O").unwrap();
+        assert!(
+            region.area.x <= ok_x && ok_x < region.area.x + region.area.width,
+            "click region {:?} does not contain the rendered label at x={ok_x}",
+            region.area
+        );
+    }
+
+    #[test]
+    fn test_click_region_alignment() {
+        let state = ButtonState::enabled();
+        let area = Rect::new(2, 0, 20, 1);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 30, 1));
+
+        let left = Button::new("OK", &state)
+            .alignment(Alignment::Left)
+            .render_stateful(area, &mut buf);
+        assert_eq!(left.area, Rect::new(2, 0, 4, 1));
+
+        let right = Button::new("OK", &state)
+            .alignment(Alignment::Right)
+            .render_stateful(area, &mut buf);
+        assert_eq!(right.area, Rect::new(18, 0, 4, 1));
+        assert_eq!(buf[(19, 0)].symbol(), "O");
+
+        let icon_text = Button::new("OK", &state)
+            .variant(ButtonVariant::IconText)
+            .render_stateful(area, &mut buf);
+        assert_eq!(icon_text.area.x, 2);
+    }
+
+    #[test]
+    fn test_min_width_uses_display_width() {
+        let state = ButtonState::enabled();
+        let button = Button::new("Save", &state).icon("💾");
+        // " 💾 Save " is 9 columns
+        assert_eq!(button.min_width(), 9);
     }
 }

@@ -354,6 +354,15 @@ impl<'a> MarqueeText<'a> {
         result
     }
 
+    /// Pad `text` with trailing spaces up to `width` display columns.
+    fn pad_to_width(text: &str, width: usize) -> String {
+        let pad = width.saturating_sub(text.width());
+        let mut padded = String::with_capacity(text.len() + pad);
+        padded.push_str(text);
+        padded.extend(std::iter::repeat_n(' ', pad));
+        padded
+    }
+
     /// Render the marquee into the buffer
     fn render_internal(self, area: Rect, buf: &mut Buffer) {
         if area.width == 0 || area.height == 0 {
@@ -365,8 +374,14 @@ impl<'a> MarqueeText<'a> {
 
         // If text fits, just render it (left-aligned)
         if text_width <= viewport_width {
-            let padded = format!("{:<width$}", self.text, width = viewport_width);
-            buf.set_string(area.x, area.y, &padded, self.style.text_style);
+            let padded = Self::pad_to_width(self.text, viewport_width);
+            buf.set_stringn(
+                area.x,
+                area.y,
+                &padded,
+                viewport_width,
+                self.style.text_style,
+            );
             return;
         }
 
@@ -378,27 +393,44 @@ impl<'a> MarqueeText<'a> {
                 if viewport_width <= ellipsis_width {
                     // Not enough room for ellipsis, just truncate
                     let visible = Self::extract_visible_slice(self.text, 0, viewport_width);
-                    buf.set_string(area.x, area.y, &visible, self.style.text_style);
+                    buf.set_stringn(
+                        area.x,
+                        area.y,
+                        &visible,
+                        viewport_width,
+                        self.style.text_style,
+                    );
                 } else {
                     // Show truncated text with ellipsis
                     let text_space = viewport_width - ellipsis_width;
                     let visible = Self::extract_visible_slice(self.text, 0, text_space);
                     let display = format!("{}{}", visible.trim_end(), self.style.ellipsis);
                     // Pad to full width
-                    let padded = format!("{:<width$}", display, width = viewport_width);
-                    buf.set_string(area.x, area.y, &padded, self.style.text_style);
+                    let padded = Self::pad_to_width(&display, viewport_width);
+                    buf.set_stringn(
+                        area.x,
+                        area.y,
+                        &padded,
+                        viewport_width,
+                        self.style.text_style,
+                    );
                 }
             }
             MarqueeMode::Bounce => {
                 // Simple offset-based slicing
                 let visible =
                     Self::extract_visible_slice(self.text, self.state.offset, viewport_width);
-                buf.set_string(area.x, area.y, &visible, self.style.text_style);
+                buf.set_stringn(
+                    area.x,
+                    area.y,
+                    &visible,
+                    viewport_width,
+                    self.style.text_style,
+                );
             }
             MarqueeMode::Continuous => {
-                // Create virtual looped string and extract visible portion
-                // Virtual string: "text + separator + text + separator + ..."
-                // We need at least viewport_width characters from offset
+                // Walk the virtual looped string "text + separator + text + ..."
+                // starting `effective_offset` columns in, until the viewport is full.
                 let separator = self.style.separator;
                 let sep_width = separator.width();
                 let cycle_width = text_width + sep_width;
@@ -406,81 +438,40 @@ impl<'a> MarqueeText<'a> {
                 // Calculate where we are in the cycle
                 let effective_offset = self.state.offset % cycle_width;
 
-                // Build enough of the virtual string to fill the viewport
+                let cycle: Vec<char> = self.text.chars().chain(separator.chars()).collect();
+
+                // Every full pass over `cycle` consumes `cycle_width` (>= 1) columns, and we
+                // need at most `effective_offset + viewport_width` columns, so this bound
+                // guarantees termination even if no character can be placed.
+                let max_chars = cycle.len() * (viewport_width / cycle_width + 2);
+
                 let mut virtual_text = String::new();
                 let mut built_width = 0;
-                let mut pos = 0;
-
-                // Skip to effective_offset
                 let mut skip = effective_offset;
 
-                // We'll iterate through cycles until we have enough
-                while built_width < viewport_width {
-                    // Determine if we're in text or separator portion
-                    let cycle_pos = pos % cycle_width;
-                    let in_text = cycle_pos < text_width;
-
-                    if in_text {
-                        // Extract from text
-                        let text_offset = cycle_pos;
-                        for ch in self.text.chars().skip_while(|_| {
-                            let w = 0; // placeholder
-                            w < text_offset
-                        }) {
-                            let ch_width = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
-                            if skip > 0 {
-                                if ch_width <= skip {
-                                    skip -= ch_width;
-                                    pos += ch_width;
-                                    continue;
-                                } else {
-                                    skip = 0;
-                                    pos += ch_width;
-                                    virtual_text.push(' ');
-                                    built_width += 1;
-                                    continue;
-                                }
-                            }
-                            if built_width + ch_width > viewport_width {
-                                break;
-                            }
-                            virtual_text.push(ch);
-                            built_width += ch_width;
-                            pos += ch_width;
-                        }
-                        // Move to separator
-                        pos = (pos / cycle_width) * cycle_width + text_width;
-                    } else {
-                        // Extract from separator
-                        let sep_offset = cycle_pos - text_width;
-                        for (i, ch) in separator.chars().enumerate() {
-                            if i < sep_offset {
-                                continue;
-                            }
-                            let ch_width = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
-                            if skip > 0 {
-                                if ch_width <= skip {
-                                    skip -= ch_width;
-                                    pos += ch_width;
-                                    continue;
-                                } else {
-                                    skip = 0;
-                                    pos += ch_width;
-                                    virtual_text.push(' ');
-                                    built_width += 1;
-                                    continue;
-                                }
-                            }
-                            if built_width + ch_width > viewport_width {
-                                break;
-                            }
-                            virtual_text.push(ch);
-                            built_width += ch_width;
-                            pos += ch_width;
-                        }
-                        // Move to next text
-                        pos = ((pos / cycle_width) + 1) * cycle_width;
+                for &ch in cycle.iter().cycle().take(max_chars) {
+                    if built_width >= viewport_width {
+                        break;
                     }
+                    let ch_width = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
+                    if skip > 0 {
+                        if ch_width <= skip {
+                            skip -= ch_width;
+                        } else {
+                            // Wide character straddles the left edge: show padding instead
+                            let pad = (ch_width - skip).min(viewport_width - built_width);
+                            virtual_text.extend(std::iter::repeat_n(' ', pad));
+                            built_width += pad;
+                            skip = 0;
+                        }
+                        continue;
+                    }
+                    if built_width + ch_width > viewport_width {
+                        // Wide character does not fit in the last column(s): pad and stop
+                        break;
+                    }
+                    virtual_text.push(ch);
+                    built_width += ch_width;
                 }
 
                 // Pad if needed
@@ -489,7 +480,13 @@ impl<'a> MarqueeText<'a> {
                     built_width += 1;
                 }
 
-                buf.set_string(area.x, area.y, &virtual_text, self.style.text_style);
+                buf.set_stringn(
+                    area.x,
+                    area.y,
+                    &virtual_text,
+                    viewport_width,
+                    self.style.text_style,
+                );
             }
         }
     }
@@ -727,5 +724,81 @@ mod tests {
         let mut state2 = MarqueeState::new();
         let m2 = bounce_marquee("test", &mut state2);
         assert_eq!(m2.style.mode, MarqueeMode::Bounce);
+    }
+
+    /// Render on a worker thread and fail (instead of hanging) if it doesn't return.
+    fn render_with_timeout(text: &'static str, style: MarqueeStyle, offset: usize, width: u16) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut state = MarqueeState::new();
+            state.offset = offset;
+            let area = Rect::new(0, 0, width, 1);
+            let mut buf = Buffer::empty(area);
+            MarqueeText::new(text, &mut state)
+                .style(style)
+                .render(area, &mut buf);
+            tx.send(()).unwrap();
+        });
+        assert!(
+            rx.recv_timeout(std::time::Duration::from_secs(3)).is_ok(),
+            "render did not return within 3s (infinite loop)"
+        );
+    }
+
+    #[test]
+    fn test_continuous_wide_chars_empty_separator_terminates() {
+        for offset in 0..14 {
+            render_with_timeout(
+                "日本語日本語",
+                MarqueeStyle::default().separator(""),
+                offset,
+                5,
+            );
+        }
+    }
+
+    #[test]
+    fn test_continuous_wide_separator_terminates() {
+        for offset in 0..16 {
+            render_with_timeout(
+                "日本語日本語",
+                MarqueeStyle::default().separator("\u{3000}"),
+                offset,
+                5,
+            );
+        }
+    }
+
+    #[test]
+    fn test_continuous_wide_chars_output() {
+        let mut state = MarqueeState::new();
+        state.offset = 1;
+        let style = MarqueeStyle::default().separator("");
+        let area = Rect::new(0, 0, 5, 1);
+        let mut buf = Buffer::empty(area);
+        MarqueeText::new("日本語日本語", &mut state)
+            .style(style)
+            .render(area, &mut buf);
+        // Offset 1 lands in the middle of the first wide char: padded with a space,
+        // then "本語" (4 columns) fills the viewport.
+        assert_eq!(buf[(0, 0)].symbol(), " ");
+        assert_eq!(buf[(1, 0)].symbol(), "本");
+        assert_eq!(buf[(3, 0)].symbol(), "語");
+    }
+
+    #[test]
+    fn test_fitting_wide_text_stays_inside_area() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 10, 1));
+        for x in 0..10 {
+            buf[(x, 0)].set_symbol("X");
+        }
+        let mut state = MarqueeState::new();
+        MarqueeText::new("日本", &mut state).render(Rect::new(0, 0, 4, 1), &mut buf);
+        let outside: Vec<&str> = (4..10).map(|x| buf[(x, 0)].symbol()).collect();
+        assert_eq!(
+            outside,
+            vec!["X"; 6],
+            "cells outside the 4-wide area were overwritten"
+        );
     }
 }

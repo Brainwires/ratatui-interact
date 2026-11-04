@@ -30,6 +30,8 @@ use ratatui::{
     style::{Color, Style},
     widgets::{Block, Borders, Clear, Paragraph, Widget, Wrap},
 };
+use std::time::{Duration, Instant};
+use unicode_width::UnicodeWidthStr;
 
 /// Style variants for toast notifications
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -83,12 +85,15 @@ impl ToastStyle {
 }
 
 /// State for managing toast visibility and expiration
+///
+/// Expiration uses a monotonic clock ([`Instant`]), so it is not affected by
+/// changes to the system wall clock.
 #[derive(Debug, Clone, Default)]
 pub struct ToastState {
     /// Current message to display (if any)
     message: Option<String>,
-    /// Expiration time (epoch milliseconds)
-    expires_at: Option<i64>,
+    /// When the toast was shown and for how long it stays visible
+    expires_at: Option<(Instant, Duration)>,
 }
 
 impl ToastState {
@@ -98,21 +103,21 @@ impl ToastState {
     }
 
     /// Show a toast message for a specified duration (in milliseconds)
+    ///
+    /// A zero or negative duration shows a toast that is already expired.
+    /// Very large durations (up to `i64::MAX`) are fine and effectively never expire.
     pub fn show(&mut self, message: impl Into<String>, duration_ms: i64) {
-        let now = Self::current_time_ms();
+        let duration = Duration::from_millis(u64::try_from(duration_ms).unwrap_or(0));
         self.message = Some(message.into());
-        self.expires_at = Some(now + duration_ms);
+        self.expires_at = Some((Instant::now(), duration));
     }
 
     /// Get the current message if the toast hasn't expired
     pub fn get_message(&self) -> Option<&str> {
-        if let (Some(msg), Some(expires)) = (&self.message, self.expires_at) {
-            let now = Self::current_time_ms();
-            if now < expires {
-                return Some(msg.as_str());
-            }
+        match (&self.message, self.expires_at) {
+            (Some(msg), Some(expires)) if !Self::is_expired(expires) => Some(msg.as_str()),
+            _ => None,
         }
-        None
     }
 
     /// Check if a toast is currently visible
@@ -123,8 +128,7 @@ impl ToastState {
     /// Clear the toast if it has expired
     pub fn clear_if_expired(&mut self) {
         if let Some(expires) = self.expires_at {
-            let now = Self::current_time_ms();
-            if now >= expires {
+            if Self::is_expired(expires) {
                 self.message = None;
                 self.expires_at = None;
             }
@@ -137,13 +141,43 @@ impl ToastState {
         self.expires_at = None;
     }
 
-    /// Get current time in milliseconds since epoch
-    fn current_time_ms() -> i64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_millis() as i64)
-            .unwrap_or(0)
+    /// Whether a toast shown at `shown_at` for `duration` has expired
+    fn is_expired((shown_at, duration): (Instant, Duration)) -> bool {
+        shown_at.elapsed() >= duration
     }
+}
+
+/// Compute the `(width, height)` of a toast showing `message` within `area`.
+///
+/// The width fits the widest line (by display width) plus padding, is at least
+/// 20 columns where possible, and never exceeds `area`. The height counts the
+/// wrapped display-width lines of every message line plus the borders, capped
+/// by `max_height` and `area`.
+pub(crate) fn toast_size(message: &str, area: Rect, max_width: u16, max_height: u16) -> (u16, u16) {
+    let max_content_width = (area.width as usize)
+        .saturating_sub(8)
+        .min(max_width as usize);
+    let text_width = message.lines().map(|l| l.width()).max().unwrap_or(0);
+    let content_width = text_width + 4; // padding
+    let toast_width = content_width
+        .min(max_content_width)
+        .max(20)
+        .min(area.width as usize) as u16;
+
+    // Calculate height based on text wrapping
+    let inner_width = (toast_width.saturating_sub(2) as usize).max(1); // account for borders
+    let lines_needed: usize = message
+        .lines()
+        .map(|l| l.width().div_ceil(inner_width).max(1))
+        .sum::<usize>()
+        .max(1);
+    let toast_height = u16::try_from(lines_needed)
+        .unwrap_or(u16::MAX)
+        .saturating_add(2) // +2 for borders
+        .min(max_height)
+        .min(area.height);
+
+    (toast_width, toast_height)
 }
 
 /// Toast notification widget
@@ -207,17 +241,9 @@ impl<'a> Toast<'a> {
 
     /// Calculate the toast area centered within the given area
     pub fn calculate_area(&self, area: Rect) -> Rect {
-        // Calculate toast dimensions
-        let max_content_width = (area.width as usize)
-            .saturating_sub(8)
-            .min(self.max_width as usize);
-        let content_width = self.message.len() + 4; // padding
-        let toast_width = content_width.min(max_content_width).max(20) as u16;
-
-        // Calculate height based on text wrapping
-        let inner_width = toast_width.saturating_sub(2) as usize; // account for borders
-        let lines_needed = (self.message.len() + inner_width - 1) / inner_width.max(1);
-        let toast_height = (lines_needed as u16 + 2).min(self.max_height); // +2 for borders
+        // Calculate toast dimensions (always within `area`)
+        let (toast_width, toast_height) =
+            toast_size(self.message, area, self.max_width, self.max_height);
 
         // Center horizontally and position from top
         let x = area.x + (area.width.saturating_sub(toast_width)) / 2;
@@ -233,7 +259,7 @@ impl<'a> Toast<'a> {
     ///
     /// This is the preferred method as it ensures the toast appears on top.
     pub fn render_with_clear(self, area: Rect, buf: &mut Buffer) {
-        let toast_area = self.calculate_area(area);
+        let toast_area = self.calculate_area(area).intersection(*buf.area());
 
         // Clear the area behind the toast
         Clear.render(toast_area, buf);
@@ -282,6 +308,70 @@ mod tests {
         let state = ToastState::new();
         assert!(state.message.is_none());
         assert!(state.expires_at.is_none());
+    }
+
+    #[test]
+    fn test_show_huge_duration_does_not_overflow() {
+        let mut state = ToastState::new();
+        state.show("sticky", i64::MAX);
+        assert!(state.is_visible());
+        state.clear_if_expired();
+        assert!(state.is_visible());
+    }
+
+    #[test]
+    fn test_show_negative_duration_is_expired() {
+        let mut state = ToastState::new();
+        state.show("gone", -1);
+        assert!(!state.is_visible());
+        state.show("gone", i64::MIN);
+        assert!(!state.is_visible());
+    }
+
+    #[test]
+    fn test_render_with_clear_narrow_area() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 15, 10));
+        Toast::new("hi").render_with_clear(buf.area, &mut buf);
+    }
+
+    #[test]
+    fn test_render_with_clear_short_area() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 2));
+        Toast::new("hi").render_with_clear(buf.area, &mut buf);
+    }
+
+    #[test]
+    fn test_toast_stays_inside_narrow_area() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        for x in 0..40 {
+            for y in 0..10 {
+                buf[(x, y)].set_symbol("X");
+            }
+        }
+        let pane = Rect::new(0, 0, 15, 10);
+        Toast::new("hi").render_with_clear(pane, &mut buf);
+        let r = Toast::new("hi").calculate_area(pane);
+        assert!(r.x + r.width <= 15, "toast rect {r:?}");
+        let outside: Vec<&str> = (15..40).map(|x| buf[(x, 3)].symbol()).collect();
+        assert!(
+            outside.iter().all(|s| *s == "X"),
+            "toast drew outside its 15-col pane: {outside:?}"
+        );
+    }
+
+    #[test]
+    fn test_multiline_height() {
+        let toast = Toast::new("line one\nline two\nline three");
+        let r = toast.calculate_area(Rect::new(0, 0, 80, 24));
+        assert_eq!(r.height, 5, "3 lines + 2 borders");
+    }
+
+    #[test]
+    fn test_wide_chars_size() {
+        // 10 wide chars = 20 columns (but only 30 bytes)
+        let r = Toast::new("日本語日本語日本語日").calculate_area(Rect::new(0, 0, 80, 24));
+        assert_eq!(r.width, 24);
+        assert_eq!(r.height, 3);
     }
 
     #[test]

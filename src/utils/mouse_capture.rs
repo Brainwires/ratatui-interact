@@ -123,17 +123,19 @@ pub fn disable_mouse_capture<W: Write>(writer: &mut W) -> io::Result<()> {
 /// Ok(true) if capture is now enabled, Ok(false) if disabled (copy mode)
 ///
 /// # Errors
-/// Returns an error if the terminal command fails.
+/// Returns an error if the terminal command fails. In that case `state` is
+/// left unchanged.
 pub fn toggle_mouse_capture<W: Write>(
     writer: &mut W,
     state: &mut MouseCaptureState,
 ) -> io::Result<bool> {
-    let new_enabled = state.toggle();
+    let new_enabled = !state.is_enabled();
     if new_enabled {
         enable_mouse_capture(writer)?;
     } else {
         disable_mouse_capture(writer)?;
     }
+    state.set_enabled(new_enabled);
     Ok(new_enabled)
 }
 
@@ -145,19 +147,20 @@ pub fn toggle_mouse_capture<W: Write>(
 /// * `enabled` - Whether to enable (true) or disable (false) capture
 ///
 /// # Errors
-/// Returns an error if the terminal command fails.
+/// Returns an error if the terminal command fails. In that case `state` is
+/// left unchanged.
 pub fn set_mouse_capture<W: Write>(
     writer: &mut W,
     state: &mut MouseCaptureState,
     enabled: bool,
 ) -> io::Result<()> {
     if state.is_enabled() != enabled {
-        state.set_enabled(enabled);
         if enabled {
             enable_mouse_capture(writer)?;
         } else {
             disable_mouse_capture(writer)?;
         }
+        state.set_enabled(enabled);
     }
     Ok(())
 }
@@ -264,5 +267,43 @@ mod tests {
         set_mouse_capture(&mut buffer, &mut state, false).unwrap();
         assert!(!buffer.is_empty());
         assert!(state.is_copy_mode());
+    }
+
+    /// A writer that always fails.
+    struct FailingWriter;
+
+    impl Write for FailingWriter {
+        fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+            Err(io::Error::other("closed"))
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_toggle_keeps_state_on_write_error() {
+        let mut state = MouseCaptureState::enabled();
+        assert!(toggle_mouse_capture(&mut FailingWriter, &mut state).is_err());
+        assert!(state.is_enabled());
+
+        let mut state = MouseCaptureState::disabled();
+        assert!(toggle_mouse_capture(&mut FailingWriter, &mut state).is_err());
+        assert!(!state.is_enabled());
+    }
+
+    #[test]
+    fn test_set_keeps_state_on_write_error() {
+        let mut state = MouseCaptureState::enabled();
+        assert!(set_mouse_capture(&mut FailingWriter, &mut state, false).is_err());
+        assert!(state.is_enabled());
+    }
+
+    #[test]
+    fn test_toggle_updates_state_on_success() {
+        let mut state = MouseCaptureState::enabled();
+        let mut out = Vec::new();
+        assert!(!toggle_mouse_capture(&mut out, &mut state).unwrap());
+        assert!(!state.is_enabled());
     }
 }

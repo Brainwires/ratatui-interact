@@ -34,8 +34,12 @@ use ratatui::style::Color;
 ///
 /// Each color has a specific semantic purpose (e.g., `primary` for focus/selection,
 /// `error` for error states) rather than a visual description.
+///
+/// With the `theme-serde` feature, missing fields are filled in from the dark
+/// palette, so partial theme files deserialize.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "theme-serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "theme-serde", serde(default))]
 pub struct ColorPalette {
     // Primary interaction
     /// Focus/selection accent color.
@@ -111,8 +115,12 @@ pub struct ColorPalette {
 }
 
 /// A named theme with a [`ColorPalette`].
+///
+/// With the `theme-serde` feature, missing fields are filled in from
+/// [`Theme::dark`], so partial theme files deserialize.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "theme-serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "theme-serde", serde(default))]
 pub struct Theme {
     /// Display name for this theme.
     pub name: String,
@@ -123,6 +131,13 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self::dark()
+    }
+}
+
+impl Default for ColorPalette {
+    /// The dark palette (same as `Theme::dark().palette`).
+    fn default() -> Self {
+        Theme::dark().palette
     }
 }
 
@@ -332,5 +347,33 @@ mod tests {
         // But should still have sensible values (not Reset for fg colors)
         assert_ne!(input.text_fg, Color::Reset);
         assert_ne!(cb.focused_fg, Color::Reset);
+    }
+
+    #[cfg(feature = "theme-serde")]
+    #[test]
+    fn test_serde_partial_palette() {
+        use serde::Deserialize;
+        use serde::de::value::{Error, MapDeserializer};
+
+        let fields = [("primary", "Blue")];
+        let palette =
+            ColorPalette::deserialize(MapDeserializer::<_, Error>::new(fields.into_iter()))
+                .expect("partial palette should deserialize");
+        assert_eq!(palette.primary, Color::Blue);
+        assert_eq!(palette.secondary, Theme::dark().palette.secondary);
+        assert_eq!(palette.text, Theme::dark().palette.text);
+    }
+
+    #[cfg(feature = "theme-serde")]
+    #[test]
+    fn test_serde_partial_theme() {
+        use serde::Deserialize;
+        use serde::de::value::{Error, MapDeserializer};
+
+        let fields = [("name", "Mine")];
+        let theme = Theme::deserialize(MapDeserializer::<_, Error>::new(fields.into_iter()))
+            .expect("theme without palette should deserialize");
+        assert_eq!(theme.name, "Mine");
+        assert_eq!(theme.palette, Theme::dark().palette);
     }
 }

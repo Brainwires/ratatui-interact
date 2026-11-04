@@ -4,6 +4,11 @@
 //! This module is gated behind the `clipboard` feature flag since the `arboard`
 //! crate requires system libraries.
 //!
+//! A single system clipboard handle is created on first use and kept alive for
+//! the rest of the process. This matters on Linux (X11/Wayland), where the
+//! clipboard contents are served by the process that set them and would vanish
+//! as soon as the handle was dropped.
+//!
 //! # Example
 //!
 //! ```rust,ignore
@@ -29,7 +34,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! ratatui-interact = { version = "0.4", features = ["clipboard"] }
+//! ratatui-interact = { version = "0.5", features = ["clipboard"] }
 //! ```
 
 /// Result of a clipboard operation
@@ -38,11 +43,14 @@ pub enum ClipboardResult {
     /// Operation succeeded
     Success,
     /// Operation failed with an error message
+    ///
+    /// Returned when the `clipboard` feature is enabled but the system clipboard
+    /// cannot be opened (e.g. no display server) or the read/write fails
+    /// (e.g. the clipboard holds no text).
     Error(String),
     /// Clipboard functionality is not available
     ///
-    /// This occurs when the `clipboard` feature is not enabled,
-    /// or when the system clipboard cannot be accessed.
+    /// This occurs only when the `clipboard` feature is not enabled.
     NotAvailable,
 }
 
@@ -88,8 +96,8 @@ impl std::fmt::Display for ClipboardResult {
 ///
 /// # Returns
 /// * `ClipboardResult::Success` if the text was copied successfully
-/// * `ClipboardResult::Error(message)` if the copy failed
-/// * `ClipboardResult::NotAvailable` if clipboard is not available
+/// * `ClipboardResult::Error(message)` if the clipboard could not be opened or the copy failed
+/// * `ClipboardResult::NotAvailable` if the `clipboard` feature is disabled
 ///
 /// # Example
 ///
@@ -103,15 +111,42 @@ impl std::fmt::Display for ClipboardResult {
 /// ```
 #[cfg(feature = "clipboard")]
 pub fn copy_to_clipboard(text: &str) -> ClipboardResult {
-    match arboard::Clipboard::new() {
-        Ok(mut clipboard) => match clipboard.set_text(text) {
-            Ok(()) => ClipboardResult::Success,
-            Err(e) => ClipboardResult::Error(e.to_string()),
-        },
-        Err(e) => ClipboardResult::Error(format!("Failed to access clipboard: {}", e)),
+    match with_clipboard(|clipboard| clipboard.set_text(text)) {
+        Ok(()) => ClipboardResult::Success,
+        Err(result) => result,
     }
 }
 
+/// Run `f` with the process-wide clipboard handle, creating it on first use.
+///
+/// The handle is kept alive so that, on Linux, the copied contents remain
+/// available to other applications after the call returns.
+#[cfg(feature = "clipboard")]
+fn with_clipboard<T>(
+    f: impl FnOnce(&mut arboard::Clipboard) -> Result<T, arboard::Error>,
+) -> Result<T, ClipboardResult> {
+    use std::sync::{Mutex, OnceLock};
+
+    static CLIPBOARD: OnceLock<Mutex<Option<arboard::Clipboard>>> = OnceLock::new();
+
+    let mut guard = CLIPBOARD
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let clipboard = match guard.as_mut() {
+        Some(clipboard) => clipboard,
+        None => {
+            let clipboard = arboard::Clipboard::new().map_err(|e| {
+                ClipboardResult::Error(format!("Failed to access clipboard: {}", e))
+            })?;
+            guard.insert(clipboard)
+        }
+    };
+    f(clipboard).map_err(|e| ClipboardResult::Error(e.to_string()))
+}
+
+/// Copy text to the system clipboard (always [`ClipboardResult::NotAvailable`]
+/// because the `clipboard` feature is disabled)
 #[cfg(not(feature = "clipboard"))]
 pub fn copy_to_clipboard(_text: &str) -> ClipboardResult {
     ClipboardResult::NotAvailable
@@ -121,8 +156,8 @@ pub fn copy_to_clipboard(_text: &str) -> ClipboardResult {
 ///
 /// # Returns
 /// * `Ok(String)` with the clipboard contents if successful
-/// * `Err(ClipboardResult::Error(message))` if reading failed
-/// * `Err(ClipboardResult::NotAvailable)` if clipboard is not available
+/// * `Err(ClipboardResult::Error(message))` if the clipboard could not be opened or reading failed
+/// * `Err(ClipboardResult::NotAvailable)` if the `clipboard` feature is disabled
 ///
 /// # Example
 ///
@@ -136,18 +171,11 @@ pub fn copy_to_clipboard(_text: &str) -> ClipboardResult {
 /// ```
 #[cfg(feature = "clipboard")]
 pub fn get_from_clipboard() -> Result<String, ClipboardResult> {
-    match arboard::Clipboard::new() {
-        Ok(mut clipboard) => match clipboard.get_text() {
-            Ok(text) => Ok(text),
-            Err(e) => Err(ClipboardResult::Error(e.to_string())),
-        },
-        Err(e) => Err(ClipboardResult::Error(format!(
-            "Failed to access clipboard: {}",
-            e
-        ))),
-    }
+    with_clipboard(|clipboard| clipboard.get_text())
 }
 
+/// Get text from the system clipboard (always `Err(ClipboardResult::NotAvailable)`
+/// because the `clipboard` feature is disabled)
 #[cfg(not(feature = "clipboard"))]
 pub fn get_from_clipboard() -> Result<String, ClipboardResult> {
     Err(ClipboardResult::NotAvailable)
@@ -171,9 +199,11 @@ pub fn get_from_clipboard() -> Result<String, ClipboardResult> {
 /// ```
 #[cfg(feature = "clipboard")]
 pub fn is_clipboard_available() -> bool {
-    arboard::Clipboard::new().is_ok()
+    with_clipboard(|_| Ok(())).is_ok()
 }
 
+/// Check if clipboard functionality is available (always `false` because the
+/// `clipboard` feature is disabled)
 #[cfg(not(feature = "clipboard"))]
 pub fn is_clipboard_available() -> bool {
     false
@@ -186,8 +216,8 @@ pub fn is_clipboard_available() -> bool {
 ///
 /// # Returns
 /// * `ClipboardResult::Success` if the text was copied successfully
-/// * `ClipboardResult::Error(message)` if the copy failed
-/// * `ClipboardResult::NotAvailable` if clipboard is not available
+/// * `ClipboardResult::Error(message)` if the clipboard could not be opened or the copy failed
+/// * `ClipboardResult::NotAvailable` if the `clipboard` feature is disabled
 ///
 /// # Example
 ///
