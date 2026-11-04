@@ -99,6 +99,11 @@ impl TreeViewState {
     }
 
     /// Toggle the collapsed state of a node
+    ///
+    /// `selected_index` is an index into the visible list, so collapsing or
+    /// expanding a node above the selection makes it point at another node.
+    /// Use [`toggle_collapsed_in`](Self::toggle_collapsed_in) to keep the
+    /// selection on the same node.
     pub fn toggle_collapsed(&mut self, id: &str) {
         if self.collapsed.contains(id) {
             self.collapsed.remove(id);
@@ -122,6 +127,65 @@ impl TreeViewState {
         self.collapsed.remove(id);
     }
 
+    /// Toggle the collapsed state of a node, keeping the selection anchored
+    ///
+    /// The same node stays selected after the visible list changes. If the
+    /// selected node becomes hidden (it was inside the collapsed subtree), the
+    /// collapsed node itself is selected.
+    pub fn toggle_collapsed_in<T>(&mut self, nodes: &[TreeNode<T>], id: &str) {
+        self.change_anchored(nodes, id, |s| s.toggle_collapsed(id));
+    }
+
+    /// Collapse a node, keeping the selection anchored (see
+    /// [`toggle_collapsed_in`](Self::toggle_collapsed_in))
+    pub fn collapse_in<T>(&mut self, nodes: &[TreeNode<T>], id: &str) {
+        self.change_anchored(nodes, id, |s| s.collapse(id));
+    }
+
+    /// Expand a node, keeping the selection anchored (see
+    /// [`toggle_collapsed_in`](Self::toggle_collapsed_in))
+    pub fn expand_in<T>(&mut self, nodes: &[TreeNode<T>], id: &str) {
+        self.change_anchored(nodes, id, |s| s.expand(id));
+    }
+
+    /// Select the visible node with the given ID
+    ///
+    /// Returns `false` (leaving the selection unchanged) if no visible node
+    /// has that ID.
+    pub fn select_id<T>(&mut self, nodes: &[TreeNode<T>], id: &str) -> bool {
+        match visible_ids(nodes, &self.collapsed)
+            .iter()
+            .position(|v| *v == id)
+        {
+            Some(idx) => {
+                self.selected_index = idx;
+                true
+            }
+            None => false,
+        }
+    }
+
+    fn change_anchored<T>(
+        &mut self,
+        nodes: &[TreeNode<T>],
+        id: &str,
+        change: impl FnOnce(&mut Self),
+    ) {
+        let selected = visible_ids(nodes, &self.collapsed)
+            .get(self.selected_index)
+            .map(|s| s.to_string());
+        change(self);
+        let after = visible_ids(nodes, &self.collapsed);
+        let new_index = selected
+            .and_then(|sel| after.iter().position(|v| *v == sel))
+            .or_else(|| after.iter().position(|v| *v == id));
+        if let Some(idx) = new_index {
+            self.selected_index = idx;
+        } else if self.selected_index >= after.len() {
+            self.selected_index = after.len().saturating_sub(1);
+        }
+    }
+
     /// Move selection up
     pub fn select_prev(&mut self) {
         self.selected_index = self.selected_index.saturating_sub(1);
@@ -137,11 +201,26 @@ impl TreeViewState {
     /// Ensure selection is visible given viewport height
     pub fn ensure_visible(&mut self, viewport_height: usize) {
         if self.selected_index < self.scroll as usize {
-            self.scroll = self.selected_index as u16;
+            self.scroll = self.selected_index.min(u16::MAX as usize) as u16;
         } else if self.selected_index >= self.scroll as usize + viewport_height {
-            self.scroll = (self.selected_index - viewport_height + 1) as u16;
+            self.scroll = (self.selected_index + 1 - viewport_height).min(u16::MAX as usize) as u16;
         }
     }
+}
+
+/// IDs of the visible (not hidden by a collapsed ancestor) nodes, in order
+fn visible_ids<'a, T>(nodes: &'a [TreeNode<T>], collapsed: &HashSet<String>) -> Vec<&'a str> {
+    fn walk<'a, T>(nodes: &'a [TreeNode<T>], collapsed: &HashSet<String>, out: &mut Vec<&'a str>) {
+        for node in nodes {
+            out.push(&node.id);
+            if node.has_children() && !collapsed.contains(&node.id) {
+                walk(&node.children, collapsed, out);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(nodes, collapsed, &mut out);
+    out
 }
 
 /// Style configuration for tree view
@@ -802,5 +881,29 @@ mod tests {
 
         assert_eq!(tree.visible_count(), 0);
         assert!(tree.flatten_visible().is_empty());
+    }
+
+    #[test]
+    fn test_toggle_collapsed_in_keeps_selection() {
+        let nodes = vec![
+            TreeNode::new("root", ())
+                .with_children(vec![TreeNode::new("c1", ()), TreeNode::new("c2", ())]),
+            TreeNode::new("other", ()),
+        ];
+        let mut state = TreeViewState::new();
+        state.selected_index = 3; // "other"
+        assert_eq!(get_selected_id(&nodes, &state).as_deref(), Some("other"));
+        state.toggle_collapsed_in(&nodes, "root");
+        assert_eq!(get_selected_id(&nodes, &state).as_deref(), Some("other"));
+        state.toggle_collapsed_in(&nodes, "root");
+        assert_eq!(get_selected_id(&nodes, &state).as_deref(), Some("other"));
+
+        // Selected node hidden by the collapse -> the collapsed node is selected
+        assert!(state.select_id(&nodes, "c2"));
+        state.collapse_in(&nodes, "root");
+        assert_eq!(get_selected_id(&nodes, &state).as_deref(), Some("root"));
+        assert!(!state.select_id(&nodes, "c2"));
+        state.expand_in(&nodes, "root");
+        assert_eq!(get_selected_id(&nodes, &state).as_deref(), Some("root"));
     }
 }

@@ -566,6 +566,38 @@ where
         click_regions
     }
 
+    /// Scroll offset clamped to the current number of tabs
+    fn effective_scroll(&self) -> usize {
+        self.state
+            .scroll_offset
+            .min(self.tabs.len().saturating_sub(1))
+    }
+
+    /// Text of a horizontal tab (including padding / selection indicator)
+    fn horizontal_tab_text(&self, idx: usize, tab: &Tab) -> String {
+        let mut text = String::new();
+        if let Some(icon) = tab.icon {
+            text.push_str(icon);
+            text.push(' ');
+        }
+        text.push_str(tab.label);
+
+        if self.state.selected_index == idx && self.style.show_indicator {
+            format!("{} {} ", self.style.indicator, text)
+        } else {
+            format!(" {} ", text)
+        }
+    }
+
+    /// Rendered width of a horizontal tab (text plus badge, without divider)
+    fn horizontal_tab_width(&self, idx: usize, tab: &Tab) -> u16 {
+        let mut width = self.horizontal_tab_text(idx, tab).width();
+        if let Some(badge) = tab.badge {
+            width += badge.width() + 2;
+        }
+        width.min(u16::MAX as usize) as u16
+    }
+
     /// Render horizontal tabs (top/bottom)
     fn render_horizontal_tabs(
         &self,
@@ -573,28 +605,48 @@ where
         buf: &mut Buffer,
         click_regions: &mut Vec<(Rect, TabViewAction)>,
     ) {
+        if area.width == 0 || area.height == 0 || self.tabs.is_empty() {
+            return;
+        }
+
         let mut x = area.x;
         let y = area.y;
+        let right = area.x.saturating_add(area.width);
+        let scroll = self.effective_scroll();
+        let indicator_width = 2.min(area.width);
 
         // Check if we need scroll indicators
         let has_overflow = self.calculate_overflow_horizontal(area.width);
-        let show_prev = self.state.scroll_offset > 0;
+        let show_prev = scroll > 0;
         let show_next = has_overflow
-            && self.state.scroll_offset + self.visible_tabs_horizontal(area.width)
-                < self.tabs.len();
+            && scroll + self.visible_tabs_horizontal(scroll, area.width) < self.tabs.len();
 
         // Render scroll-left indicator
         if show_prev {
             let indicator = self.style.scroll_left;
-            let indicator_area = Rect::new(x, y, 2, 1);
-            buf.set_string(x, y, indicator, Style::default().fg(Color::Yellow));
+            let indicator_area = Rect::new(x, y, indicator_width, 1);
+            buf.set_stringn(
+                x,
+                y,
+                indicator,
+                indicator_width as usize,
+                Style::default().fg(Color::Yellow),
+            );
             click_regions.push((indicator_area, TabViewAction::ScrollPrev));
-            x += 2;
+            x += indicator_width;
         }
 
+        // Tabs must not run into the scroll-right indicator or past the area
+        let tabs_right = if show_next {
+            right.saturating_sub(indicator_width).max(x)
+        } else {
+            right
+        };
+
         // Render visible tabs
-        let visible_start = self.state.scroll_offset;
+        let visible_start = scroll;
         let visible_count = self.visible_tabs_horizontal(
+            scroll,
             area.width
                 .saturating_sub(if show_prev { 2 } else { 0 })
                 .saturating_sub(if show_next { 2 } else { 0 }),
@@ -607,70 +659,73 @@ where
             .skip(visible_start)
             .take(visible_count)
         {
+            if x >= tabs_right {
+                break;
+            }
+
             // Remember start position for click region
             let tab_start_x = x;
-
-            // Build tab text
-            let mut text = String::new();
-            if let Some(icon) = tab.icon {
-                text.push_str(icon);
-                text.push(' ');
-            }
-            text.push_str(tab.label);
 
             // Determine style
             let style = self.get_tab_style(idx, tab.enabled);
 
-            // Render indicator if selected and enabled
-            let text_with_padding = if self.state.selected_index == idx && self.style.show_indicator
-            {
-                format!("{} {} ", self.style.indicator, text)
-            } else {
-                format!(" {} ", text)
-            };
-
-            // Render the text using unicode width for proper calculation
-            let text_width = text_with_padding.width() as u16;
-            buf.set_string(x, y, &text_with_padding, style);
-            x += text_width;
+            // Render the text using unicode width, clipped to the tab bar
+            let text_with_padding = self.horizontal_tab_text(idx, tab);
+            x = buf
+                .set_stringn(x, y, &text_with_padding, (tabs_right - x) as usize, style)
+                .0;
 
             // Render badge if present (included in click region)
             if let Some(badge) = tab.badge {
-                let badge_text = format!(" {} ", badge);
-                let badge_width = badge_text.width() as u16;
-                buf.set_string(x, y, &badge_text, self.style.badge_style);
-                x += badge_width;
+                if x < tabs_right {
+                    let badge_text = format!(" {} ", badge);
+                    x = buf
+                        .set_stringn(
+                            x,
+                            y,
+                            &badge_text,
+                            (tabs_right - x) as usize,
+                            self.style.badge_style,
+                        )
+                        .0;
+                }
             }
 
             // Calculate actual tab width and register click region
+            // (disabled tabs are drawn but not clickable)
             let tab_width = x - tab_start_x;
-            if tab_width > 0 {
+            if tab_width > 0 && tab.enabled {
                 let tab_area = Rect::new(tab_start_x, y, tab_width, 1);
                 click_regions.push((tab_area, TabViewAction::TabClick(idx)));
             }
 
             // Render divider (if not last visible) - not part of click region
-            if idx + 1 < visible_start + visible_count && idx + 1 < self.tabs.len() {
-                let divider_width = self.style.divider.width() as u16;
-                buf.set_string(
-                    x,
-                    y,
-                    self.style.divider,
-                    Style::default().fg(Color::DarkGray),
-                );
-                x += divider_width;
+            if idx + 1 < visible_start + visible_count
+                && idx + 1 < self.tabs.len()
+                && x < tabs_right
+            {
+                x = buf
+                    .set_stringn(
+                        x,
+                        y,
+                        self.style.divider,
+                        (tabs_right - x) as usize,
+                        Style::default().fg(Color::DarkGray),
+                    )
+                    .0;
             }
         }
 
         // Render scroll-right indicator
         if show_next {
             let indicator = self.style.scroll_right;
-            let indicator_x = area.x + area.width - 2;
-            let indicator_area = Rect::new(indicator_x, y, 2, 1);
-            buf.set_string(
+            let indicator_x = right.saturating_sub(indicator_width);
+            let indicator_area = Rect::new(indicator_x, y, indicator_width, 1);
+            buf.set_stringn(
                 indicator_x,
                 y,
                 indicator,
+                indicator_width as usize,
                 Style::default().fg(Color::Yellow),
             );
             click_regions.push((indicator_area, TabViewAction::ScrollNext));
@@ -684,19 +739,31 @@ where
         buf: &mut Buffer,
         click_regions: &mut Vec<(Rect, TabViewAction)>,
     ) {
+        if area.width == 0 || area.height == 0 || self.tabs.is_empty() {
+            return;
+        }
+
         let x = area.x;
         let mut y = area.y;
         let width = area.width;
+        let bottom = area.y.saturating_add(area.height);
+        let scroll = self.effective_scroll();
 
         // Check if we need scroll indicators
         let visible_count = (area.height as usize).min(self.tabs.len());
-        let show_prev = self.state.scroll_offset > 0;
-        let show_next = self.state.scroll_offset + visible_count < self.tabs.len();
+        let show_prev = scroll > 0;
+        let show_next = scroll + visible_count < self.tabs.len();
 
         // Render scroll-up indicator
         if show_prev {
             let indicator = format!("{:^width$}", self.style.scroll_up, width = width as usize);
-            buf.set_string(x, y, &indicator, Style::default().fg(Color::Yellow));
+            buf.set_stringn(
+                x,
+                y,
+                &indicator,
+                width as usize,
+                Style::default().fg(Color::Yellow),
+            );
             click_regions.push((Rect::new(x, y, width, 1), TabViewAction::ScrollPrev));
             y += 1;
         }
@@ -706,8 +773,10 @@ where
             .height
             .saturating_sub(if show_prev { 1 } else { 0 })
             .saturating_sub(if show_next { 1 } else { 0 });
-        let visible_start = self.state.scroll_offset;
-        let visible_count = (available_height as usize).min(self.tabs.len() - visible_start);
+        let visible_start = scroll;
+        let visible_count =
+            (available_height as usize).min(self.tabs.len().saturating_sub(visible_start));
+        let tabs_bottom = bottom.saturating_sub(if show_next { 1 } else { 0 });
 
         for (idx, tab) in self
             .tabs
@@ -716,7 +785,7 @@ where
             .skip(visible_start)
             .take(visible_count)
         {
-            if y >= area.y + area.height - if show_next { 1 } else { 0 } {
+            if y >= tabs_bottom {
                 break;
             }
 
@@ -739,33 +808,46 @@ where
                 text.push_str(&format!(" ({})", badge));
             }
 
-            // Truncate if too long
+            // Truncate if too long (by display width)
             let max_len = width as usize;
-            let display_text = if text.chars().count() > max_len {
-                let truncated: String = text.chars().take(max_len - 1).collect();
+            let display_text = if text.width() > max_len {
+                let mut truncated = String::new();
+                let mut used = 0;
+                for ch in text.chars() {
+                    let w = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
+                    if used + w > max_len.saturating_sub(1) {
+                        break;
+                    }
+                    used += w;
+                    truncated.push(ch);
+                }
                 format!("{}…", truncated)
             } else {
-                format!("{:width$}", text, width = max_len)
+                format!("{}{}", text, " ".repeat(max_len - text.width()))
             };
 
             // Determine style
             let style = self.get_tab_style(idx, tab.enabled);
 
             let tab_area = Rect::new(x, y, width, 1);
-            buf.set_string(x, y, &display_text, style);
-            click_regions.push((tab_area, TabViewAction::TabClick(idx)));
+            buf.set_stringn(x, y, &display_text, max_len, style);
+            // Disabled tabs are drawn but not clickable
+            if tab.enabled {
+                click_regions.push((tab_area, TabViewAction::TabClick(idx)));
+            }
 
             y += 1;
         }
 
         // Render scroll-down indicator
         if show_next {
-            let indicator_y = area.y + area.height - 1;
+            let indicator_y = bottom - 1;
             let indicator = format!("{:^width$}", self.style.scroll_down, width = width as usize);
-            buf.set_string(
+            buf.set_stringn(
                 x,
                 indicator_y,
                 &indicator,
+                width as usize,
                 Style::default().fg(Color::Yellow),
             );
             click_regions.push((
@@ -793,24 +875,33 @@ where
 
     /// Calculate if horizontal tabs overflow
     fn calculate_overflow_horizontal(&self, available_width: u16) -> bool {
+        let divider = self.style.divider.width() as u16;
         let total_width: u16 = self
             .tabs
             .iter()
-            .map(|t| t.display_width() as u16 + self.style.divider.width() as u16)
-            .sum();
+            .enumerate()
+            .map(|(idx, t)| self.horizontal_tab_width(idx, t).saturating_add(divider))
+            .fold(0u16, |acc, w| acc.saturating_add(w))
+            .saturating_sub(divider); // no divider after the last tab
         total_width > available_width
     }
 
-    /// Calculate how many tabs fit horizontally
-    fn visible_tabs_horizontal(&self, available_width: u16) -> usize {
+    /// Calculate how many tabs fit horizontally starting at `scroll`
+    fn visible_tabs_horizontal(&self, scroll: usize, available_width: u16) -> usize {
+        let divider = self.style.divider.width() as u16;
         let mut width = 0u16;
         let mut count = 0;
-        for tab in self.tabs.iter().skip(self.state.scroll_offset) {
-            let tab_width = tab.display_width() as u16 + self.style.divider.width() as u16;
-            if width + tab_width > available_width {
+        for (idx, tab) in self.tabs.iter().enumerate().skip(scroll) {
+            let tab_width = self.horizontal_tab_width(idx, tab);
+            let needed = if count == 0 {
+                tab_width
+            } else {
+                tab_width.saturating_add(divider)
+            };
+            if width.saturating_add(needed) > available_width {
                 break;
             }
-            width += tab_width;
+            width = width.saturating_add(needed);
             count += 1;
         }
         count.max(1)
@@ -873,45 +964,96 @@ where
 /// Handle keyboard events for the tab view
 ///
 /// Returns true if the event was handled.
+///
+/// This handler does not know which tabs are disabled; use
+/// [`handle_tab_view_key_with_tabs`] to skip disabled tabs.
 pub fn handle_tab_view_key(
     state: &mut TabViewState,
     key: &KeyEvent,
     position: TabPosition,
 ) -> bool {
+    handle_tab_view_key_impl(state, key, position, |_| true)
+}
+
+/// Handle keyboard events for the tab view, skipping disabled tabs
+///
+/// Like [`handle_tab_view_key`], but navigation (arrows, Home/End and number
+/// keys) never selects a tab whose [`Tab::enabled`] is `false`.
+///
+/// Returns true if the event was handled.
+pub fn handle_tab_view_key_with_tabs(
+    state: &mut TabViewState,
+    key: &KeyEvent,
+    position: TabPosition,
+    tabs: &[Tab],
+) -> bool {
+    handle_tab_view_key_impl(state, key, position, |idx| {
+        tabs.get(idx).is_none_or(|t| t.enabled)
+    })
+}
+
+fn handle_tab_view_key_impl(
+    state: &mut TabViewState,
+    key: &KeyEvent,
+    position: TabPosition,
+    is_enabled: impl Fn(usize) -> bool,
+) -> bool {
+    let total = state.total_tabs;
     // Handle tab bar navigation based on position
     if state.tab_bar_focused {
+        let prev = |state: &mut TabViewState| {
+            if let Some(idx) = (0..state.selected_index.min(total))
+                .rev()
+                .find(|&i| is_enabled(i))
+            {
+                state.selected_index = idx;
+            }
+        };
+        let next = |state: &mut TabViewState| {
+            if let Some(idx) = (state.selected_index + 1..total).find(|&i| is_enabled(i)) {
+                state.selected_index = idx;
+            }
+        };
         match key.code {
             // Horizontal navigation for horizontal tabs
             KeyCode::Left if position.is_horizontal() => {
-                state.select_prev();
+                prev(state);
                 true
             }
             KeyCode::Right if position.is_horizontal() => {
-                state.select_next();
+                next(state);
                 true
             }
             // Vertical navigation for vertical tabs
             KeyCode::Up if position.is_vertical() => {
-                state.select_prev();
+                prev(state);
                 true
             }
             KeyCode::Down if position.is_vertical() => {
-                state.select_next();
+                next(state);
                 true
             }
             // Home/End
             KeyCode::Home => {
-                state.select_first();
+                if let Some(idx) = (0..total).find(|&i| is_enabled(i)) {
+                    state.selected_index = idx;
+                } else {
+                    state.select_first();
+                }
                 true
             }
             KeyCode::End => {
-                state.select_last();
+                if let Some(idx) = (0..total).rev().find(|&i| is_enabled(i)) {
+                    state.selected_index = idx;
+                } else {
+                    state.select_last();
+                }
                 true
             }
             // Number keys for direct selection (1-9)
             KeyCode::Char(c) if c.is_ascii_digit() && c != '0' => {
                 let idx = (c as usize) - ('1' as usize);
-                if idx < state.total_tabs {
+                if idx < total && is_enabled(idx) {
                     state.select(idx);
                 }
                 true
@@ -960,7 +1102,9 @@ pub fn handle_tab_view_mouse(
                     return Some(*action);
                 }
                 TabViewAction::ScrollNext => {
-                    state.scroll_offset += 1;
+                    if state.scroll_offset + 1 < state.total_tabs {
+                        state.scroll_offset += 1;
+                    }
                     return Some(*action);
                 }
             }
@@ -1173,5 +1317,123 @@ mod tests {
         let key = KeyEvent::new(KeyCode::Esc, crossterm::event::KeyModifiers::NONE);
         assert!(handle_tab_view_key(&mut state, &key, TabPosition::Top));
         assert!(state.tab_bar_focused);
+    }
+
+    fn press(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, crossterm::event::KeyModifiers::NONE)
+    }
+
+    #[test]
+    fn test_horizontal_width1_no_panic() {
+        let tabs = vec![Tab::new("One"), Tab::new("Two")];
+        let mut state = TabViewState::new(2);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 1, 5));
+        TabView::new(&tabs, &state).render(Rect::new(0, 0, 1, 5), &mut buf);
+        state.scroll_offset = 1;
+        TabView::new(&tabs, &state).render(Rect::new(0, 0, 1, 5), &mut buf);
+    }
+
+    #[test]
+    fn test_vertical_width0_no_panic() {
+        let tabs = vec![Tab::new("One")];
+        let state = TabViewState::new(1);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 10, 5));
+        TabView::new(&tabs, &state)
+            .style(TabViewStyle::left().tab_width(0))
+            .render(Rect::new(0, 0, 10, 5), &mut buf);
+    }
+
+    #[test]
+    fn test_vertical_stale_scroll_no_panic() {
+        let tabs = vec![Tab::new("A"), Tab::new("B")];
+        let mut state = TabViewState::new(2);
+        state.scroll_offset = 3; // e.g. tabs closed after scrolling
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 5));
+        TabView::new(&tabs, &state)
+            .style(TabViewStyle::left())
+            .render(Rect::new(0, 0, 40, 5), &mut buf);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 5));
+        TabView::new(&tabs, &state).render(Rect::new(0, 0, 40, 5), &mut buf);
+    }
+
+    #[test]
+    fn test_scroll_next_is_bounded() {
+        let tabs = [Tab::new("A"), Tab::new("B")];
+        let mut state = TabViewState::new(tabs.len());
+        let mut registry = ClickRegionRegistry::new();
+        registry.register(Rect::new(0, 0, 2, 1), TabViewAction::ScrollNext);
+        let click = MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            column: 0,
+            row: 0,
+            modifiers: crossterm::event::KeyModifiers::NONE,
+        };
+        for _ in 0..10 {
+            handle_tab_view_mouse(&mut state, &registry, &click);
+        }
+        assert_eq!(state.scroll_offset, 1);
+    }
+
+    #[test]
+    fn test_disabled_tab_skipped_by_keys() {
+        let tabs = vec![Tab::new("A"), Tab::new("B").enabled(false), Tab::new("C")];
+        let mut state = TabViewState::new(3);
+        handle_tab_view_key_with_tabs(&mut state, &press(KeyCode::Right), TabPosition::Top, &tabs);
+        assert_eq!(state.selected_index, 2);
+        handle_tab_view_key_with_tabs(&mut state, &press(KeyCode::Left), TabPosition::Top, &tabs);
+        assert_eq!(state.selected_index, 0);
+        handle_tab_view_key_with_tabs(
+            &mut state,
+            &press(KeyCode::Char('2')),
+            TabPosition::Top,
+            &tabs,
+        );
+        assert_eq!(state.selected_index, 0);
+
+        let tabs = vec![
+            Tab::new("A").enabled(false),
+            Tab::new("B"),
+            Tab::new("C").enabled(false),
+        ];
+        handle_tab_view_key_with_tabs(&mut state, &press(KeyCode::End), TabPosition::Top, &tabs);
+        assert_eq!(state.selected_index, 1);
+        handle_tab_view_key_with_tabs(&mut state, &press(KeyCode::Home), TabPosition::Top, &tabs);
+        assert_eq!(state.selected_index, 1);
+    }
+
+    #[test]
+    fn test_disabled_tab_has_no_click_region() {
+        let tabs = vec![Tab::new("A"), Tab::new("B").enabled(false), Tab::new("C")];
+        let state = TabViewState::new(3);
+        for style in [TabViewStyle::default(), TabViewStyle::left()] {
+            let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+            let regions = TabView::new(&tabs, &state)
+                .style(style)
+                .render_stateful(Rect::new(0, 0, 40, 10), &mut buf);
+            assert!(
+                !regions
+                    .iter()
+                    .any(|(_, a)| *a == TabViewAction::TabClick(1))
+            );
+            assert!(
+                regions
+                    .iter()
+                    .any(|(_, a)| *a == TabViewAction::TabClick(2))
+            );
+        }
+    }
+
+    #[test]
+    fn test_selected_tab_stays_inside_area() {
+        // " label " is display_width, but the selected tab renders "▸ label "
+        let tabs = vec![Tab::new("AAAA"), Tab::new("BBBB")];
+        let state = TabViewState::new(2);
+        let style = TabViewStyle::default().divider("").bordered_content(false);
+        let w: u16 = tabs.iter().map(|t| t.display_width() as u16).sum();
+        let mut buf = Buffer::empty(Rect::new(0, 0, w + 5, 3));
+        TabView::new(&tabs, &state)
+            .style(style)
+            .render(Rect::new(0, 0, w, 3), &mut buf);
+        assert_eq!(buf[(w, 0)].symbol(), " ");
     }
 }

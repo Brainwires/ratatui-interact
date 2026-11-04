@@ -42,14 +42,18 @@ impl HotkeyFocus {
 /// Click region for category items.
 #[derive(Debug, Clone)]
 pub struct CategoryClickRegion<C> {
+    /// Screen area of the category entry
     pub area: Rect,
+    /// Category selected by clicking this region
     pub category: C,
 }
 
 /// Click region for hotkey items.
 #[derive(Debug, Clone)]
 pub struct HotkeyClickRegion {
+    /// Screen area of the hotkey entry
     pub area: Rect,
+    /// Index of the hotkey within the current view
     pub index: usize,
 }
 
@@ -78,6 +82,9 @@ pub struct HotkeyDialogState<C: HotkeyCategory> {
     pub hotkey_click_regions: Vec<HotkeyClickRegion>,
     /// Cached current entries count (updated during render)
     cached_entry_count: usize,
+    /// Selection that render last scrolled into view (so render does not
+    /// undo mouse-wheel scrolling while the selection is unchanged)
+    last_visible_selection: Option<usize>,
 }
 
 impl<C: HotkeyCategory> Default for HotkeyDialogState<C> {
@@ -100,6 +107,7 @@ impl<C: HotkeyCategory> HotkeyDialogState<C> {
             category_click_regions: Vec::new(),
             hotkey_click_regions: Vec::new(),
             cached_entry_count: 0,
+            last_visible_selection: None,
         }
     }
 
@@ -233,6 +241,7 @@ impl<C: HotkeyCategory> HotkeyDialogState<C> {
         if let Some(c) = self.search_query[byte_pos..].chars().next() {
             self.search_query
                 .replace_range(byte_pos..byte_pos + c.len_utf8(), "");
+            self.hotkey_scroll = 0;
             self.selected_hotkey_idx = 0;
             return true;
         }
@@ -246,6 +255,7 @@ impl<C: HotkeyCategory> HotkeyDialogState<C> {
             if let Some(c) = self.search_query[byte_pos..].chars().next() {
                 self.search_query
                     .replace_range(byte_pos..byte_pos + c.len_utf8(), "");
+                self.hotkey_scroll = 0;
                 self.selected_hotkey_idx = 0;
                 return true;
             }
@@ -364,7 +374,17 @@ impl<C: HotkeyCategory> HotkeyDialogState<C> {
         if self.selected_hotkey_idx < self.hotkey_scroll {
             self.hotkey_scroll = self.selected_hotkey_idx;
         } else if self.selected_hotkey_idx >= self.hotkey_scroll + visible_height {
-            self.hotkey_scroll = self.selected_hotkey_idx - visible_height + 1;
+            self.hotkey_scroll = (self.selected_hotkey_idx + 1).saturating_sub(visible_height);
+        }
+        self.last_visible_selection = Some(self.selected_hotkey_idx);
+    }
+
+    /// Like [`ensure_hotkey_visible`](Self::ensure_hotkey_visible), but only
+    /// when the selection changed since the last call, so that scrolling
+    /// with the mouse wheel is not undone on the next render.
+    pub(crate) fn ensure_hotkey_visible_if_changed(&mut self, visible_height: usize) {
+        if self.last_visible_selection != Some(self.selected_hotkey_idx) {
+            self.ensure_hotkey_visible(visible_height);
         }
     }
 }
@@ -485,5 +505,33 @@ mod tests {
 
         state.clear_search();
         assert!(!state.is_searching());
+    }
+
+    #[test]
+    fn test_delete_char_resets_scroll() {
+        let mut state: HotkeyDialogState<TestCategory> = HotkeyDialogState::new();
+        state.insert_char('a');
+        state.insert_char('b');
+        state.hotkey_scroll = 7;
+        assert!(state.delete_char_backward());
+        assert_eq!(state.hotkey_scroll, 0);
+
+        state.hotkey_scroll = 7;
+        state.move_cursor_home();
+        assert!(state.delete_char_forward());
+        assert_eq!(state.hotkey_scroll, 0);
+    }
+
+    #[test]
+    fn test_ensure_visible_only_on_selection_change() {
+        let mut state: HotkeyDialogState<TestCategory> = HotkeyDialogState::new();
+        state.update_entry_count(100);
+        state.ensure_hotkey_visible_if_changed(10);
+        state.scroll_hotkeys_down(3);
+        state.ensure_hotkey_visible_if_changed(10);
+        assert_eq!(state.hotkey_scroll, 3, "wheel scroll undone");
+        state.next_hotkey(); // selection 1 is above the viewport
+        state.ensure_hotkey_visible_if_changed(10);
+        assert_eq!(state.hotkey_scroll, 1);
     }
 }
