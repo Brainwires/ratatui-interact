@@ -255,26 +255,27 @@ fn main() -> io::Result<()> {
                     app.dialog_state.focus.first();
                 }
             }
-        } else if let Event::Mouse(mouse) = event::read().unwrap_or(Event::FocusGained) {
-            if app.dialog_state.is_visible() && is_left_click(&mouse) {
-                // Handle dialog mouse events
-                let screen = terminal.get_frame().area();
-                let result = PopupDialog::new(&app.config, &mut app.dialog_state, |_, _, _| {})
-                    .handle_mouse_with_screen(mouse, screen);
+        } else if let Event::Mouse(mouse) = event::read().unwrap_or(Event::FocusGained)
+            && app.dialog_state.is_visible()
+            && is_left_click(&mouse)
+        {
+            // Handle dialog mouse events
+            let screen = terminal.get_frame().area();
+            let result = PopupDialog::new(&app.config, &mut app.dialog_state, |_, _, _| {})
+                .handle_mouse_with_screen(mouse, screen);
 
-                match result {
-                    EventResult::Action(ContainerAction::Submit) => {
-                        app.message = app.get_settings_summary();
-                    }
-                    EventResult::Action(ContainerAction::Close) => {
-                        app.message = "Settings cancelled".to_string();
-                    }
-                    EventResult::NotHandled => {
-                        // Check content click regions
-                        app.handle_dialog_click(mouse.column, mouse.row);
-                    }
-                    _ => {}
+            match result {
+                EventResult::Action(ContainerAction::Submit) => {
+                    app.message = app.get_settings_summary();
                 }
+                EventResult::Action(ContainerAction::Close) => {
+                    app.message = "Settings cancelled".to_string();
+                }
+                EventResult::NotHandled => {
+                    // Check content click regions
+                    app.handle_dialog_click(mouse.column, mouse.row);
+                }
+                _ => {}
             }
         }
 

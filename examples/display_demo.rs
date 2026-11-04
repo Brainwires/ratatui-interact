@@ -357,13 +357,13 @@ fn main() -> io::Result<()> {
         terminal.draw(|f| ui(f, &mut app))?;
 
         // Non-blocking event handling
-        if event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key) = event::read()? {
-                if is_close_key(&key) || key.code == KeyCode::Char('q') {
-                    app.should_quit = true;
-                } else {
-                    app.handle_key(key.code);
-                }
+        if event::poll(Duration::from_millis(50))?
+            && let Event::Key(key) = event::read()?
+        {
+            if is_close_key(&key) || key.code == KeyCode::Char('q') {
+                app.should_quit = true;
+            } else {
+                app.handle_key(key.code);
             }
         }
 

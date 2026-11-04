@@ -251,14 +251,14 @@ impl<C: HotkeyCategory> HotkeyDialogState<C> {
     /// Delete character at cursor.
     pub fn delete_char_forward(&mut self) -> bool {
         let byte_pos = self.char_to_byte_index(self.search_cursor_pos);
-        if byte_pos < self.search_query.len() {
-            if let Some(c) = self.search_query[byte_pos..].chars().next() {
-                self.search_query
-                    .replace_range(byte_pos..byte_pos + c.len_utf8(), "");
-                self.hotkey_scroll = 0;
-                self.selected_hotkey_idx = 0;
-                return true;
-            }
+        if byte_pos < self.search_query.len()
+            && let Some(c) = self.search_query[byte_pos..].chars().next()
+        {
+            self.search_query
+                .replace_range(byte_pos..byte_pos + c.len_utf8(), "");
+            self.hotkey_scroll = 0;
+            self.selected_hotkey_idx = 0;
+            return true;
         }
         false
     }

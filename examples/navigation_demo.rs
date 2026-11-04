@@ -371,10 +371,10 @@ impl App {
                 }
             },
             KeyCode::Left => {
-                if self.focused_panel == FocusedPanel::Tree {
-                    if let Some(id) = get_selected_id(&self.tree_nodes, &self.tree_state) {
-                        self.tree_state.collapse(&id);
-                    }
+                if self.focused_panel == FocusedPanel::Tree
+                    && let Some(id) = get_selected_id(&self.tree_nodes, &self.tree_state)
+                {
+                    self.tree_state.collapse(&id);
                 }
             }
             KeyCode::Right if self.focused_panel == FocusedPanel::Tree => {

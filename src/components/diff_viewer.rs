@@ -816,19 +816,19 @@ impl DiffViewerState {
             })
         };
 
-        if let Some(row) = anchor {
-            if let Some(new_idx) = map_row(row) {
-                self.scroll_y = new_idx;
-            }
+        if let Some(row) = anchor
+            && let Some(new_idx) = map_row(row)
+        {
+            self.scroll_y = new_idx;
         }
         self.scroll_y = self.scroll_y.min(new_rows.len().saturating_sub(1));
 
         if !self.search.query.is_empty() {
             self.recompute_search_matches();
-            if let Some(target) = current_match_row.and_then(map_row) {
-                if let Some(pos) = self.search.matches.iter().position(|&m| m == target) {
-                    self.search.current_match = pos;
-                }
+            if let Some(target) = current_match_row.and_then(map_row)
+                && let Some(pos) = self.search.matches.iter().position(|&m| m == target)
+            {
+                self.search.current_match = pos;
             }
         }
     }

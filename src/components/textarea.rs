@@ -1132,23 +1132,24 @@ impl<'a> TextArea<'a> {
         let use_terminal_cursor = self.style.cursor_mode == CursorMode::Terminal;
 
         // Handle empty state with placeholder
-        if state.is_empty() && !state.focused {
-            if let Some(placeholder) = self.placeholder {
-                let display_line = Line::from(Span::styled(
-                    placeholder,
-                    Style::default().fg(self.style.placeholder_fg),
-                ));
-                let paragraph = Paragraph::new(display_line);
+        if state.is_empty()
+            && !state.focused
+            && let Some(placeholder) = self.placeholder
+        {
+            let display_line = Line::from(Span::styled(
+                placeholder,
+                Style::default().fg(self.style.placeholder_fg),
+            ));
+            let paragraph = Paragraph::new(display_line);
 
-                if let Some(block) = block {
-                    frame.render_widget(block, area);
-                }
-                frame.render_widget(paragraph, inner_area);
-                return TextAreaRender {
-                    click_region: ClickRegion::new(area, TextAreaAction::Focus),
-                    cursor_position: None,
-                };
+            if let Some(block) = block {
+                frame.render_widget(block, area);
             }
+            frame.render_widget(paragraph, inner_area);
+            return TextAreaRender {
+                click_region: ClickRegion::new(area, TextAreaAction::Focus),
+                cursor_position: None,
+            };
         }
 
         let mut display_lines: Vec<Line> = Vec::new();
@@ -1356,40 +1357,40 @@ impl<'a> TextArea<'a> {
                 let display_row = (line_idx - start_line) as u16;
 
                 // Check if we have pre-styled content lines
-                if let Some(ref content) = self.content_lines {
-                    if line_idx < content.len() {
-                        let mut spans = Vec::new();
+                if let Some(ref content) = self.content_lines
+                    && line_idx < content.len()
+                {
+                    let mut spans = Vec::new();
 
-                        // Line number
-                        if self.style.show_line_numbers {
-                            let line_num = format!(
-                                "{:>width$} ",
-                                line_idx + 1,
-                                width = line_num_width.saturating_sub(2)
-                            );
-                            spans.push(Span::styled(
-                                line_num,
-                                Style::default().fg(self.style.line_number_fg),
-                            ));
-                        }
-
-                        // Use pre-styled content
-                        spans.extend(content[line_idx].spans.iter().cloned());
-                        display_lines.push(Line::from(spans));
-
-                        // Calculate cursor position for terminal mode
-                        if is_cursor_line && state.focused && use_terminal_cursor {
-                            let col = line_num_width
-                                + display_width_between(
-                                    &state.lines[line_idx],
-                                    state.scroll_x,
-                                    state.cursor_col,
-                                );
-                            cursor_screen_pos =
-                                cursor_screen_position(inner_area, col, display_row as usize);
-                        }
-                        continue;
+                    // Line number
+                    if self.style.show_line_numbers {
+                        let line_num = format!(
+                            "{:>width$} ",
+                            line_idx + 1,
+                            width = line_num_width.saturating_sub(2)
+                        );
+                        spans.push(Span::styled(
+                            line_num,
+                            Style::default().fg(self.style.line_number_fg),
+                        ));
                     }
+
+                    // Use pre-styled content
+                    spans.extend(content[line_idx].spans.iter().cloned());
+                    display_lines.push(Line::from(spans));
+
+                    // Calculate cursor position for terminal mode
+                    if is_cursor_line && state.focused && use_terminal_cursor {
+                        let col = line_num_width
+                            + display_width_between(
+                                &state.lines[line_idx],
+                                state.scroll_x,
+                                state.cursor_col,
+                            );
+                        cursor_screen_pos =
+                            cursor_screen_position(inner_area, col, display_row as usize);
+                    }
+                    continue;
                 }
 
                 let line = &state.lines[line_idx];

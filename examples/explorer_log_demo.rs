@@ -155,14 +155,14 @@ impl App {
                 self.explorer.cursor_down();
             }
             KeyCode::Enter => {
-                if let Some(entry) = self.explorer.current_entry() {
-                    if entry.is_dir() {
-                        let path = entry.path.clone();
-                        let name = entry.name.clone();
-                        self.explorer.enter_directory(path);
-                        self.log_action(&format!("[INFO] Entered: {}", name));
-                        self.toast.push_auto(format!("Entering: {}", name), 2000);
-                    }
+                if let Some(entry) = self.explorer.current_entry()
+                    && entry.is_dir()
+                {
+                    let path = entry.path.clone();
+                    let name = entry.name.clone();
+                    self.explorer.enter_directory(path);
+                    self.log_action(&format!("[INFO] Entered: {}", name));
+                    self.toast.push_auto(format!("Entering: {}", name), 2000);
                 }
             }
             KeyCode::Backspace => {

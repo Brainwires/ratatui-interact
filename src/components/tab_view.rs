@@ -676,19 +676,19 @@ where
                 .0;
 
             // Render badge if present (included in click region)
-            if let Some(badge) = tab.badge {
-                if x < tabs_right {
-                    let badge_text = format!(" {} ", badge);
-                    x = buf
-                        .set_stringn(
-                            x,
-                            y,
-                            &badge_text,
-                            (tabs_right - x) as usize,
-                            self.style.badge_style,
-                        )
-                        .0;
-                }
+            if let Some(badge) = tab.badge
+                && x < tabs_right
+            {
+                let badge_text = format!(" {} ", badge);
+                x = buf
+                    .set_stringn(
+                        x,
+                        y,
+                        &badge_text,
+                        (tabs_right - x) as usize,
+                        self.style.badge_style,
+                    )
+                    .0;
             }
 
             // Calculate actual tab width and register click region
@@ -1087,26 +1087,26 @@ pub fn handle_tab_view_mouse(
 ) -> Option<TabViewAction> {
     use crossterm::event::{MouseButton, MouseEventKind};
 
-    if let MouseEventKind::Down(MouseButton::Left) = mouse.kind {
-        if let Some(action) = registry.handle_click(mouse.column, mouse.row) {
-            match action {
-                TabViewAction::TabClick(idx) => {
-                    state.select(*idx);
-                    state.tab_bar_focused = true;
-                    return Some(*action);
+    if let MouseEventKind::Down(MouseButton::Left) = mouse.kind
+        && let Some(action) = registry.handle_click(mouse.column, mouse.row)
+    {
+        match action {
+            TabViewAction::TabClick(idx) => {
+                state.select(*idx);
+                state.tab_bar_focused = true;
+                return Some(*action);
+            }
+            TabViewAction::ScrollPrev => {
+                if state.scroll_offset > 0 {
+                    state.scroll_offset -= 1;
                 }
-                TabViewAction::ScrollPrev => {
-                    if state.scroll_offset > 0 {
-                        state.scroll_offset -= 1;
-                    }
-                    return Some(*action);
+                return Some(*action);
+            }
+            TabViewAction::ScrollNext => {
+                if state.scroll_offset + 1 < state.total_tabs {
+                    state.scroll_offset += 1;
                 }
-                TabViewAction::ScrollNext => {
-                    if state.scroll_offset + 1 < state.total_tabs {
-                        state.scroll_offset += 1;
-                    }
-                    return Some(*action);
-                }
+                return Some(*action);
             }
         }
     }

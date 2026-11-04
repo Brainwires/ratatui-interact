@@ -82,15 +82,16 @@ pub use animated_text::{
 };
 pub use breadcrumb::{
     Breadcrumb, BreadcrumbAction, BreadcrumbItem, BreadcrumbState, BreadcrumbStyle,
-    get_hovered_index as breadcrumb_hovered_index, handle_breadcrumb_key, handle_breadcrumb_mouse,
+    get_hovered_index as breadcrumb_hovered_index, handle_breadcrumb_key,
+    handle_breadcrumb_key_with_style, handle_breadcrumb_mouse,
 };
 pub use button::{Button, ButtonAction, ButtonState, ButtonStyle, ButtonVariant};
 pub use checkbox::{CheckBox, CheckBoxAction, CheckBoxState, CheckBoxStyle};
 pub use container::{DialogConfig, DialogFocusTarget, DialogState, PopupDialog};
 pub use context_menu::{
     ContextMenu, ContextMenuAction, ContextMenuItem, ContextMenuState, ContextMenuStyle,
-    calculate_menu_height, handle_context_menu_key, handle_context_menu_mouse,
-    is_context_menu_trigger,
+    calculate_menu_height, handle_context_menu_key, handle_context_menu_key_with_style,
+    handle_context_menu_mouse, is_context_menu_trigger,
 };
 pub use diff_viewer::{
     DiffData, DiffHunk, DiffLine, DiffLineType, DiffViewMode, DiffViewer, DiffViewerAction,
@@ -115,7 +116,7 @@ pub use marquee::{
 pub use menu_bar::{
     Menu, MenuBar, MenuBarAction, MenuBarClickTarget, MenuBarItem, MenuBarState, MenuBarStyle,
     calculate_dropdown_height as menu_bar_dropdown_height, calculate_menu_bar_height,
-    handle_menu_bar_key, handle_menu_bar_mouse,
+    handle_menu_bar_key, handle_menu_bar_key_with_style, handle_menu_bar_mouse,
 };
 pub use mouse_pointer::{MousePointer, MousePointerState, MousePointerStyle};
 pub use paragraph_ext::ParagraphExt;
@@ -126,7 +127,7 @@ pub use scrollable_content::{
 };
 pub use select::{
     Select, SelectAction, SelectState, SelectStyle, calculate_dropdown_height, handle_select_key,
-    handle_select_mouse,
+    handle_select_key_with_visible, handle_select_mouse,
 };
 pub use spinner::{LabelPosition, Spinner, SpinnerFrames, SpinnerState, SpinnerStyle};
 pub use split_pane::{
@@ -139,7 +140,7 @@ pub use step_display::{
 };
 pub use tab_view::{
     Tab, TabPosition, TabView, TabViewAction, TabViewState, TabViewStyle, handle_tab_view_key,
-    handle_tab_view_mouse,
+    handle_tab_view_key_with_tabs, handle_tab_view_mouse,
 };
 pub use textarea::{
     CursorMode, ScrollMode, TabConfig, TextArea, TextAreaAction, TextAreaRender, TextAreaState,

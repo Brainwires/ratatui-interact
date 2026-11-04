@@ -876,85 +876,82 @@ impl<'a> MenuBar<'a> {
                     }
 
                     // Render submenu if open
-                    if let Some(submenu_idx) = self.state.active_submenu {
-                        if let Some(MenuBarItem::Submenu { items, .. }) =
+                    if let Some(submenu_idx) = self.state.active_submenu
+                        && let Some(MenuBarItem::Submenu { items, .. }) =
                             menu.items.get(submenu_idx)
+                    {
+                        let submenu_x = dropdown_area.x.saturating_add(dropdown_area.width);
+                        let submenu_y = dropdown_area.y.saturating_add(1).saturating_add(
+                            (submenu_idx as u16).saturating_sub(self.state.scroll_offset),
+                        );
+
+                        let screen = frame.area();
+                        let screen_right = screen.x.saturating_add(screen.width);
+                        let screen_bottom = screen.y.saturating_add(screen.height);
+
+                        let submenu_width = self.calculate_dropdown_width(items);
+                        let submenu_height = self
+                            .calculate_dropdown_height(items.len())
+                            .min(screen.height);
+
+                        // Place the submenu to the right of the dropdown, or
+                        // to its left (without overlapping it) if it does not
+                        // fit. If neither side fits, use the side with more
+                        // room and clip the submenu.
+                        let room_right = screen_right.saturating_sub(submenu_x);
+                        let room_left = dropdown_area.x.saturating_sub(screen.x);
+                        let (final_x, final_width) = if submenu_width <= room_right {
+                            (submenu_x, submenu_width)
+                        } else if submenu_width <= room_left {
+                            (dropdown_area.x - submenu_width, submenu_width)
+                        } else if room_left > room_right {
+                            (screen.x, room_left)
+                        } else {
+                            (submenu_x, room_right)
+                        };
+
+                        // Keep the submenu vertically on screen
+                        let final_y = submenu_y
+                            .min(screen_bottom.saturating_sub(submenu_height))
+                            .max(screen.y);
+
+                        let submenu_area = Rect::new(final_x, final_y, final_width, submenu_height);
+
+                        // Clear and render submenu
+                        frame.render_widget(Clear, submenu_area);
+
+                        let block = Block::default()
+                            .borders(Borders::ALL)
+                            .border_style(Style::default().fg(self.style.dropdown_border))
+                            .style(Style::default().bg(self.style.dropdown_bg));
+
+                        let sub_inner = block.inner(submenu_area);
+                        frame.render_widget(block, submenu_area);
+
+                        let sub_visible = sub_inner.height as usize;
+                        let sub_scroll = self.state.submenu_scroll_offset as usize;
+
+                        for (display_idx, (item_idx, item)) in items
+                            .iter()
+                            .enumerate()
+                            .skip(sub_scroll)
+                            .take(sub_visible)
+                            .enumerate()
                         {
-                            let submenu_x = dropdown_area.x.saturating_add(dropdown_area.width);
-                            let submenu_y = dropdown_area.y.saturating_add(1).saturating_add(
-                                (submenu_idx as u16).saturating_sub(self.state.scroll_offset),
+                            let y = sub_inner.y + display_idx as u16;
+                            let item_area = Rect::new(sub_inner.x, y, sub_inner.width, 1);
+
+                            let is_highlighted = self.state.submenu_highlighted == Some(item_idx);
+
+                            self.render_menu_item(
+                                frame,
+                                item,
+                                item_area,
+                                is_highlighted,
+                                &mut regions,
+                                item_idx,
+                                true,
                             );
-
-                            let screen = frame.area();
-                            let screen_right = screen.x.saturating_add(screen.width);
-                            let screen_bottom = screen.y.saturating_add(screen.height);
-
-                            let submenu_width = self.calculate_dropdown_width(items);
-                            let submenu_height = self
-                                .calculate_dropdown_height(items.len())
-                                .min(screen.height);
-
-                            // Place the submenu to the right of the dropdown, or
-                            // to its left (without overlapping it) if it does not
-                            // fit. If neither side fits, use the side with more
-                            // room and clip the submenu.
-                            let room_right = screen_right.saturating_sub(submenu_x);
-                            let room_left = dropdown_area.x.saturating_sub(screen.x);
-                            let (final_x, final_width) = if submenu_width <= room_right {
-                                (submenu_x, submenu_width)
-                            } else if submenu_width <= room_left {
-                                (dropdown_area.x - submenu_width, submenu_width)
-                            } else if room_left > room_right {
-                                (screen.x, room_left)
-                            } else {
-                                (submenu_x, room_right)
-                            };
-
-                            // Keep the submenu vertically on screen
-                            let final_y = submenu_y
-                                .min(screen_bottom.saturating_sub(submenu_height))
-                                .max(screen.y);
-
-                            let submenu_area =
-                                Rect::new(final_x, final_y, final_width, submenu_height);
-
-                            // Clear and render submenu
-                            frame.render_widget(Clear, submenu_area);
-
-                            let block = Block::default()
-                                .borders(Borders::ALL)
-                                .border_style(Style::default().fg(self.style.dropdown_border))
-                                .style(Style::default().bg(self.style.dropdown_bg));
-
-                            let sub_inner = block.inner(submenu_area);
-                            frame.render_widget(block, submenu_area);
-
-                            let sub_visible = sub_inner.height as usize;
-                            let sub_scroll = self.state.submenu_scroll_offset as usize;
-
-                            for (display_idx, (item_idx, item)) in items
-                                .iter()
-                                .enumerate()
-                                .skip(sub_scroll)
-                                .take(sub_visible)
-                                .enumerate()
-                            {
-                                let y = sub_inner.y + display_idx as u16;
-                                let item_area = Rect::new(sub_inner.x, y, sub_inner.width, 1);
-
-                                let is_highlighted =
-                                    self.state.submenu_highlighted == Some(item_idx);
-
-                                self.render_menu_item(
-                                    frame,
-                                    item,
-                                    item_area,
-                                    is_highlighted,
-                                    &mut regions,
-                                    item_idx,
-                                    true,
-                                );
-                            }
                         }
                     }
 
@@ -1169,49 +1166,45 @@ pub fn handle_menu_bar_key_with_style(
     let viewport = |len: usize| (style.dropdown_max_height as usize).min(len);
 
     // If submenu is open, handle submenu navigation
-    if state.has_open_submenu() {
-        if let Some(menu) = menus.get(state.active_menu) {
-            if let Some(submenu_idx) = state.active_submenu {
-                if let Some(MenuBarItem::Submenu { items, .. }) = menu.items.get(submenu_idx) {
-                    match key.code {
-                        KeyCode::Esc | KeyCode::Left => {
-                            state.close_submenu();
-                            return Some(MenuBarAction::SubmenuClose);
-                        }
-                        KeyCode::Up => {
-                            state.prev_submenu_item(items);
-                            state.ensure_submenu_visible(viewport(items.len()));
-                            return Some(MenuBarAction::HighlightChange(
-                                state.active_menu,
-                                state.submenu_highlighted,
-                            ));
-                        }
-                        KeyCode::Down => {
-                            state.next_submenu_item(items);
-                            state.ensure_submenu_visible(viewport(items.len()));
-                            return Some(MenuBarAction::HighlightChange(
-                                state.active_menu,
-                                state.submenu_highlighted,
-                            ));
-                        }
-                        KeyCode::Enter | KeyCode::Char(' ') => {
-                            if let Some(idx) = state.submenu_highlighted {
-                                if let Some(item) = items.get(idx) {
-                                    if let MenuBarItem::Action { id, enabled, .. } = item {
-                                        if *enabled {
-                                            let action_id = id.clone();
-                                            state.close_menu();
-                                            return Some(MenuBarAction::ItemSelect(action_id));
-                                        }
-                                    }
-                                }
-                            }
-                            return None;
-                        }
-                        _ => return None,
-                    }
-                }
+    if state.has_open_submenu()
+        && let Some(menu) = menus.get(state.active_menu)
+        && let Some(submenu_idx) = state.active_submenu
+        && let Some(MenuBarItem::Submenu { items, .. }) = menu.items.get(submenu_idx)
+    {
+        match key.code {
+            KeyCode::Esc | KeyCode::Left => {
+                state.close_submenu();
+                return Some(MenuBarAction::SubmenuClose);
             }
+            KeyCode::Up => {
+                state.prev_submenu_item(items);
+                state.ensure_submenu_visible(viewport(items.len()));
+                return Some(MenuBarAction::HighlightChange(
+                    state.active_menu,
+                    state.submenu_highlighted,
+                ));
+            }
+            KeyCode::Down => {
+                state.next_submenu_item(items);
+                state.ensure_submenu_visible(viewport(items.len()));
+                return Some(MenuBarAction::HighlightChange(
+                    state.active_menu,
+                    state.submenu_highlighted,
+                ));
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                if let Some(idx) = state.submenu_highlighted
+                    && let Some(item) = items.get(idx)
+                    && let MenuBarItem::Action { id, enabled, .. } = item
+                    && *enabled
+                {
+                    let action_id = id.clone();
+                    state.close_menu();
+                    return Some(MenuBarAction::ItemSelect(action_id));
+                }
+                return None;
+            }
+            _ => return None,
         }
     }
 
@@ -1228,10 +1221,10 @@ pub fn handle_menu_bar_key_with_style(
                 break;
             }
         }
-        if state.is_open {
-            if let Some(menu) = menus.get(state.active_menu) {
-                state.highlight_first(&menu.items);
-            }
+        if state.is_open
+            && let Some(menu) = menus.get(state.active_menu)
+        {
+            state.highlight_first(&menu.items);
         }
     };
     // Open the active menu (if enabled) with its first item highlighted
@@ -1256,17 +1249,15 @@ pub fn handle_menu_bar_key_with_style(
         }
         KeyCode::Right => {
             // If on a submenu item, open it
-            if state.is_open {
-                if let Some(menu) = menus.get(state.active_menu) {
-                    if let Some(idx) = state.highlighted_item {
-                        if let Some(item) = menu.items.get(idx) {
-                            if item.has_submenu() && item.is_enabled() {
-                                state.open_submenu();
-                                return Some(MenuBarAction::SubmenuOpen(state.active_menu, idx));
-                            }
-                        }
-                    }
-                }
+            if state.is_open
+                && let Some(menu) = menus.get(state.active_menu)
+                && let Some(idx) = state.highlighted_item
+                && let Some(item) = menu.items.get(idx)
+                && item.has_submenu()
+                && item.is_enabled()
+            {
+                state.open_submenu();
+                return Some(MenuBarAction::SubmenuOpen(state.active_menu, idx));
             }
             step_menu(state, true);
             Some(MenuBarAction::HighlightChange(
@@ -1308,29 +1299,21 @@ pub fn handle_menu_bar_key_with_style(
         }
         KeyCode::Enter | KeyCode::Char(' ') => {
             if state.is_open {
-                if let Some(menu) = menus.get(state.active_menu) {
-                    if let Some(idx) = state.highlighted_item {
-                        if let Some(item) = menu.items.get(idx) {
-                            match item {
-                                MenuBarItem::Action { id, enabled, .. }
-                                    if *enabled && menu.enabled =>
-                                {
-                                    let action_id = id.clone();
-                                    state.close_menu();
-                                    return Some(MenuBarAction::ItemSelect(action_id));
-                                }
-                                MenuBarItem::Submenu { enabled, .. }
-                                    if *enabled && menu.enabled =>
-                                {
-                                    state.open_submenu();
-                                    return Some(MenuBarAction::SubmenuOpen(
-                                        state.active_menu,
-                                        idx,
-                                    ));
-                                }
-                                _ => {}
-                            }
+                if let Some(menu) = menus.get(state.active_menu)
+                    && let Some(idx) = state.highlighted_item
+                    && let Some(item) = menu.items.get(idx)
+                {
+                    match item {
+                        MenuBarItem::Action { id, enabled, .. } if *enabled && menu.enabled => {
+                            let action_id = id.clone();
+                            state.close_menu();
+                            return Some(MenuBarAction::ItemSelect(action_id));
                         }
+                        MenuBarItem::Submenu { enabled, .. } if *enabled && menu.enabled => {
+                            state.open_submenu();
+                            return Some(MenuBarAction::SubmenuOpen(state.active_menu, idx));
+                        }
+                        _ => {}
                     }
                 }
                 None
@@ -1430,46 +1413,39 @@ pub fn handle_menu_bar_mouse(
                             }
                         }
                         MenuBarClickTarget::DropdownItem(idx) => {
-                            if let Some(menu) = menus.get(state.active_menu) {
-                                if let Some(item) = menu.items.get(*idx) {
-                                    match item {
-                                        MenuBarItem::Action { id, enabled, .. } if *enabled => {
-                                            let action_id = id.clone();
-                                            state.close_menu();
-                                            return Some(MenuBarAction::ItemSelect(action_id));
-                                        }
-                                        MenuBarItem::Submenu { enabled, .. } if *enabled => {
-                                            state.highlighted_item = Some(*idx);
-                                            state.open_submenu();
-                                            return Some(MenuBarAction::SubmenuOpen(
-                                                state.active_menu,
-                                                *idx,
-                                            ));
-                                        }
-                                        _ => {}
+                            if let Some(menu) = menus.get(state.active_menu)
+                                && let Some(item) = menu.items.get(*idx)
+                            {
+                                match item {
+                                    MenuBarItem::Action { id, enabled, .. } if *enabled => {
+                                        let action_id = id.clone();
+                                        state.close_menu();
+                                        return Some(MenuBarAction::ItemSelect(action_id));
                                     }
+                                    MenuBarItem::Submenu { enabled, .. } if *enabled => {
+                                        state.highlighted_item = Some(*idx);
+                                        state.open_submenu();
+                                        return Some(MenuBarAction::SubmenuOpen(
+                                            state.active_menu,
+                                            *idx,
+                                        ));
+                                    }
+                                    _ => {}
                                 }
                             }
                         }
                         MenuBarClickTarget::SubmenuItem(idx) => {
-                            if let Some(menu) = menus.get(state.active_menu) {
-                                if let Some(submenu_idx) = state.active_submenu {
-                                    if let Some(MenuBarItem::Submenu { items, .. }) =
-                                        menu.items.get(submenu_idx)
-                                    {
-                                        if let Some(item) = items.get(*idx) {
-                                            if let MenuBarItem::Action { id, enabled, .. } = item {
-                                                if *enabled {
-                                                    let action_id = id.clone();
-                                                    state.close_menu();
-                                                    return Some(MenuBarAction::ItemSelect(
-                                                        action_id,
-                                                    ));
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                            if let Some(menu) = menus.get(state.active_menu)
+                                && let Some(submenu_idx) = state.active_submenu
+                                && let Some(MenuBarItem::Submenu { items, .. }) =
+                                    menu.items.get(submenu_idx)
+                                && let Some(item) = items.get(*idx)
+                                && let MenuBarItem::Action { id, enabled, .. } = item
+                                && *enabled
+                            {
+                                let action_id = id.clone();
+                                state.close_menu();
+                                return Some(MenuBarAction::ItemSelect(action_id));
                             }
                         }
                     }

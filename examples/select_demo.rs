@@ -234,81 +234,80 @@ fn main() -> io::Result<()> {
                     app.update_message(action);
                 }
             }
-        } else if let Event::Mouse(mouse) = event::read().unwrap_or(Event::FocusGained) {
-            if let crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) =
+        } else if let Event::Mouse(mouse) = event::read().unwrap_or(Event::FocusGained)
+            && let crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left) =
                 mouse.kind
-            {
-                // Check which select was clicked
-                let col = mouse.column;
-                let row = mouse.row;
+        {
+            // Check which select was clicked
+            let col = mouse.column;
+            let row = mouse.row;
 
-                // Check dropdown regions first (if any dropdown is open)
-                let mut handled = false;
-                if app.any_dropdown_open() {
-                    // Get the necessary values before borrowing mutably
-                    let focused = app.focused;
-                    let area = match focused {
-                        FocusedSelect::Color => app.color_area,
-                        FocusedSelect::Size => app.size_area,
-                        FocusedSelect::Priority => app.priority_area,
-                    };
-                    let regions = std::mem::take(&mut app.dropdown_regions);
+            // Check dropdown regions first (if any dropdown is open)
+            let mut handled = false;
+            if app.any_dropdown_open() {
+                // Get the necessary values before borrowing mutably
+                let focused = app.focused;
+                let area = match focused {
+                    FocusedSelect::Color => app.color_area,
+                    FocusedSelect::Size => app.size_area,
+                    FocusedSelect::Priority => app.priority_area,
+                };
+                let regions = std::mem::take(&mut app.dropdown_regions);
 
-                    let state = match focused {
-                        FocusedSelect::Color => &mut app.color_state,
-                        FocusedSelect::Size => &mut app.size_state,
-                        FocusedSelect::Priority => &mut app.priority_state,
-                    };
+                let state = match focused {
+                    FocusedSelect::Color => &mut app.color_state,
+                    FocusedSelect::Size => &mut app.size_state,
+                    FocusedSelect::Priority => &mut app.priority_state,
+                };
 
-                    if let Some(action) = handle_select_mouse(&mouse, state, area, &regions) {
-                        app.update_message(action);
-                        handled = true;
-                    }
-                    app.dropdown_regions = regions;
+                if let Some(action) = handle_select_mouse(&mouse, state, area, &regions) {
+                    app.update_message(action);
+                    handled = true;
                 }
+                app.dropdown_regions = regions;
+            }
 
-                if !handled {
-                    // Check if clicking on a select to focus/open it
-                    if col >= app.color_area.x
-                        && col < app.color_area.x + app.color_area.width
-                        && row >= app.color_area.y
-                        && row < app.color_area.y + app.color_area.height
-                    {
-                        app.close_all_dropdowns();
-                        app.color_state.focused = true;
-                        app.size_state.focused = false;
-                        app.priority_state.focused = false;
-                        app.focused = FocusedSelect::Color;
-                        app.color_state.open();
-                        app.update_message(SelectAction::Open);
-                    } else if col >= app.size_area.x
-                        && col < app.size_area.x + app.size_area.width
-                        && row >= app.size_area.y
-                        && row < app.size_area.y + app.size_area.height
-                    {
-                        app.close_all_dropdowns();
-                        app.color_state.focused = false;
-                        app.size_state.focused = true;
-                        app.priority_state.focused = false;
-                        app.focused = FocusedSelect::Size;
-                        app.size_state.open();
-                        app.update_message(SelectAction::Open);
-                    } else if col >= app.priority_area.x
-                        && col < app.priority_area.x + app.priority_area.width
-                        && row >= app.priority_area.y
-                        && row < app.priority_area.y + app.priority_area.height
-                    {
-                        app.close_all_dropdowns();
-                        app.color_state.focused = false;
-                        app.size_state.focused = false;
-                        app.priority_state.focused = true;
-                        app.focused = FocusedSelect::Priority;
-                        app.priority_state.open();
-                        app.update_message(SelectAction::Open);
-                    } else {
-                        // Clicked outside - close dropdowns
-                        app.close_all_dropdowns();
-                    }
+            if !handled {
+                // Check if clicking on a select to focus/open it
+                if col >= app.color_area.x
+                    && col < app.color_area.x + app.color_area.width
+                    && row >= app.color_area.y
+                    && row < app.color_area.y + app.color_area.height
+                {
+                    app.close_all_dropdowns();
+                    app.color_state.focused = true;
+                    app.size_state.focused = false;
+                    app.priority_state.focused = false;
+                    app.focused = FocusedSelect::Color;
+                    app.color_state.open();
+                    app.update_message(SelectAction::Open);
+                } else if col >= app.size_area.x
+                    && col < app.size_area.x + app.size_area.width
+                    && row >= app.size_area.y
+                    && row < app.size_area.y + app.size_area.height
+                {
+                    app.close_all_dropdowns();
+                    app.color_state.focused = false;
+                    app.size_state.focused = true;
+                    app.priority_state.focused = false;
+                    app.focused = FocusedSelect::Size;
+                    app.size_state.open();
+                    app.update_message(SelectAction::Open);
+                } else if col >= app.priority_area.x
+                    && col < app.priority_area.x + app.priority_area.width
+                    && row >= app.priority_area.y
+                    && row < app.priority_area.y + app.priority_area.height
+                {
+                    app.close_all_dropdowns();
+                    app.color_state.focused = false;
+                    app.size_state.focused = false;
+                    app.priority_state.focused = true;
+                    app.focused = FocusedSelect::Priority;
+                    app.priority_state.open();
+                    app.update_message(SelectAction::Open);
+                } else {
+                    // Clicked outside - close dropdowns
+                    app.close_all_dropdowns();
                 }
             }
         }

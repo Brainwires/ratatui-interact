@@ -139,19 +139,19 @@ impl App {
         );
 
         // Update focus based on where user clicked
-        if let Some(action) = action {
-            if action == SplitPaneAction::DividerDrag {
-                self.focused_split = FocusedSplit::Main;
-                self.split_state.divider_focused = true;
-                self.nested_split_state.divider_focused = false;
-            }
+        if let Some(action) = action
+            && action == SplitPaneAction::DividerDrag
+        {
+            self.focused_split = FocusedSplit::Main;
+            self.split_state.divider_focused = true;
+            self.nested_split_state.divider_focused = false;
         }
-        if let Some(action) = nested_action {
-            if action == SplitPaneAction::DividerDrag {
-                self.focused_split = FocusedSplit::Nested;
-                self.nested_split_state.divider_focused = true;
-                self.split_state.divider_focused = false;
-            }
+        if let Some(action) = nested_action
+            && action == SplitPaneAction::DividerDrag
+        {
+            self.focused_split = FocusedSplit::Nested;
+            self.nested_split_state.divider_focused = true;
+            self.split_state.divider_focused = false;
         }
     }
 

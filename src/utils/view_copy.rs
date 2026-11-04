@@ -258,17 +258,17 @@ impl ViewCopyMode {
         let _raw = RawModeGuard::enable()?;
 
         let action = loop {
-            if event::poll(std::time::Duration::from_millis(100))? {
-                if let Event::Key(key) = event::read()? {
-                    // Only react to presses (Windows also reports releases)
-                    if key.kind != KeyEventKind::Press {
-                        continue;
-                    }
-                    if self.config.exit_keys.contains(&key.code) {
-                        break ViewCopyAction::Exit;
-                    } else if key.code == self.config.toggle_key {
-                        break ViewCopyAction::ToggleLineNumbers;
-                    }
+            if event::poll(std::time::Duration::from_millis(100))?
+                && let Event::Key(key) = event::read()?
+            {
+                // Only react to presses (Windows also reports releases)
+                if key.kind != KeyEventKind::Press {
+                    continue;
+                }
+                if self.config.exit_keys.contains(&key.code) {
+                    break ViewCopyAction::Exit;
+                } else if key.code == self.config.toggle_key {
+                    break ViewCopyAction::ToggleLineNumbers;
                 }
             }
         };

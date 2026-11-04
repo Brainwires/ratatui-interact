@@ -183,10 +183,10 @@ impl SelectState {
     /// Update total options count.
     pub fn set_total(&mut self, total: usize) {
         self.total_options = total;
-        if let Some(idx) = self.selected_index {
-            if idx >= total {
-                self.selected_index = if total > 0 { Some(total - 1) } else { None };
-            }
+        if let Some(idx) = self.selected_index
+            && idx >= total
+        {
+            self.selected_index = if total > 0 { Some(total - 1) } else { None };
         }
         if self.highlighted_index >= total && total > 0 {
             self.highlighted_index = total - 1;
@@ -791,11 +791,11 @@ pub fn handle_select_mouse(
         if state.is_open {
             // Check if clicked on an option
             for region in dropdown_regions {
-                if region.contains(col, row) {
-                    if let SelectAction::Select(idx) = region.data {
-                        state.select(idx);
-                        return Some(SelectAction::Select(idx));
-                    }
+                if region.contains(col, row)
+                    && let SelectAction::Select(idx) = region.data
+                {
+                    state.select(idx);
+                    return Some(SelectAction::Select(idx));
                 }
             }
 

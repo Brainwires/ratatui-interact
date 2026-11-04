@@ -548,7 +548,7 @@ impl<'a> AnimatedText<'a> {
         let hash = char_index
             .wrapping_mul(31)
             .wrapping_add(self.state.sparkle_seed as usize);
-        hash % 8 == 0 // ~12.5% chance
+        hash.is_multiple_of(8) // ~12.5% chance
     }
 
     /// Get color for sparkle effect

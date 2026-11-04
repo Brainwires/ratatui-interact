@@ -798,41 +798,40 @@ impl<'a> ContextMenu<'a> {
         // Render submenu if open
         if let (Some(submenu_idx), Some(submenu_state)) =
             (self.state.active_submenu, &self.state.submenu_state)
+            && let Some(ContextMenuItem::Submenu { items, .. }) = self.items.get(submenu_idx)
         {
-            if let Some(ContextMenuItem::Submenu { items, .. }) = self.items.get(submenu_idx) {
-                // Position submenu to the right of the parent item
-                let submenu_anchor_x = menu_area.x.saturating_add(menu_area.width);
-                let submenu_anchor_y = menu_area
-                    .y
-                    .saturating_add(1)
-                    .saturating_add((submenu_idx as u16).saturating_sub(self.state.scroll_offset));
+            // Position submenu to the right of the parent item
+            let submenu_anchor_x = menu_area.x.saturating_add(menu_area.width);
+            let submenu_anchor_y = menu_area
+                .y
+                .saturating_add(1)
+                .saturating_add((submenu_idx as u16).saturating_sub(self.state.scroll_offset));
 
-                let mut adjusted_state = (**submenu_state).clone();
-                adjusted_state.anchor_position = (submenu_anchor_x, submenu_anchor_y);
+            let mut adjusted_state = (**submenu_state).clone();
+            adjusted_state.anchor_position = (submenu_anchor_x, submenu_anchor_y);
 
-                let mut adjusted_submenu =
-                    ContextMenu::new(items, &adjusted_state).style(self.style.clone());
+            let mut adjusted_submenu =
+                ContextMenu::new(items, &adjusted_state).style(self.style.clone());
 
-                // If it does not fit on the right, place it to the left of the
-                // parent menu (not on top of it). If neither side fits, use
-                // the side with more room (the submenu is clipped).
-                let sub_width = adjusted_submenu.calculate_width();
-                let screen_right = screen.x.saturating_add(screen.width);
-                let room_right = screen_right.saturating_sub(submenu_anchor_x);
-                let room_left = menu_area.x.saturating_sub(screen.x);
-                adjusted_submenu.forced_x = Some(if sub_width <= room_right {
-                    submenu_anchor_x
-                } else if sub_width <= room_left || room_left > room_right {
-                    menu_area.x.saturating_sub(sub_width).max(screen.x)
-                } else {
-                    submenu_anchor_x
-                });
+            // If it does not fit on the right, place it to the left of the
+            // parent menu (not on top of it). If neither side fits, use
+            // the side with more room (the submenu is clipped).
+            let sub_width = adjusted_submenu.calculate_width();
+            let screen_right = screen.x.saturating_add(screen.width);
+            let room_right = screen_right.saturating_sub(submenu_anchor_x);
+            let room_left = menu_area.x.saturating_sub(screen.x);
+            adjusted_submenu.forced_x = Some(if sub_width <= room_right {
+                submenu_anchor_x
+            } else if sub_width <= room_left || room_left > room_right {
+                menu_area.x.saturating_sub(sub_width).max(screen.x)
+            } else {
+                submenu_anchor_x
+            });
 
-                // Submenu regions are appended after the parent's; the mouse
-                // handler hit-tests them first.
-                let (_, submenu_regions) = adjusted_submenu.render_stateful(frame, screen);
-                regions.extend(submenu_regions);
-            }
+            // Submenu regions are appended after the parent's; the mouse
+            // handler hit-tests them first.
+            let (_, submenu_regions) = adjusted_submenu.render_stateful(frame, screen);
+            regions.extend(submenu_regions);
         }
 
         (menu_area, regions)
@@ -881,33 +880,31 @@ pub fn handle_context_menu_key_with_style(
     // If submenu is open, delegate to it first
     if let (Some(submenu_idx), Some(submenu_state)) =
         (state.active_submenu, &mut state.submenu_state)
-    {
-        if let Some(ContextMenuItem::Submenu {
+        && let Some(ContextMenuItem::Submenu {
             items: sub_items, ..
         }) = items.get(submenu_idx)
-        {
-            match key.code {
-                KeyCode::Left | KeyCode::Esc => {
-                    state.close_submenu();
-                    return Some(ContextMenuAction::SubmenuClose);
-                }
-                _ => {
-                    if let Some(action) = handle_context_menu_key_with_style(
-                        key,
-                        submenu_state.as_mut(),
-                        sub_items,
-                        style,
-                    ) {
-                        // Selecting an item anywhere closes the whole menu
-                        if matches!(action, ContextMenuAction::Select(_)) {
-                            state.close();
-                        }
-                        return Some(action);
+    {
+        match key.code {
+            KeyCode::Left | KeyCode::Esc => {
+                state.close_submenu();
+                return Some(ContextMenuAction::SubmenuClose);
+            }
+            _ => {
+                if let Some(action) = handle_context_menu_key_with_style(
+                    key,
+                    submenu_state.as_mut(),
+                    sub_items,
+                    style,
+                ) {
+                    // Selecting an item anywhere closes the whole menu
+                    if matches!(action, ContextMenuAction::Select(_)) {
+                        state.close();
                     }
+                    return Some(action);
                 }
             }
-            return None;
         }
+        return None;
     }
 
     let viewport = (style.max_visible_items as usize).min(items.len());
@@ -956,11 +953,12 @@ pub fn handle_context_menu_key_with_style(
             }
         }
         KeyCode::Right => {
-            if let Some(item) = items.get(state.highlighted_index) {
-                if item.has_submenu() && item.is_enabled() {
-                    state.open_submenu();
-                    return Some(ContextMenuAction::SubmenuOpen(state.highlighted_index));
-                }
+            if let Some(item) = items.get(state.highlighted_index)
+                && item.has_submenu()
+                && item.is_enabled()
+            {
+                state.open_submenu();
+                return Some(ContextMenuAction::SubmenuOpen(state.highlighted_index));
             }
             None
         }

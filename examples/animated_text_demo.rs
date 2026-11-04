@@ -117,21 +117,21 @@ fn main() -> io::Result<()> {
         terminal.draw(|f| ui(f, &mut app))?;
 
         // Poll with timeout for animation
-        if event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key) = event::read()? {
-                if is_close_key(&key) || key.code == KeyCode::Char('q') {
-                    app.should_quit = true;
-                } else if key.code == KeyCode::Char(' ') {
-                    app.toggle_running();
-                } else if key.code == KeyCode::Up || key.code == KeyCode::Char('k') {
-                    app.select_prev();
-                } else if key.code == KeyCode::Down || key.code == KeyCode::Char('j') {
-                    app.select_next();
-                } else if key.code == KeyCode::Right || key.code == KeyCode::Char('l') {
-                    app.increase_wave_width();
-                } else if key.code == KeyCode::Left || key.code == KeyCode::Char('h') {
-                    app.decrease_wave_width();
-                }
+        if event::poll(Duration::from_millis(50))?
+            && let Event::Key(key) = event::read()?
+        {
+            if is_close_key(&key) || key.code == KeyCode::Char('q') {
+                app.should_quit = true;
+            } else if key.code == KeyCode::Char(' ') {
+                app.toggle_running();
+            } else if key.code == KeyCode::Up || key.code == KeyCode::Char('k') {
+                app.select_prev();
+            } else if key.code == KeyCode::Down || key.code == KeyCode::Char('j') {
+                app.select_next();
+            } else if key.code == KeyCode::Right || key.code == KeyCode::Char('l') {
+                app.increase_wave_width();
+            } else if key.code == KeyCode::Left || key.code == KeyCode::Char('h') {
+                app.decrease_wave_width();
             }
         }
 

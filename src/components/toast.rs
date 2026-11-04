@@ -127,11 +127,11 @@ impl ToastState {
 
     /// Clear the toast if it has expired
     pub fn clear_if_expired(&mut self) {
-        if let Some(expires) = self.expires_at {
-            if Self::is_expired(expires) {
-                self.message = None;
-                self.expires_at = None;
-            }
+        if let Some(expires) = self.expires_at
+            && Self::is_expired(expires)
+        {
+            self.message = None;
+            self.expires_at = None;
         }
     }
 

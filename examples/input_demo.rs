@@ -147,15 +147,15 @@ fn main() -> io::Result<()> {
                 if let Some(input) = app.current_input() {
                     input.move_right();
                 }
-            } else if let Some(c) = get_char(&key) {
-                if let Some(input) = app.current_input() {
-                    input.insert_char(c);
-                }
+            } else if let Some(c) = get_char(&key)
+                && let Some(input) = app.current_input()
+            {
+                input.insert_char(c);
             }
-        } else if let Event::Mouse(mouse) = event::read().unwrap_or(Event::FocusGained) {
-            if is_left_click(&mouse) {
-                app.handle_click(mouse.column, mouse.row);
-            }
+        } else if let Event::Mouse(mouse) = event::read().unwrap_or(Event::FocusGained)
+            && is_left_click(&mouse)
+        {
+            app.handle_click(mouse.column, mouse.row);
         }
 
         if app.should_quit {

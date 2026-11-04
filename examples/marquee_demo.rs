@@ -171,26 +171,26 @@ fn main() -> io::Result<()> {
         }
 
         // Poll for events with timeout
-        if event::poll(Duration::from_millis(10))? {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => {
-                        app.should_quit = true;
-                    }
-                    KeyCode::Char(' ') => {
-                        app.paused = !app.paused;
-                    }
-                    KeyCode::Char('r') => {
-                        app.reset_all();
-                    }
-                    KeyCode::Char('+') | KeyCode::Char('=') => {
-                        app.increase_speed();
-                    }
-                    KeyCode::Char('-') | KeyCode::Char('_') => {
-                        app.decrease_speed();
-                    }
-                    _ => {}
+        if event::poll(Duration::from_millis(10))?
+            && let Event::Key(key) = event::read()?
+        {
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Esc => {
+                    app.should_quit = true;
                 }
+                KeyCode::Char(' ') => {
+                    app.paused = !app.paused;
+                }
+                KeyCode::Char('r') => {
+                    app.reset_all();
+                }
+                KeyCode::Char('+') | KeyCode::Char('=') => {
+                    app.increase_speed();
+                }
+                KeyCode::Char('-') | KeyCode::Char('_') => {
+                    app.decrease_speed();
+                }
+                _ => {}
             }
         }
 

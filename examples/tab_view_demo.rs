@@ -101,10 +101,10 @@ fn main() -> io::Result<()> {
                 // Let tab view handle the key
                 handle_tab_view_key(&mut app.tab_state, &key, app.position);
             }
-        } else if let Event::Mouse(mouse) = event::read().unwrap_or(Event::FocusGained) {
-            if is_left_click(&mouse) {
-                app.handle_click(mouse.column, mouse.row);
-            }
+        } else if let Event::Mouse(mouse) = event::read().unwrap_or(Event::FocusGained)
+            && is_left_click(&mouse)
+        {
+            app.handle_click(mouse.column, mouse.row);
         }
 
         if app.should_quit {
