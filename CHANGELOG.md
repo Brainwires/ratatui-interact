@@ -5,7 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.4] - 2026-11-03
+
+An audit of every widget found about 60 bugs, each fixed with a regression test (737 unit tests, up from 614).
+
+### Security
+- `ParagraphExt` no longer writes control characters to the terminal: untrusted text could set the window title, clear the screen or write the clipboard (OSC 52)
+- The ANSI parser follows ECMA-48: private and intermediate CSI, OSC, DCS and other escape strings, a lone ESC and other control characters are dropped instead of passed through
+- `ViewCopyMode` and `ExitStrategy` sanitise the lines they print to stdout (only SGR colour codes are kept)
+
+### Fixed
+- Panics:
+  - `FileExplorer` on non-ASCII file names
+  - `SplitPane`, `TabView`, `ListPicker`, `ScrollableContent` and popups in small or narrow areas
+  - context-menu hover over a submenu that flipped upward; a menu-bar submenu taller than the screen
+  - `MousePointer` with an inline viewport; `ParagraphExt` with an area larger than the buffer
+  - u16 overflows in `TextArea` cursor maths and in toast durations
+- A hang: `MarqueeText` in continuous mode with wide characters
+- Clicks that triggered the wrong action:
+  - context-menu and menu-bar submenus drawn over their parent (a click on a visible submenu item selected the parent item underneath)
+  - `Button` with centred text, `Breadcrumb` with padding, and widths measured in bytes or characters instead of display columns
+- Keyboard:
+  - disabled menus and tabs can no longer be selected
+  - Left/Right in the menu bar highlights the first item
+  - an infinite loop when no menu item is selectable
+  - `Select` and the menus keep the highlighted item visible for any height
+- Wide (CJK) characters measured as one column in `ParagraphExt`, `TextArea`, `Input`, `DiffViewer`, `ListPicker`, `Checkbox`, `Button` and toasts
+- `TextArea`: the cursor stays visible in no-wrap and soft-wrap modes; a trailing newline survives `text()`
+- `Input`: long text scrolls to keep the cursor visible
+- `DiffViewer`: a deleted line starting with `-- ` (an SQL or Lua comment) is no longer taken as a file header; side-by-side mode scrolls, jumps and highlights search matches correctly
+- `TreeView`, `FileExplorer` search, `Accordion` borders, the hotkey dialog's mouse wheel and `StepDisplay` auto-scroll
+- `FileExplorer`: a relative start directory works with `..`, and listing errors keep the previous state
+- Theme files with missing fields load with defaults (`theme-serde`)
+- The clipboard keeps its contents on Linux after a copy
+- `mouse_capture` state stays in sync when the terminal write fails
+
+### Added
+- `handle_select_key_with_visible`, `handle_tab_view_key_with_tabs`, `handle_breadcrumb_key_with_style`, `handle_context_menu_key_with_style` and `handle_menu_bar_key_with_style`, for handlers that need the style or the item list
+- `FileExplorerState::try_enter_directory`, `try_go_up` and `try_toggle_hidden`, which return `io::Result`
+- `TreeViewState::toggle_collapsed_in`, `collapse_in`, `expand_in` and `select_id`, which keep the selection on the same node
+- `InputState::ensure_cursor_visible`, `LogViewerState::set_viewport` and `DiffViewerState::set_viewport`
+- `impl Default for ColorPalette`, `step_display::DEFAULT_MAX_OUTPUT_LINES`
+- CI: a per-feature build matrix, an MSRV job, tests on Linux, macOS and Windows, cargo-deny, and clippy on all targets
+
+### Deprecated
+- `PopupDialog::handle_mouse`: use `handle_mouse_with_screen`
+
 
 ### Changed
 - MSRV is now Rust 1.88 (the declared 1.85 could not build: ratatui 0.30 needs 1.88)
@@ -13,8 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs.rs builds with all features, so feature-gated APIs are documented
 - The README Quick Start is rewritten against the real API and is now compiled as a doctest, and the Cargo features are documented
 
-### Added
-- CI: a per-feature build matrix, an MSRV job, tests on Linux, macOS and Windows, cargo-deny, and clippy on all targets
 
 ## [0.5.3] - 2026-04-02
 
