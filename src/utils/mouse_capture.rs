@@ -221,6 +221,9 @@ mod tests {
         assert!(state.is_enabled());
     }
 
+    // On Windows crossterm switches mouse capture through the console API, not by writing
+    // escape sequences, so these byte-level checks only apply elsewhere.
+    #[cfg(not(windows))]
     #[test]
     fn test_enable_mouse_capture() {
         let mut buffer = Vec::new();
@@ -229,6 +232,9 @@ mod tests {
         assert!(!buffer.is_empty());
     }
 
+    // On Windows crossterm switches mouse capture through the console API, not by writing
+    // escape sequences, so these byte-level checks only apply elsewhere.
+    #[cfg(not(windows))]
     #[test]
     fn test_disable_mouse_capture() {
         let mut buffer = Vec::new();
@@ -254,6 +260,9 @@ mod tests {
         assert!(state.is_enabled());
     }
 
+    // On Windows crossterm switches mouse capture through the console API, not by writing
+    // escape sequences, so these byte-level checks only apply elsewhere.
+    #[cfg(not(windows))]
     #[test]
     fn test_set_mouse_capture() {
         let mut buffer = Vec::new();
@@ -270,8 +279,10 @@ mod tests {
     }
 
     /// A writer that always fails.
+    #[cfg(not(windows))]
     struct FailingWriter;
 
+    #[cfg(not(windows))]
     impl Write for FailingWriter {
         fn write(&mut self, _: &[u8]) -> io::Result<usize> {
             Err(io::Error::other("closed"))
@@ -281,6 +292,9 @@ mod tests {
         }
     }
 
+    // On Windows crossterm switches mouse capture through the console API, not by writing
+    // escape sequences, so these byte-level checks only apply elsewhere.
+    #[cfg(not(windows))]
     #[test]
     fn test_toggle_keeps_state_on_write_error() {
         let mut state = MouseCaptureState::enabled();
@@ -292,6 +306,9 @@ mod tests {
         assert!(!state.is_enabled());
     }
 
+    // On Windows crossterm switches mouse capture through the console API, not by writing
+    // escape sequences, so these byte-level checks only apply elsewhere.
+    #[cfg(not(windows))]
     #[test]
     fn test_set_keeps_state_on_write_error() {
         let mut state = MouseCaptureState::enabled();

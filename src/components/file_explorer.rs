@@ -910,8 +910,10 @@ mod tests {
 
     #[test]
     fn test_state_new() {
-        let state = FileExplorerState::new(PathBuf::from("/tmp"));
-        assert_eq!(state.current_dir, PathBuf::from("/tmp"));
+        // An absolute path that exists on every OS (`/tmp` is relative on Windows).
+        let dir = std::env::temp_dir();
+        let state = FileExplorerState::new(dir.clone());
+        assert_eq!(state.current_dir, dir);
         assert!(state.entries.is_empty());
         assert_eq!(state.cursor_index, 0);
         assert!(!state.show_hidden);
@@ -1035,7 +1037,7 @@ mod tests {
 
     #[test]
     fn test_toggle_hidden() {
-        let mut state = FileExplorerState::new(PathBuf::from("/tmp"));
+        let mut state = FileExplorerState::new(std::env::temp_dir());
         assert!(!state.show_hidden);
         state.toggle_hidden();
         assert!(state.show_hidden);
