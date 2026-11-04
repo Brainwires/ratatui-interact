@@ -46,13 +46,32 @@ use std::io::{self, Write};
 
 use crossterm::{
     cursor::MoveTo,
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyEventKind},
     execute,
     terminal::{
         Clear, ClearType, DisableLineWrap, EnableLineWrap, EnterAlternateScreen,
         LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
     },
 };
+
+use super::display::sanitize_for_terminal;
+
+/// Disables raw mode when dropped, so error paths never leave the terminal
+/// stuck in raw mode.
+struct RawModeGuard;
+
+impl RawModeGuard {
+    fn enable() -> io::Result<Self> {
+        enable_raw_mode()?;
+        Ok(Self)
+    }
+}
+
+impl Drop for RawModeGuard {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+    }
+}
 
 /// Action returned from waiting for input in View/Copy mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -141,18 +160,34 @@ impl ViewCopyMode {
         // Leave alternate screen and disable mouse capture
         execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
 
-        // Disable raw mode so println works
-        disable_raw_mode()?;
+        let result = (|| -> io::Result<()> {
+            // Disable raw mode so println works
+            disable_raw_mode()?;
 
-        // Clear screen and scrollback buffer
-        execute!(
-            stdout,
-            Clear(ClearType::Purge),
-            Clear(ClearType::All),
-            MoveTo(0, 0),
-            DisableLineWrap
-        )?;
-        stdout.flush()?;
+            // Clear screen and scrollback buffer
+            execute!(
+                stdout,
+                Clear(ClearType::Purge),
+                Clear(ClearType::All),
+                MoveTo(0, 0),
+                DisableLineWrap
+            )?;
+            stdout.flush()
+        })();
+
+        if let Err(err) = result {
+            // Best effort: put the terminal back into the TUI state the caller
+            // expects, since we are not entering View/Copy mode after all.
+            use crossterm::event::EnableMouseCapture;
+            let _ = enable_raw_mode();
+            let _ = execute!(
+                stdout,
+                EnableLineWrap,
+                EnterAlternateScreen,
+                EnableMouseCapture
+            );
+            return Err(err);
+        }
 
         Ok(Self { config })
     }
@@ -171,10 +206,14 @@ impl ViewCopyMode {
     }
 
     /// Print lines to stdout with optional header and hints
+    ///
+    /// Lines are sanitised before printing: SGR colour sequences are kept,
+    /// but all other escape sequences and control characters are removed so
+    /// content cannot inject terminal commands.
     pub fn print_lines(&self, lines: &[String]) -> io::Result<()> {
         if self.config.show_hints {
             if let Some(header) = &self.config.header {
-                println!("=== {} ===", header);
+                println!("=== {} ===", sanitize_for_terminal(header));
             } else {
                 println!("=== View/Copy Mode ===");
             }
@@ -184,7 +223,7 @@ impl ViewCopyMode {
         }
 
         for line in lines {
-            println!("{}", line);
+            println!("{}", sanitize_for_terminal(line));
         }
 
         if self.config.show_hints {
@@ -198,9 +237,12 @@ impl ViewCopyMode {
     }
 
     /// Print raw lines without any formatting
+    ///
+    /// Lines are still sanitised (only SGR colour sequences are kept) so
+    /// content cannot inject terminal commands.
     pub fn print_raw(&self, lines: &[String]) -> io::Result<()> {
         for line in lines {
-            println!("{}", line);
+            println!("{}", sanitize_for_terminal(line));
         }
         io::stdout().flush()?;
         Ok(())
@@ -211,12 +253,17 @@ impl ViewCopyMode {
     /// Note: This temporarily enables raw mode to catch keypresses,
     /// then disables it again so subsequent prints work.
     pub fn wait_for_input(&self) -> io::Result<ViewCopyAction> {
-        // Enable raw mode to catch keys
-        enable_raw_mode()?;
+        // Enable raw mode to catch keys; the guard disables it again on
+        // every exit path (including errors) so subsequent prints work.
+        let _raw = RawModeGuard::enable()?;
 
         let action = loop {
             if event::poll(std::time::Duration::from_millis(100))? {
                 if let Event::Key(key) = event::read()? {
+                    // Only react to presses (Windows also reports releases)
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
                     if self.config.exit_keys.contains(&key.code) {
                         break ViewCopyAction::Exit;
                     } else if key.code == self.config.toggle_key {
@@ -225,9 +272,6 @@ impl ViewCopyMode {
                 }
             }
         };
-
-        // Disable raw mode for any subsequent prints
-        disable_raw_mode()?;
 
         Ok(action)
     }
@@ -296,7 +340,8 @@ pub enum ExitStrategy {
 
     /// Print content to stdout on exit
     ///
-    /// Clears the screen and prints the provided lines.
+    /// Clears the screen and prints the provided lines. Lines are sanitised
+    /// so that only SGR colour sequences survive.
     PrintContent(Vec<String>),
 }
 
@@ -325,9 +370,9 @@ impl ExitStrategy {
                     Clear(ClearType::All),
                     MoveTo(0, 0)
                 )?;
-                // Print the content
+                // Print the content (sanitised: only SGR sequences are kept)
                 for line in lines {
-                    println!("{}", line);
+                    println!("{}", sanitize_for_terminal(line));
                 }
                 stdout.flush()?;
                 Ok(())

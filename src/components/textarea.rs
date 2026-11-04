@@ -33,6 +33,8 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
+use unicode_width::UnicodeWidthChar;
+
 use crate::traits::{ClickRegion, FocusId};
 
 /// Convert character index to byte index in a string.
@@ -46,6 +48,38 @@ fn char_to_byte_index(s: &str, char_idx: usize) -> usize {
 /// Get character at index in a string.
 fn char_at(s: &str, index: usize) -> Option<char> {
     s.chars().nth(index)
+}
+
+/// Split text into lines on `'\n'`, stripping a trailing `'\r'` from each.
+///
+/// Unlike `str::lines()`, a trailing newline yields a final empty line, so
+/// `TextAreaState::text()` round-trips the input.
+fn split_lines(text: &str) -> Vec<String> {
+    text.split('\n')
+        .map(|l| l.strip_suffix('\r').unwrap_or(l).to_string())
+        .collect()
+}
+
+/// Display width of the characters of `line` in `[from, to)` (char indices).
+fn display_width_between(line: &str, from: usize, to: usize) -> usize {
+    line.chars()
+        .skip(from)
+        .take(to.saturating_sub(from))
+        .map(|c| c.width().unwrap_or(0))
+        .sum()
+}
+
+/// Screen position for the terminal cursor, computed without u16 overflow.
+///
+/// Returns `None` if the position falls outside `inner`.
+fn cursor_screen_position(inner: Rect, col: usize, row: usize) -> Option<(u16, u16)> {
+    let cx = (inner.x as usize).checked_add(col)?;
+    let cy = (inner.y as usize).checked_add(row)?;
+    if cx < inner.right() as usize && cy < inner.bottom() as usize {
+        Some((u16::try_from(cx).ok()?, u16::try_from(cy).ok()?))
+    } else {
+        None
+    }
 }
 
 /// Actions a textarea can emit.
@@ -153,11 +187,7 @@ impl TextAreaState {
     /// Cursor is positioned at the start of the text.
     pub fn new(text: impl Into<String>) -> Self {
         let text = text.into();
-        let lines: Vec<String> = if text.is_empty() {
-            vec![String::new()]
-        } else {
-            text.lines().map(|s| s.to_string()).collect()
-        };
+        let lines: Vec<String> = split_lines(&text);
         // Ensure at least one line
         let lines = if lines.is_empty() {
             vec![String::new()]
@@ -657,6 +687,39 @@ impl TextAreaState {
         }
     }
 
+    /// Adjust `scroll_x` so the cursor is visible in a no-wrap viewport that
+    /// is `content_width` columns wide.
+    fn clamp_scroll_x_to_cursor(&mut self, content_width: usize) {
+        if content_width == 0 {
+            return;
+        }
+        let Some(line) = self.lines.get(self.cursor_line) else {
+            return;
+        };
+        let chars: Vec<char> = line.chars().collect();
+        let cursor = self.cursor_col.min(chars.len());
+        if cursor < self.scroll_x {
+            self.scroll_x = cursor;
+            return;
+        }
+        // Columns needed: text between scroll_x and the cursor, plus the cell
+        // the cursor occupies.
+        let cursor_cell = chars
+            .get(cursor)
+            .and_then(|c| c.width())
+            .unwrap_or(1)
+            .max(1);
+        let mut used: usize = chars[self.scroll_x..cursor]
+            .iter()
+            .map(|c| c.width().unwrap_or(0))
+            .sum::<usize>()
+            + cursor_cell;
+        while used > content_width && self.scroll_x < cursor {
+            used -= chars[self.scroll_x].width().unwrap_or(0);
+            self.scroll_x += 1;
+        }
+    }
+
     /// Ensure cursor is visible (alias for scroll_to_cursor).
     pub fn ensure_cursor_visible(&mut self) {
         self.scroll_to_cursor();
@@ -699,11 +762,7 @@ impl TextAreaState {
     /// Cursor moves to the end.
     pub fn set_text(&mut self, text: impl Into<String>) {
         let text = text.into();
-        self.lines = if text.is_empty() {
-            vec![String::new()]
-        } else {
-            text.lines().map(|s| s.to_string()).collect()
-        };
+        self.lines = split_lines(&text);
         if self.lines.is_empty() {
             self.lines.push(String::new());
         }
@@ -1111,6 +1170,16 @@ impl<'a> TextArea<'a> {
                             break;
                         }
                     }
+                    // A line whose length is an exact multiple of the width,
+                    // with the cursor at its end: the cursor wraps onto an
+                    // extra visual row instead of sitting past the edge.
+                    if state.focused
+                        && li == state.cursor_line
+                        && state.cursor_col >= char_count
+                        && char_count % content_width == 0
+                    {
+                        visual_rows.push((li, char_count));
+                    }
                 }
             }
 
@@ -1139,10 +1208,23 @@ impl<'a> TextArea<'a> {
                 }
             } else {
                 // Convert logical scroll_y to visual row offset
-                visual_rows
+                let mut start = visual_rows
                     .iter()
                     .position(|(li, _)| *li >= state.scroll_y)
-                    .unwrap_or(0)
+                    .unwrap_or(0);
+                // scroll_y counts logical lines but the viewport counts visual
+                // rows: keep the cursor's visual row inside the viewport.
+                if state.focused && state.visible_height > 0 {
+                    if cursor_visual_row < start {
+                        start = cursor_visual_row;
+                    } else if cursor_visual_row >= start + state.visible_height {
+                        start = cursor_visual_row + 1 - state.visible_height;
+                    }
+                    if let Some(&(li, _)) = visual_rows.get(start) {
+                        state.scroll_y = li;
+                    }
+                }
+                start
             };
 
             let start_vr = effective_scroll_vr;
@@ -1201,13 +1283,10 @@ impl<'a> TextArea<'a> {
 
                     if use_terminal_cursor {
                         spans.push(Span::styled(visible_chars, line_style));
-                        let cx = inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
-                        let cy = inner_area.y + display_row;
-                        if cx < inner_area.x + inner_area.width
-                            && cy < inner_area.y + inner_area.height
-                        {
-                            cursor_screen_pos = Some((cx, cy));
-                        }
+                        let col = line_num_width
+                            + display_width_between(line, start_col, state.cursor_col);
+                        cursor_screen_pos =
+                            cursor_screen_position(inner_area, col, display_row as usize);
                     } else if cursor_visible_col <= visible_char_count {
                         let before: String =
                             visible_chars.chars().take(cursor_visible_col).collect();
@@ -1262,6 +1341,12 @@ impl<'a> TextArea<'a> {
                 state.scroll_y
             };
 
+            // Keep the cursor horizontally visible (pre-styled content lines
+            // are not horizontally scrolled, so leave scroll_x alone there)
+            if state.focused && self.content_lines.is_none() {
+                state.clamp_scroll_x_to_cursor(content_width);
+            }
+
             // Build visible lines
             let start_line = effective_scroll_y;
             let end_line = (start_line + state.visible_height).min(state.lines.len());
@@ -1294,16 +1379,14 @@ impl<'a> TextArea<'a> {
 
                         // Calculate cursor position for terminal mode
                         if is_cursor_line && state.focused && use_terminal_cursor {
-                            let cursor_visible_col =
-                                state.cursor_col.saturating_sub(state.scroll_x);
-                            let cx =
-                                inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
-                            let cy = inner_area.y + display_row;
-                            if cx < inner_area.x + inner_area.width
-                                && cy < inner_area.y + inner_area.height
-                            {
-                                cursor_screen_pos = Some((cx, cy));
-                            }
+                            let col = line_num_width
+                                + display_width_between(
+                                    &state.lines[line_idx],
+                                    state.scroll_x,
+                                    state.cursor_col,
+                                );
+                            cursor_screen_pos =
+                                cursor_screen_position(inner_area, col, display_row as usize);
                         }
                         continue;
                     }
@@ -1353,13 +1436,10 @@ impl<'a> TextArea<'a> {
                     if use_terminal_cursor {
                         // Terminal cursor mode: just render text, return screen position
                         spans.push(Span::styled(visible_chars, line_style));
-                        let cx = inner_area.x + line_num_width as u16 + cursor_visible_col as u16;
-                        let cy = inner_area.y + display_row;
-                        if cx < inner_area.x + inner_area.width
-                            && cy < inner_area.y + inner_area.height
-                        {
-                            cursor_screen_pos = Some((cx, cy));
-                        }
+                        let col = line_num_width
+                            + display_width_between(line, state.scroll_x, state.cursor_col);
+                        cursor_screen_pos =
+                            cursor_screen_position(inner_area, col, display_row as usize);
                     } else if cursor_visible_col <= visible_char_count {
                         // Block cursor mode: render inverted span
                         let before: String =
@@ -1441,6 +1521,116 @@ impl<'a> TextArea<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ratatui::{Terminal, backend::TestBackend};
+
+    /// Render into a `width`x`height` terminal with the terminal cursor mode
+    /// and return the reported cursor position.
+    fn render_cursor(
+        st: &mut TextAreaState,
+        width: u16,
+        height: u16,
+        wrap: WrapMode,
+    ) -> Option<(u16, u16)> {
+        let mut term = Terminal::new(TestBackend::new(width, height)).unwrap();
+        let mut pos = None;
+        term.draw(|f| {
+            pos = TextArea::new()
+                .wrap_mode(wrap)
+                .style(TextAreaStyle::default().cursor_mode(CursorMode::Terminal))
+                .render_stateful(f, f.area(), st)
+                .cursor_position;
+        })
+        .unwrap();
+        pos
+    }
+
+    #[test]
+    fn test_terminal_cursor_long_line_no_u16_overflow() {
+        let mut st = TextAreaState::new("x".repeat(65535));
+        st.move_to_end();
+        st.focused = true;
+        let pos = render_cursor(&mut st, 40, 5, WrapMode::None);
+        assert!(pos.is_some());
+    }
+
+    #[test]
+    fn test_cursor_screen_position_bounds() {
+        let inner = Rect::new(65530, 0, 5, 1);
+        assert_eq!(cursor_screen_position(inner, 2, 0), Some((65532, 0)));
+        assert_eq!(cursor_screen_position(inner, 5, 0), None);
+        assert_eq!(cursor_screen_position(inner, usize::MAX, 0), None);
+    }
+
+    #[test]
+    fn test_trailing_newline_round_trips() {
+        let st = TextAreaState::new("line\n");
+        assert_eq!(st.lines, vec!["line".to_string(), String::new()]);
+        assert_eq!(st.text(), "line\n");
+
+        let mut st = TextAreaState::new("a\r\nb\r\n");
+        assert_eq!(st.text(), "a\nb\n");
+        st.set_text("x\n\n");
+        assert_eq!(st.text(), "x\n\n");
+        assert_eq!(st.cursor_line, 2);
+    }
+
+    #[test]
+    fn test_nowrap_cursor_stays_visible_when_typing_past_width() {
+        let mut st = TextAreaState::new("");
+        st.focused = true;
+        for _ in 0..30 {
+            st.insert_char('x');
+        }
+        // Inner width 10
+        let pos = render_cursor(&mut st, 12, 3, WrapMode::None);
+        assert!(pos.is_some(), "cursor not visible after typing past width");
+        assert_eq!(st.scroll_x, 21);
+        assert_eq!(pos, Some((10, 1)));
+
+        // Moving back to the start scrolls back
+        st.move_line_start();
+        let pos = render_cursor(&mut st, 12, 3, WrapMode::None);
+        assert_eq!(st.scroll_x, 0);
+        assert_eq!(pos, Some((1, 1)));
+    }
+
+    #[test]
+    fn test_softwrap_cursor_at_exact_wrap_boundary() {
+        // Inner width 10, line of 10 chars, cursor at end
+        let mut st = TextAreaState::new("abcdefghij");
+        st.move_to_end();
+        st.focused = true;
+        let pos = render_cursor(&mut st, 12, 4, WrapMode::Soft);
+        // Wraps to the start of the next visual row
+        assert_eq!(pos, Some((1, 2)));
+    }
+
+    #[test]
+    fn test_softwrap_minimal_scroll_keeps_cursor_visible() {
+        // 3 logical lines each wrapping to 2 visual rows; viewport 3 rows.
+        let mut st = TextAreaState::new(format!("{0}\n{0}\n{0}", "x".repeat(15)));
+        st.focused = true;
+        render_cursor(&mut st, 12, 5, WrapMode::Soft);
+        st.move_to_end(); // cursor_line 2, col 15 -> visual row 5
+        let pos = render_cursor(&mut st, 12, 5, WrapMode::Soft);
+        assert!(pos.is_some(), "cursor below viewport");
+        assert_eq!(pos, Some((6, 3)));
+
+        // And back to the top
+        st.move_to_start();
+        let pos = render_cursor(&mut st, 12, 5, WrapMode::Soft);
+        assert_eq!(pos, Some((1, 1)));
+    }
+
+    #[test]
+    fn test_terminal_cursor_x_uses_display_width() {
+        let mut st = TextAreaState::new("你好");
+        st.move_to_end();
+        st.focused = true;
+        // Expected x = 1 (border) + 4 columns
+        assert_eq!(render_cursor(&mut st, 20, 3, WrapMode::None), Some((5, 1)));
+        assert_eq!(render_cursor(&mut st, 20, 3, WrapMode::Soft), Some((5, 1)));
+    }
 
     // ========================================================================
     // State construction tests

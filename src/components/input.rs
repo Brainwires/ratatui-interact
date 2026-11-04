@@ -31,6 +31,8 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
+use unicode_width::UnicodeWidthChar;
+
 use crate::traits::{ClickRegion, FocusId};
 
 /// Actions an input can emit.
@@ -326,6 +328,40 @@ impl InputState {
     pub fn text(&self) -> &str {
         &self.text
     }
+
+    /// Compute the horizontal scroll offset (in characters) needed to keep the
+    /// cursor visible in a field `width` columns wide, starting from the
+    /// current `scroll_offset`.
+    ///
+    /// `cursor_width` is the number of columns taken by the cursor indicator
+    /// (1 when it is drawn, 0 otherwise).
+    fn visible_scroll_offset(&self, width: usize, cursor_width: usize) -> usize {
+        let chars: Vec<char> = self.text.chars().collect();
+        let cursor = self.cursor_pos.min(chars.len());
+        let mut offset = self.scroll_offset.min(cursor);
+        if width == 0 {
+            return offset;
+        }
+        let mut used: usize = chars[offset..cursor]
+            .iter()
+            .map(|c| c.width().unwrap_or(0))
+            .sum::<usize>()
+            + cursor_width;
+        while used > width && offset < cursor {
+            used -= chars[offset].width().unwrap_or(0);
+            offset += 1;
+        }
+        offset
+    }
+
+    /// Adjust `scroll_offset` so the cursor is visible in a field that is
+    /// `width` columns wide (the inner width, excluding borders).
+    ///
+    /// Rendering always shows the cursor, even without calling this; calling
+    /// it after each edit keeps the visible window stable between frames.
+    pub fn ensure_cursor_visible(&mut self, width: usize) {
+        self.scroll_offset = self.visible_scroll_offset(width, 1);
+    }
 }
 
 /// Configuration for input appearance.
@@ -510,7 +546,14 @@ impl<'a> Input<'a> {
                 Line::from("")
             }
         } else {
-            let before = self.state.text_before_cursor();
+            // Render a window of the text around the cursor so that it stays
+            // visible in long input.
+            let cursor_width = usize::from(self.state.focused);
+            let offset = self
+                .state
+                .visible_scroll_offset(inner_area.width as usize, cursor_width);
+            let start = self.state.char_to_byte_index(offset);
+            let before = &self.state.text_before_cursor()[start..];
             let after = self.state.text_after_cursor();
 
             let mut spans = vec![Span::styled(
@@ -544,6 +587,60 @@ impl<'a> Input<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ratatui::{Terminal, backend::TestBackend};
+
+    fn render_to_string(st: &InputState, width: u16) -> String {
+        let mut term = Terminal::new(TestBackend::new(width, 3)).unwrap();
+        term.draw(|f| {
+            Input::new(st).render_stateful(f, f.area());
+        })
+        .unwrap();
+        let buf = term.backend().buffer();
+        let mut s = String::new();
+        for y in 0..buf.area.height {
+            for x in 0..buf.area.width {
+                s.push_str(buf[(x, y)].symbol());
+            }
+            s.push('\n');
+        }
+        s
+    }
+
+    #[test]
+    fn test_long_text_cursor_visible() {
+        let mut st = InputState::new("x".repeat(40));
+        st.focused = true;
+        let t = render_to_string(&st, 12);
+        // 2 border bars + the cursor bar inside the field
+        assert!(t.matches('│').count() > 2, "no cursor drawn:\n{t}");
+    }
+
+    #[test]
+    fn test_long_text_cursor_in_middle_visible() {
+        let mut st = InputState::new(format!("{}{}", "a".repeat(30), "b".repeat(30)));
+        st.focused = true;
+        st.cursor_pos = 30;
+        let t = render_to_string(&st, 12);
+        let middle = t.lines().nth(1).unwrap();
+        // Left border, 9 chars before the cursor, the cursor, right border
+        assert_eq!(middle, "│aaaaaaaaa││", "cursor not shown");
+
+        // A stored scroll_offset is honoured while the cursor stays visible
+        st.scroll_offset = 25;
+        let t = render_to_string(&st, 12);
+        assert_eq!(t.lines().nth(1).unwrap(), "│aaaaa│bbbb│");
+    }
+
+    #[test]
+    fn test_ensure_cursor_visible() {
+        let mut st = InputState::new("x".repeat(40));
+        st.ensure_cursor_visible(10);
+        // 9 chars + cursor fit in 10 columns
+        assert_eq!(st.scroll_offset, 31);
+        st.move_home();
+        st.ensure_cursor_visible(10);
+        assert_eq!(st.scroll_offset, 0);
+    }
 
     #[test]
     fn test_state_default() {
