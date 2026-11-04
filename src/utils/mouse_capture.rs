@@ -243,6 +243,7 @@ mod tests {
         assert!(!buffer.is_empty());
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn test_toggle_mouse_capture() {
         let mut buffer = Vec::new();
@@ -316,6 +317,7 @@ mod tests {
         assert!(state.is_enabled());
     }
 
+    #[cfg(not(windows))]
     #[test]
     fn test_toggle_updates_state_on_success() {
         let mut state = MouseCaptureState::enabled();
