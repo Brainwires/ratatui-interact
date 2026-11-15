@@ -19,19 +19,44 @@ env:
   RUSTDOCFLAGS: -Dwarnings
 
 jobs:
+  runners:
+    name: pick runners
+    # Our self-hosted pools first, GitHub-hosted for the overflow: a job takes our pool only
+    # while it has a free slot, else its GitHub image at once (fork pull requests: GitHub only).
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      plan: ${{ steps.pick.outputs.plan }}
+    steps:
+      - id: pick
+        uses: Brainwires/.github/actions/pick-runners@2e093cef9ee71f64a75ea1c47aa2f923119050fa # pick-runners
+        with:
+          jobs: test_linux=linux-x64 clippy=linux-x64 check_1=linux-x64 check_2=linux-x64 check_3=linux-x64 check_4=linux-x64 check_5=linux-x64 check_6=linux-x64 msrv=linux-x64 doc=linux-x64 fmt=linux-x64
+          vars: ${{ toJSON(vars) }}
+
   check:
     name: Check (${{ matrix.features }})
-    runs-on: ${{ fromJSON((startsWith(github.event_name, 'pull_request') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)) && '"ubuntu-latest"' || (startsWith(vars.RUNNER_LINUX_X64, '[') && vars.RUNNER_LINUX_X64 || format('"{0}"', vars.RUNNER_LINUX_X64 || 'ubuntu-latest'))) }}
+    needs: runners
+    if: ${{ !cancelled() }}
+    runs-on: ${{ fromJSON(needs.runners.outputs.plan || '{}')[matrix.pick] || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
-        features:
-          - --no-default-features
-          - --features filesystem
-          - --features clipboard
-          - --features markdown
-          - --features theme-serde
-          - --all-features
+        include:
+          - features: --no-default-features
+            pick: check_1
+          - features: --features filesystem
+            pick: check_2
+          - features: --features clipboard
+            pick: check_3
+          - features: --features markdown
+            pick: check_4
+          - features: --features theme-serde
+            pick: check_5
+          - features: --all-features
+            pick: check_6
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -40,7 +65,9 @@ jobs:
 
   msrv:
     name: MSRV (1.88)
-    runs-on: ${{ fromJSON((startsWith(github.event_name, 'pull_request') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)) && '"ubuntu-latest"' || (startsWith(vars.RUNNER_LINUX_X64, '[') && vars.RUNNER_LINUX_X64 || format('"{0}"', vars.RUNNER_LINUX_X64 || 'ubuntu-latest'))) }}
+    needs: runners
+    if: ${{ !cancelled() }}
+    runs-on: ${{ fromJSON(needs.runners.outputs.plan || '{}').msrv || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.88
@@ -51,7 +78,9 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: ${{ fromJSON((startsWith(github.event_name, 'pull_request') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)) && '"ubuntu-latest"' || (startsWith(vars.RUNNER_LINUX_X64, '[') && vars.RUNNER_LINUX_X64 || format('"{0}"', vars.RUNNER_LINUX_X64 || 'ubuntu-latest'))) }}
+    needs: runners
+    if: ${{ !cancelled() }}
+    runs-on: ${{ fromJSON(needs.runners.outputs.plan || '{}').clippy || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -62,7 +91,9 @@ jobs:
 
   fmt:
     name: Format
-    runs-on: ${{ fromJSON((startsWith(github.event_name, 'pull_request') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)) && '"ubuntu-latest"' || (startsWith(vars.RUNNER_LINUX_X64, '[') && vars.RUNNER_LINUX_X64 || format('"{0}"', vars.RUNNER_LINUX_X64 || 'ubuntu-latest'))) }}
+    needs: runners
+    if: ${{ !cancelled() }}
+    runs-on: ${{ fromJSON(needs.runners.outputs.plan || '{}').fmt || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -72,11 +103,16 @@ jobs:
 
   test:
     name: Test (${{ matrix.os }})
-    runs-on: ${{ fromJSON(((startsWith(github.event_name, 'pull_request') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)) || matrix.os != 'ubuntu-latest') && format('"{0}"', matrix.os) || (startsWith(vars.RUNNER_LINUX_X64, '[') && vars.RUNNER_LINUX_X64 || format('"{0}"', vars.RUNNER_LINUX_X64 || 'ubuntu-latest'))) }}
+    needs: runners
+    if: ${{ !cancelled() }}
+    runs-on: ${{ fromJSON(needs.runners.outputs.plan || '{}')[matrix.pick] || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            pick: test_linux
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -85,7 +121,9 @@ jobs:
 
   doc:
     name: Documentation
-    runs-on: ${{ fromJSON((startsWith(github.event_name, 'pull_request') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)) && '"ubuntu-latest"' || (startsWith(vars.RUNNER_LINUX_X64, '[') && vars.RUNNER_LINUX_X64 || format('"{0}"', vars.RUNNER_LINUX_X64 || 'ubuntu-latest'))) }}
+    needs: runners
+    if: ${{ !cancelled() }}
+    runs-on: ${{ fromJSON(needs.runners.outputs.plan || '{}').doc || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
