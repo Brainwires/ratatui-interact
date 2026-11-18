@@ -31,7 +31,7 @@ jobs:
       plan: ${{ steps.pick.outputs.plan }}
     steps:
       - id: pick
-        uses: Brainwires/.github/actions/pick-runners@b9684b2d976ff61b754793f7f934f7e853205862 # pick-runners
+        uses: Brainwires/.github/actions/pick-runners@b22319621b56184a647fddfdcbefa300bcb6efc5 # pick-runners
         with:
           jobs: test_linux=linux-x64 clippy=linux-x64 check_1=linux-x64 check_2=linux-x64 check_3=linux-x64 check_4=linux-x64 check_5=linux-x64 check_6=linux-x64 msrv=linux-x64 doc=linux-x64 fmt=linux-x64
           vars: ${{ toJSON(vars) }}
